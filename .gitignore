@@ -29,6 +29,12 @@ ui_*.h
 *.jsc
 Makefile*
 *build-*
+# Plain "build/" is not matched by *build-* (needs a dash after "build")
+build/
+
+# JetBrains / CLion
+.idea/
+
 *.qm
 *.prl
 
@@ -52,3 +58,6 @@ compile_commands.json
 *creator.user*
 
 *_qmlcache.qrc
+
+# Local API / OAuth config (keep appsettings.example.json in repo)
+appsettings.json
