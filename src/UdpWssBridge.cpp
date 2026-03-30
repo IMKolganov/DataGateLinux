@@ -66,12 +66,14 @@ UdpWssBridge::~UdpWssBridge()
     stop();
 }
 
-bool UdpWssBridge::start(quint16 port, const QUrl& wssUrl, const QString& remoteHost, quint16 remotePort)
+bool UdpWssBridge::start(quint16 port, const QUrl& wssUrl, const QString& remoteHost, quint16 remotePort,
+    bool framed)
 {
     stop();
     m_wssUrl = wssUrl;
     m_remoteHost = remoteHost;
     m_remotePort = remotePort;
+    m_framed = framed;
 
     const QHostAddress local(QHostAddress::LocalHost);
     if (!m_udp->bind(local, port, QUdpSocket::ShareAddress | QUdpSocket::ReuseAddressHint)) {
@@ -80,7 +82,8 @@ bool UdpWssBridge::start(quint16 port, const QUrl& wssUrl, const QString& remote
     }
 
     m_ws->open(m_wssUrl);
-    qCDebug(lcUdpBridge) << "UDP bridge bind 127.0.0.1:" << port << "wss" << m_wssUrl;
+    qCDebug(lcUdpBridge) << "UDP bridge bind 127.0.0.1:" << port << "wss" << m_wssUrl
+                         << "framed=" << m_framed;
     return true;
 }
 
@@ -101,6 +104,9 @@ void UdpWssBridge::stop()
 
 void UdpWssBridge::onWsConnected()
 {
+    // Avoid carrying a partial length prefix across reconnects (would mis-deliver bytes as UDP).
+    m_wsRxBuffer.clear();
+
     QJsonObject o;
     o.insert(QStringLiteral("type"), QStringLiteral("connect"));
     o.insert(QStringLiteral("proto"), QStringLiteral("udp"));
@@ -121,6 +127,50 @@ void UdpWssBridge::onWsConnected()
 
 void UdpWssBridge::parseAndDeliverOrQueueWs(const QByteArray& chunk)
 {
+    auto deliver = [this](const QByteArray& payload) {
+        if (payload.isEmpty()) {
+            return;
+        }
+        if (m_lastPeerPort == 0) {
+            m_pendingToUdp.enqueue(payload);
+        } else {
+            m_udp->writeDatagram(payload, m_lastPeerAddr, m_lastPeerPort);
+        }
+    };
+
+    // Fast path: one WebSocket binary frame == one uint16-BE length + UDP payload (common case).
+    if (m_wsRxBuffer.isEmpty() && chunk.size() >= 2) {
+        quint16 len = 0;
+        if (readU16Be(chunk, 0, chunk.size(), len)) {
+            const int need = 2 + static_cast<int>(len);
+            if (need == chunk.size()) {
+                deliver(chunk.mid(2, static_cast<int>(len)));
+                return;
+            }
+            if (need < chunk.size()) {
+                // Multiple length-prefixed records in one WS frame, or a full record plus partial next.
+                int o = 0;
+                const int total = chunk.size();
+                while (o + 2 <= total) {
+                    if (!readU16Be(chunk, o, total, len)) {
+                        break;
+                    }
+                    const int rec = 2 + static_cast<int>(len);
+                    if (o + rec > total) {
+                        m_wsRxBuffer.append(chunk.constData() + o, total - o);
+                        return;
+                    }
+                    deliver(chunk.mid(o + 2, static_cast<int>(len)));
+                    o += rec;
+                }
+                if (o < total) {
+                    m_wsRxBuffer.append(chunk.constData() + o, total - o);
+                }
+                return;
+            }
+        }
+    }
+
     m_wsRxBuffer.append(chunk);
 
     int off = 0;
@@ -132,6 +182,12 @@ void UdpWssBridge::parseAndDeliverOrQueueWs(const QByteArray& chunk)
         if (!readU16Be(m_wsRxBuffer, off, n, len)) {
             break;
         }
+        if (len > 65507) {
+            qCWarning(lcUdpBridge) << "UDP WSS stream: invalid length" << len << "— dropping buffered rx"
+                                   << n << "bytes";
+            m_wsRxBuffer.clear();
+            return;
+        }
         const int need = 2 + static_cast<int>(len);
         if (off + need > n) {
             break;
@@ -139,11 +195,7 @@ void UdpWssBridge::parseAndDeliverOrQueueWs(const QByteArray& chunk)
         const QByteArray payload = QByteArray(p + off + 2, static_cast<int>(len));
         off += need;
 
-        if (m_lastPeerPort == 0) {
-            m_pendingToUdp.enqueue(payload);
-        } else {
-            m_udp->writeDatagram(payload, m_lastPeerAddr, m_lastPeerPort);
-        }
+        deliver(payload);
     }
 
     if (off > 0) {
@@ -164,6 +216,17 @@ void UdpWssBridge::flushPendingToUdp()
 
 void UdpWssBridge::onWsBinary(const QByteArray& data)
 {
+    if (!m_framed) {
+        if (data.isEmpty()) {
+            return;
+        }
+        if (m_lastPeerPort == 0) {
+            m_pendingToUdp.enqueue(data);
+        } else {
+            m_udp->writeDatagram(data, m_lastPeerAddr, m_lastPeerPort);
+        }
+        return;
+    }
     parseAndDeliverOrQueueWs(data);
 }
 
@@ -172,14 +235,18 @@ void UdpWssBridge::appendUdpToWs(const QByteArray& datagram)
     if (datagram.size() > 65535) {
         return;
     }
-    QByteArray framed;
-    framed.reserve(2 + datagram.size());
-    appendU16Be(framed, static_cast<quint16>(datagram.size()));
-    framed.append(datagram);
-    if (m_ws->state() == QAbstractSocket::ConnectedState) {
-        m_ws->sendBinaryMessage(framed);
+    QByteArray out;
+    if (m_framed) {
+        out.reserve(2 + datagram.size());
+        appendU16Be(out, static_cast<quint16>(datagram.size()));
+        out.append(datagram);
     } else {
-        m_pendingUdpToWsFramed.enqueue(framed);
+        out = datagram;
+    }
+    if (m_ws->state() == QAbstractSocket::ConnectedState) {
+        m_ws->sendBinaryMessage(out);
+    } else {
+        m_pendingUdpToWsFramed.enqueue(out);
     }
 }
 

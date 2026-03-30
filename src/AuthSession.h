@@ -38,6 +38,8 @@ private:
     bool refreshTokenSync();
 
     void applyJsonObject(const QJsonObject& o);
+    /// If access is still "invalid" after refresh, set expiration from JWT or a short TTL so we do not refresh on every call.
+    void bumpAccessExpirationIfInvalid();
 
     QNetworkAccessManager* m_nam = nullptr;
 
@@ -50,4 +52,6 @@ private:
     } m_tokens;
 
     mutable QMutex m_mutex;
+    /// Serializes refresh so concurrent ensureValidAccessToken calls do not POST in parallel (401 / invalidation).
+    QMutex m_refreshMutex;
 };

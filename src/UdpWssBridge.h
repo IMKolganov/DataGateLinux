@@ -20,7 +20,8 @@ public:
     explicit UdpWssBridge(QObject* parent = nullptr);
     ~UdpWssBridge() override;
 
-    bool start(quint16 port, const QUrl& wssUrl, const QString& remoteHost, quint16 remotePort);
+    /// @param framed If true, binary WS messages are uint16-BE length + UDP payload both ways; if false, one WS frame = one raw UDP datagram.
+    bool start(quint16 port, const QUrl& wssUrl, const QString& remoteHost, quint16 remotePort, bool framed);
     void stop();
 
 private:
@@ -38,6 +39,7 @@ private:
     QUrl m_wssUrl;
     QString m_remoteHost;
     quint16 m_remotePort = 0;
+    bool m_framed = true;
 
     QByteArray m_wsRxBuffer;
     QQueue<QByteArray> m_pendingUdpToWsFramed;
