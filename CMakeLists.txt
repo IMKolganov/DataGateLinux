@@ -23,6 +23,8 @@ qt_add_executable(DataGateLinux
     src/AppTheme.h
     src/MainWindow.cpp
     src/MainWindow.h
+    src/StatisticsPanel.cpp
+    src/StatisticsPanel.h
     src/VpnSession.cpp
     src/VpnSession.h
     src/WssTcpBridge.cpp

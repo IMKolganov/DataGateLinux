@@ -5,6 +5,9 @@
 #include "UdpWssBridge.h"
 #include "WssTcpBridge.h"
 
+#include <QCoreApplication>
+#include <QElapsedTimer>
+#include <QEventLoop>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QJsonParseError>
@@ -73,11 +76,19 @@ VpnSession::VpnSession(QObject* parent)
 
 VpnSession::~VpnSession()
 {
-    disconnectVpn("~VpnSession (app exit, window closed, or MainWindow destroyed e.g. logout)");
+    disconnectVpnInternal(true, "~VpnSession (app exit, window closed, or MainWindow destroyed e.g. logout)");
+}
+
+void VpnSession::abortPendingReplies()
+{
+    if (m_activeReply) {
+        m_activeReply->abort();
+        m_activeReply.clear();
+    }
 }
 
 void VpnSession::connectVpn(const QString& backendBaseUrl, const QString& bearerAccessToken,
-    const QString& openVpnExecutable)
+    const QString& openVpnExecutable, bool autoPickServer, int manualServerId)
 {
     if (m_ovpn->state() != QProcess::NotRunning) {
         emit errorMessage(tr("Disconnect the current OpenVPN session first."));
@@ -87,14 +98,14 @@ void VpnSession::connectVpn(const QString& backendBaseUrl, const QString& bearer
         emit errorMessage(tr("Connection already in progress."));
         return;
     }
+    abortPendingReplies();
     m_connecting = true;
     m_userStopVpn = false;
+    m_autoPickServer = autoPickServer;
+    m_manualServerId = manualServerId;
     m_baseUrl = backendBaseUrl.trimmed();
     m_token = bearerAccessToken.trimmed();
-    m_openVpnExe = openVpnExecutable.trimmed();
-    if (m_openVpnExe.isEmpty()) {
-        m_openVpnExe = QStringLiteral("openvpn");
-    }
+    m_openVpnExe = DatagateUtils::resolvedOpenVpnExecutable(openVpnExecutable);
 
     DatagateUtils::ensureInstallationId();
     const QString ext = DatagateUtils::externalIdFromJwt(m_token);
@@ -117,7 +128,11 @@ void VpnSession::stepFetchServers()
     req.setRawHeader("Authorization", (QStringLiteral("Bearer ") + m_token).toUtf8());
 
     QNetworkReply* reply = m_nam->get(req);
+    m_activeReply = reply;
     connect(reply, &QNetworkReply::finished, this, [this, reply]() {
+        if (m_activeReply == reply) {
+            m_activeReply.clear();
+        }
         reply->deleteLater();
         if (!m_connecting) {
             return;
@@ -128,7 +143,19 @@ void VpnSession::stepFetchServers()
             return;
         }
         const QByteArray body = reply->readAll();
-        const std::optional<BestServer> best = DatagateUtils::pickBestServerWinStyle(body);
+        std::optional<BestServer> best;
+        if (m_autoPickServer) {
+            best = DatagateUtils::pickBestServerWinStyle(body);
+        } else {
+            best = DatagateUtils::pickServerByIdFromStatusJson(body, m_manualServerId);
+            if (!best.has_value()) {
+                m_connecting = false;
+                emit errorMessage(
+                    tr("Server id %1 not found or is not WSS-enabled (refresh the list on Access).")
+                        .arg(m_manualServerId));
+                return;
+            }
+        }
         if (!best.has_value()) {
             m_connecting = false;
             emit errorMessage(tr("No WSS-enabled servers available."));
@@ -164,7 +191,11 @@ void VpnSession::stepTryDownload(bool afterCreate)
     const QByteArray payload = QJsonDocument(body).toJson(QJsonDocument::Compact);
 
     QNetworkReply* reply = m_nam->post(req, payload);
+    m_activeReply = reply;
     connect(reply, &QNetworkReply::finished, this, [this, reply, afterCreate]() {
+        if (m_activeReply == reply) {
+            m_activeReply.clear();
+        }
         reply->deleteLater();
         if (!m_connecting) {
             return;
@@ -237,7 +268,11 @@ void VpnSession::stepCreateOnServer()
     const QByteArray payload = QJsonDocument(body).toJson(QJsonDocument::Compact);
 
     QNetworkReply* reply = m_nam->post(req, payload);
+    m_activeReply = reply;
     connect(reply, &QNetworkReply::finished, this, [this, reply]() {
+        if (m_activeReply == reply) {
+            m_activeReply.clear();
+        }
         reply->deleteLater();
         if (!m_connecting) {
             return;
@@ -344,7 +379,9 @@ void VpnSession::stepStartBridgeAndOpenVpn(const QString& configText)
         qCWarning(lcVpn, "OpenVPN: waitForStarted failed: %s", qPrintable(m_ovpn->errorString()));
         stopBridges();
         m_connecting = false;
-        emit errorMessage(tr("OpenVPN failed to start. Check command path and permissions (often sudo)."));
+        emit openVpnCapabilitySetupRecommended(
+            tr("OpenVPN did not start within 8s (%1). Grant CAP_NET_ADMIN to the openvpn binary if TUN is blocked.")
+                .arg(m_ovpn->errorString()));
         return;
     }
 
@@ -363,9 +400,28 @@ void VpnSession::stepStartBridgeAndOpenVpn(const QString& configText)
 
 void VpnSession::disconnectVpn(const char* reason)
 {
+    disconnectVpnInternal(false, reason);
+}
+
+void VpnSession::disconnectVpnInternal(bool force, const char* reason)
+{
+    if (m_disconnecting && !force) {
+        return;
+    }
+    if (m_disconnecting && force) {
+        QElapsedTimer t;
+        t.start();
+        while (m_disconnecting && t.elapsed() < 10000) {
+            QCoreApplication::processEvents(QEventLoop::AllEvents, 50);
+        }
+    }
+
+    m_disconnecting = true;
     qCInfo(lcVpn, "disconnectVpn: %s", reason ? reason : "Disconnect button or unspecified");
     m_connecting = false;
     m_userStopVpn = true;
+
+    abortPendingReplies();
 
     if (m_ovpn->state() != QProcess::NotRunning) {
         m_ovpn->terminate();
@@ -383,6 +439,7 @@ void VpnSession::disconnectVpn(const char* reason)
         m_configFile = nullptr;
     }
 
+    m_disconnecting = false;
     emit vpnDown();
 }
 
@@ -416,19 +473,14 @@ void VpnSession::onOpenVpnFinished(int exitCode, QProcess::ExitStatus st)
             detail = QStringLiteral("…\n") + detail.right(3500);
         }
         if (detail.isEmpty()) {
-            emit errorMessage(tr("OpenVPN failed (exit %1) with no output. On Linux, TUN usually needs "
-                                 "CAP_NET_ADMIN on the openvpn binary: sudo setcap cap_net_admin+ep "
-                                 "$(command -v openvpn)")
-                                  .arg(exitCode));
+            emit openVpnCapabilitySetupRecommended(
+                tr("OpenVPN failed (exit %1) with no captured output. On Linux, TUN usually needs "
+                   "CAP_NET_ADMIN on the openvpn binary (Settings → Grant TUN capability, or "
+                   "sudo setcap cap_net_admin+ep /path/to/openvpn).")
+                    .arg(exitCode));
         } else if (logLooksLikeTunPermissionDenied(detail)) {
-            emit errorMessage(
-                tr("TUN creation was denied (kernel requires CAP_NET_ADMIN for tun). DataGate cannot elevate "
-                   "itself. Grant the capability to the OpenVPN binary only, then point Settings at that "
-                   "path:\n"
-                   "  sudo setcap cap_net_admin+ep /usr/sbin/openvpn\n"
-                   "  getcap /usr/sbin/openvpn\n"
-                   "You can keep running DataGate as a normal user. Last resort: sudo ./DataGateLinux "
-                   "(not recommended).\n\n"
+            emit openVpnCapabilitySetupRecommended(
+                tr("TUN creation was denied (CAP_NET_ADMIN required on the openvpn process, not the GUI).\n\n"
                    "OpenVPN failed (exit %1):\n%2")
                     .arg(exitCode)
                     .arg(detail));
@@ -437,7 +489,10 @@ void VpnSession::onOpenVpnFinished(int exitCode, QProcess::ExitStatus st)
         }
     }
 
-    emit vpnDown();
+    // User-initiated disconnect already emitted vpnDown from disconnectVpnInternal.
+    if (!stoppedByUser) {
+        emit vpnDown();
+    }
 }
 
 void VpnSession::onOpenVpnError(QProcess::ProcessError e)

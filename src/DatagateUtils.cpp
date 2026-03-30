@@ -1,6 +1,7 @@
 #include "DatagateUtils.h"
 
 #include <QFile>
+#include <QFileInfo>
 #include <QIODevice>
 #include <QAbstractSocket>
 #include <QHostAddress>
@@ -13,6 +14,7 @@
 #include <QSet>
 #include <QRandomGenerator>
 #include <QSettings>
+#include <QStandardPaths>
 #include <QUrlQuery>
 #include <QVector>
 
@@ -322,17 +324,36 @@ int loadLastSelectedServerId()
     return s.value(QStringLiteral("lastSelectedServerId"), -1).toInt();
 }
 
-std::optional<BestServer> pickBestServerWinStyle(const QByteArray& jsonBody)
+QString resolvedOpenVpnExecutable(const QString& openVpnCmdOrPath)
+{
+    QString s = openVpnCmdOrPath.trimmed();
+    if (s.isEmpty()) {
+        s = QStringLiteral("openvpn");
+    }
+    QFileInfo fi(s);
+    if (fi.isAbsolute()) {
+        return fi.exists() ? fi.canonicalFilePath() : s;
+    }
+    const QString found = QStandardPaths::findExecutable(s);
+    if (!found.isEmpty()) {
+        return found;
+    }
+    return s;
+}
+
+namespace {
+
+std::optional<QVector<BestServer>> parseWssServersFromStatusJson(const QByteArray& jsonBody)
 {
     QJsonParseError err{};
     const QJsonDocument doc = QJsonDocument::fromJson(jsonBody, &err);
     if (err.error != QJsonParseError::NoError || !doc.isObject()) {
-        qCWarning(lcUtils) << "pickBestServerWinStyle: invalid JSON" << err.errorString();
+        qCWarning(lcUtils) << "parseWssServersFromStatusJson: invalid JSON" << err.errorString();
         return std::nullopt;
     }
     const QJsonObject root = doc.object();
     if (!root.value(QStringLiteral("success")).toBool(false)) {
-        qCWarning(lcUtils) << "pickBestServerWinStyle: success=false"
+        qCWarning(lcUtils) << "parseWssServersFromStatusJson: success=false"
                            << root.value(QStringLiteral("message")).toString();
         return std::nullopt;
     }
@@ -372,6 +393,18 @@ std::optional<BestServer> pickBestServerWinStyle(const QByteArray& jsonBody)
     if (ranked.isEmpty()) {
         return std::nullopt;
     }
+    return ranked;
+}
+
+} // namespace
+
+std::optional<BestServer> pickBestServerWinStyle(const QByteArray& jsonBody)
+{
+    const auto rankedOpt = parseWssServersFromStatusJson(jsonBody);
+    if (!rankedOpt.has_value()) {
+        return std::nullopt;
+    }
+    QVector<BestServer> ranked = *rankedOpt;
 
     std::sort(ranked.begin(), ranked.end(), [](const BestServer& a, const BestServer& b) {
         if (a.isOnline != b.isOnline) {
@@ -393,6 +426,38 @@ std::optional<BestServer> pickBestServerWinStyle(const QByteArray& jsonBody)
     const BestServer chosen = ranked[index];
     saveLastSelectedServerId(chosen.serverId);
     return chosen;
+}
+
+QVector<QPair<int, QString>> listWssServersFromStatusJson(const QByteArray& jsonBody)
+{
+    const auto rankedOpt = parseWssServersFromStatusJson(jsonBody);
+    if (!rankedOpt.has_value()) {
+        return {};
+    }
+    QVector<QPair<int, QString>> out;
+    out.reserve(rankedOpt->size());
+    for (const BestServer& b : *rankedOpt) {
+        out.push_back(qMakePair(b.serverId, b.name));
+    }
+    std::sort(out.begin(), out.end(), [](const QPair<int, QString>& a, const QPair<int, QString>& b) {
+        return a.second.localeAwareCompare(b.second) < 0;
+    });
+    return out;
+}
+
+std::optional<BestServer> pickServerByIdFromStatusJson(const QByteArray& jsonBody, int serverId)
+{
+    const auto rankedOpt = parseWssServersFromStatusJson(jsonBody);
+    if (!rankedOpt.has_value()) {
+        return std::nullopt;
+    }
+    for (const BestServer& b : *rankedOpt) {
+        if (b.serverId == serverId) {
+            saveLastSelectedServerId(b.serverId);
+            return b;
+        }
+    }
+    return std::nullopt;
 }
 
 } // namespace DatagateUtils

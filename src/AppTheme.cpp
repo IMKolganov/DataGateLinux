@@ -107,6 +107,19 @@ QPlainTextEdit#engineLog {
   font-family: "Consolas", "DejaVu Sans Mono", monospace;
   font-size: 12px;
 }
+QTableWidget#accessServerTable {
+  background-color: #2D2D2D;
+  border: 1px solid #3F3F3F;
+  border-radius: 4px;
+  gridline-color: #3F3F3F;
+}
+QTableWidget#accessServerTable QHeaderView::section {
+  background-color: #333333;
+  color: #E6E6E6;
+  padding: 6px 8px;
+  border: none;
+  border-bottom: 1px solid #3F3F3F;
+}
 QScrollBar:vertical { background: #252526; width: 10px; margin: 0; }
 QScrollBar::handle:vertical { background: #5C5C5C; min-height: 24px; border-radius: 4px; }
 QScrollBar:horizontal { background: #252526; height: 10px; margin: 0; }
@@ -172,6 +185,19 @@ QLineEdit, QPlainTextEdit, QSpinBox {
 QPlainTextEdit#engineLog {
   font-family: "Consolas", "DejaVu Sans Mono", monospace;
   font-size: 12px;
+}
+QTableWidget#accessServerTable {
+  background-color: #FFFFFF;
+  border: 1px solid #C4C4C4;
+  border-radius: 4px;
+  gridline-color: #E1E1E1;
+}
+QTableWidget#accessServerTable QHeaderView::section {
+  background-color: #F3F3F3;
+  color: #1A1A1A;
+  padding: 6px 8px;
+  border: none;
+  border-bottom: 1px solid #C4C4C4;
 }
 QScrollBar:vertical { background: #F3F3F3; width: 10px; margin: 0; }
 QScrollBar::handle:vertical { background: #C4C4C4; min-height: 24px; border-radius: 4px; }
