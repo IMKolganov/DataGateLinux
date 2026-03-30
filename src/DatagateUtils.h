@@ -3,6 +3,8 @@
 #include <QString>
 #include <QStringList>
 #include <QUrl>
+#include <QVector>
+#include <utility>
 #include <optional>
 
 struct BestServer {
@@ -56,7 +58,16 @@ QUrl wssProxyUrl(const QString& baseApiUrl, bool udpMode);
 
 std::optional<BestServer> pickBestServerWinStyle(const QByteArray& jsonBody);
 
+/// WSS-enabled servers only: id and display name (for manual server combo / Statistics).
+QVector<QPair<int, QString>> listWssServersFromStatusJson(const QByteArray& jsonBody);
+
+/// Pick one server by id from get-all-with-status JSON; requires isEnableWss and valid apiUrl.
+std::optional<BestServer> pickServerByIdFromStatusJson(const QByteArray& jsonBody, int serverId);
+
 void saveLastSelectedServerId(int id);
 int loadLastSelectedServerId();
+
+/// Resolve OpenVPN executable path (absolute path or lookup in PATH), same rules as VpnSession launch.
+QString resolvedOpenVpnExecutable(const QString& openVpnCmdOrPath);
 
 } // namespace DatagateUtils

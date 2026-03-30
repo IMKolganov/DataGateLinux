@@ -19,13 +19,18 @@ public:
     ~VpnSession() override;
 
     void connectVpn(const QString& backendBaseUrl, const QString& bearerAccessToken,
-        const QString& openVpnExecutable);
+        const QString& openVpnExecutable, bool autoPickServer = true, int manualServerId = 0);
+
+    /// Last server selected after a successful fetch (for UI labels).
+    QString activeServerName() const { return m_server.name; }
     /// reason is logged (e.g. why OpenVPN received SIGTERM). Pass nullptr for default.
     void disconnectVpn(const char* reason = nullptr);
 
 signals:
     void statusMessage(const QString& text);
     void errorMessage(const QString& text);
+    /// TUN/CAP_NET_ADMIN setup likely needed (empty OpenVPN log, failed start, or TUNSETIFF denied).
+    void openVpnCapabilitySetupRecommended(const QString& detail);
     void vpnUp();
     void vpnDown();
 
@@ -48,6 +53,8 @@ private:
     QString m_baseUrl;
     QString m_token;
     QString m_openVpnExe;
+    bool m_autoPickServer = true;
+    int m_manualServerId = 0;
     BestServer m_server;
     QString m_commonName;
 
