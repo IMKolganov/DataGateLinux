@@ -139,7 +139,13 @@ void VpnSession::stepFetchServers()
         }
         if (reply->error() != QNetworkReply::NoError) {
             m_connecting = false;
-            emit errorMessage(tr("Servers: %1").arg(reply->errorString()));
+            const int httpCode = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
+            QString detail = reply->errorString();
+            if (httpCode > 0) {
+                detail = QStringLiteral("HTTP %1 — %2").arg(httpCode).arg(detail);
+            }
+            qCWarning(lcVpn, "get-all-with-status failed: %s", qPrintable(detail));
+            emit errorMessage(tr("Servers: %1").arg(detail));
             return;
         }
         const QByteArray body = reply->readAll();
@@ -313,7 +319,7 @@ void VpnSession::stepStartBridgeAndOpenVpn(const QString& configText)
     const quint16 bridgePort = DatagateUtils::kDefaultBridgePort;
     bool bridgeOk = false;
     if (useUdp) {
-        bridgeOk = m_udpBridge->start(bridgePort, wss, pr.host, pr.port);
+        bridgeOk = m_udpBridge->start(bridgePort, wss, pr.host, pr.port, AppConfig::udpBridgeFramed());
     } else {
         bridgeOk = m_tcpBridge->start(bridgePort, wss);
     }

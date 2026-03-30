@@ -12,6 +12,7 @@ QString AppConfig::s_apiBaseUrl;
 QString AppConfig::s_googleClientId;
 int AppConfig::s_googleRedirectPort = 51723;
 bool AppConfig::s_openVpnIgnoreRedirectGateway = false;
+bool AppConfig::s_udpBridgeFramed = true;
 
 static bool readJsonFile(const QString& path, QJsonObject* out)
 {
@@ -35,6 +36,7 @@ bool AppConfig::load()
     s_googleClientId.clear();
     s_googleRedirectPort = 51723;
     s_openVpnIgnoreRedirectGateway = false;
+    s_udpBridgeFramed = true;
 
     const QString exeDir = QCoreApplication::applicationDirPath();
     // Prefer cwd first (IDEs often set working dir to project root), then the executable directory.
@@ -77,6 +79,9 @@ bool AppConfig::load()
     s_openVpnIgnoreRedirectGateway = ovpn.value(QStringLiteral("IgnoreRedirectGateway")).toBool(false);
     qCInfo(lcUi, "AppConfig: OpenVpn.IgnoreRedirectGateway=%s",
         s_openVpnIgnoreRedirectGateway ? "true" : "false");
+    // Default true (length-prefixed); set false if proxy sends one raw OpenVPN UDP datagram per WS binary frame.
+    s_udpBridgeFramed = ovpn.value(QStringLiteral("UdpBridgeFramed")).toBool(true);
+    qCInfo(lcUi, "AppConfig: OpenVpn.UdpBridgeFramed=%s", s_udpBridgeFramed ? "true" : "false");
 
     return !s_apiBaseUrl.isEmpty() && !s_googleClientId.isEmpty();
 }
@@ -99,4 +104,9 @@ int AppConfig::googleRedirectPort()
 bool AppConfig::openVpnIgnoreRedirectGateway()
 {
     return s_openVpnIgnoreRedirectGateway;
+}
+
+bool AppConfig::udpBridgeFramed()
+{
+    return s_udpBridgeFramed;
 }

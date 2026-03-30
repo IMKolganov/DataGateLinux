@@ -17,6 +17,10 @@
 
 namespace {
 
+/// Refresh before this many seconds of remaining lifetime (clock skew + network). Must stay well
+/// below short test tokens (e.g. 60s); a 60s margin makes a 60s JWT never satisfy isAccessValid().
+constexpr int kAccessValidityMarginSecs = 10;
+
 /// JWT exp (UTC seconds) as a fallback when API expiration JSON is wrong or missing.
 QDateTime jwtExpUtc(const QString& bearer)
 {
@@ -128,18 +132,34 @@ QString AuthSession::getOrCreateDeviceId()
 void AuthSession::applyJsonObject(const QJsonObject& o)
 {
     m_tokens.token = strKey(o, {QStringLiteral("token"), QStringLiteral("Token")});
-    m_tokens.refreshToken = strKey(o, {QStringLiteral("refreshToken"), QStringLiteral("RefreshToken")});
-    m_tokens.displayName = strKey(o, {QStringLiteral("displayName"), QStringLiteral("DisplayName")});
+    // Refresh often returns only a new access token; do not wipe stored refresh/display/expiry.
+    const QString newRt = strKey(o, {QStringLiteral("refreshToken"), QStringLiteral("RefreshToken")});
+    if (!newRt.isEmpty()) {
+        m_tokens.refreshToken = newRt;
+    }
+    const QString newDn = strKey(o, {QStringLiteral("displayName"), QStringLiteral("DisplayName")});
+    if (!newDn.isEmpty()) {
+        m_tokens.displayName = newDn;
+    }
 
-    const QJsonValue expV = o.contains(QStringLiteral("expiration"))
-        ? o.value(QStringLiteral("expiration"))
-        : o.value(QStringLiteral("Expiration"));
-    const QJsonValue rexpV = o.contains(QStringLiteral("refreshExpiration"))
-        ? o.value(QStringLiteral("refreshExpiration"))
-        : o.value(QStringLiteral("RefreshExpiration"));
-
-    m_tokens.expiration = parseDateTimeVal(expV);
-    m_tokens.refreshExpiration = parseDateTimeVal(rexpV);
+    if (o.contains(QStringLiteral("expiration")) || o.contains(QStringLiteral("Expiration"))) {
+        const QJsonValue expV = o.contains(QStringLiteral("expiration"))
+            ? o.value(QStringLiteral("expiration"))
+            : o.value(QStringLiteral("Expiration"));
+        const QDateTime exp = parseDateTimeVal(expV);
+        if (exp.isValid()) {
+            m_tokens.expiration = exp;
+        }
+    }
+    if (o.contains(QStringLiteral("refreshExpiration")) || o.contains(QStringLiteral("RefreshExpiration"))) {
+        const QJsonValue rexpV = o.contains(QStringLiteral("refreshExpiration"))
+            ? o.value(QStringLiteral("refreshExpiration"))
+            : o.value(QStringLiteral("RefreshExpiration"));
+        const QDateTime rexp = parseDateTimeVal(rexpV);
+        if (rexp.isValid()) {
+            m_tokens.refreshExpiration = rexp;
+        }
+    }
 }
 
 bool AuthSession::loadFromFile()
@@ -200,20 +220,53 @@ bool AuthSession::isAccessValid() const
         return false;
     }
     const QDateTime now = QDateTime::currentDateTimeUtc();
-    // Prefer API Expiration (same idea as DateTimeOffset on Windows).
-    // Use JWT exp only if API did not send expiration (avoid qMin with a bogus exp).
-    if (m_tokens.expiration.isValid()) {
-        return m_tokens.expiration.toUTC() > now.addSecs(60);
-    }
+    static const QDateTime kMinPlausible = QDateTime(QDate(2020, 1, 1), QTime(0, 0), Qt::UTC);
     const QDateTime jwtExp = jwtExpUtc(m_tokens.token);
-    if (jwtExp.isValid()) {
-        static const QDateTime kMinPlausible = QDateTime(QDate(2020, 1, 1), QTime(0, 0), Qt::UTC);
-        if (jwtExp > kMinPlausible && jwtExp > now.addSecs(60)) {
-            return true;
+
+    // API expiration may outlive the JWT; the server validates the JWT. Use the earliest bound.
+    bool have = false;
+    QDateTime deadline;
+    auto consider = [&](const QDateTime& dt) {
+        if (!dt.isValid()) {
+            return;
         }
-        return false;
+        if (!have || dt < deadline) {
+            deadline = dt;
+            have = true;
+        }
+    };
+    if (m_tokens.expiration.isValid()) {
+        consider(m_tokens.expiration.toUTC());
     }
-    return true;
+    if (jwtExp.isValid() && jwtExp > kMinPlausible) {
+        consider(jwtExp);
+    }
+    if (!have) {
+        return true; // opaque token, no parsed expiry
+    }
+    return deadline > now.addSecs(kAccessValidityMarginSecs);
+}
+
+void AuthSession::bumpAccessExpirationIfInvalid()
+{
+    if (m_tokens.token.isEmpty() || isAccessValid()) {
+        return;
+    }
+    const QDateTime now = QDateTime::currentDateTimeUtc();
+    const QDateTime jwtExp = jwtExpUtc(m_tokens.token);
+    static const QDateTime kMinPlausible = QDateTime(QDate(2020, 1, 1), QTime(0, 0), Qt::UTC);
+    if (jwtExp.isValid() && jwtExp > kMinPlausible) {
+        // Align stored expiration with JWT when API skew made isAccessValid false; only clear if
+        // exp is past wall time (the old branch matched any future JWT not past +60s and wiped it).
+        if (jwtExp <= now) {
+            m_tokens.expiration = {};
+        } else {
+            m_tokens.expiration = jwtExp;
+        }
+        return;
+    }
+    static constexpr int kFallbackAccessTtlSecs = 300;
+    m_tokens.expiration = now.addSecs(kFallbackAccessTtlSecs);
 }
 
 QString AuthSession::accessToken() const
@@ -316,6 +369,14 @@ bool AuthSession::ensureValidAccessToken()
         }
         qCInfo(lcAuth, "ensureValidAccessToken: access expired or invalid — refreshing");
     }
+    QMutexLocker refreshLock(&m_refreshMutex);
+    {
+        QMutexLocker lock(&m_mutex);
+        if (isAccessValid()) {
+            qCDebug(lcAuth, "ensureValidAccessToken: access valid after waiting for refresh");
+            return true;
+        }
+    }
     if (!refreshTokenSync()) {
         qCWarning(lcAuth, "ensureValidAccessToken: refresh failed");
         return false;
@@ -325,10 +386,16 @@ bool AuthSession::ensureValidAccessToken()
         qCInfo(lcAuth, "ensureValidAccessToken: ok after refresh");
         return true;
     }
-    // Refresh reported success but dates failed to parse; trust the token issued by the backend.
-    const bool ok = !m_tokens.token.isEmpty();
-    qCInfo(lcAuth, "ensureValidAccessToken: trusting token without parsed expiry: %s", ok ? "yes" : "no");
-    return ok;
+    bumpAccessExpirationIfInvalid();
+    const bool saved = saveToFile();
+    if (isAccessValid()) {
+        qCInfo(lcAuth, "ensureValidAccessToken: ok after normalizing expiration (saved=%s)", saved ? "yes" : "no");
+        return true;
+    }
+    qCWarning(lcAuth,
+        "ensureValidAccessToken: refresh succeeded but access still invalid (check JWT exp vs API expiration; saved=%s)",
+        saved ? "yes" : "no");
+    return false;
 }
 
 void AuthSession::setFromLoginJson(const QJsonObject& data)
