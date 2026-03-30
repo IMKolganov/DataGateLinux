@@ -2,6 +2,8 @@
 
 #include "DatagateUtils.h"
 
+#include <QVector>
+
 #include <QCheckBox>
 #include <QComboBox>
 #include <QHBoxLayout>
@@ -13,9 +15,131 @@
 #include <QNetworkReply>
 #include <QNetworkRequest>
 #include <QPainter>
+#include <QPainterPath>
 #include <QPushButton>
 #include <QScrollArea>
 #include <QVBoxLayout>
+
+/// Line chart (polyline + area) for traffic per client; no Qt Charts dependency.
+class TrafficLineChartWidget final : public QWidget {
+public:
+    explicit TrafficLineChartWidget(QWidget* parent = nullptr)
+        : QWidget(parent)
+    {
+        setMinimumHeight(200);
+        setSizePolicy(QSizePolicy::Expanding, QSizePolicy::MinimumExpanding);
+    }
+
+    void setSeries(const QVector<QPair<QString, double>>& items, double maxMb)
+    {
+        m_items = items;
+        m_max = maxMb > 0 ? maxMb : 1.0;
+        update();
+    }
+
+    void clearSeries()
+    {
+        m_items.clear();
+        m_max = 1.0;
+        update();
+    }
+
+protected:
+    void paintEvent(QPaintEvent*) override
+    {
+        QPainter p(this);
+        p.setRenderHint(QPainter::Antialiasing);
+        const QRect r = rect();
+        p.fillRect(r, palette().color(QPalette::Base));
+
+        p.setPen(palette().color(QPalette::Text));
+        p.drawText(r.adjusted(8, 4, -8, -8), Qt::AlignTop | Qt::AlignLeft,
+            QStringLiteral("Traffic (MB) — per client"));
+
+        if (m_items.isEmpty()) {
+            p.setPen(palette().color(QPalette::PlaceholderText));
+            p.drawText(r, Qt::AlignCenter, QStringLiteral("No data"));
+            return;
+        }
+
+        const int marginL = 44;
+        const int marginR = 16;
+        const int marginT = 28;
+        const int marginB = 36;
+        const QRect plot = r.adjusted(marginL, marginT, -marginR, -marginB);
+        if (plot.width() < 4 || plot.height() < 4) {
+            return;
+        }
+
+        QColor gridCol = palette().color(QPalette::Mid);
+        gridCol.setAlpha(80);
+        p.setPen(gridCol);
+        for (int i = 0; i <= 4; ++i) {
+            const int y = plot.top() + (plot.height() * i) / 4;
+            p.drawLine(plot.left(), y, plot.right(), y);
+        }
+        p.setPen(gridCol);
+        for (int i = 0; i <= 4; ++i) {
+            const int x = plot.left() + (plot.width() * i) / 4;
+            p.drawLine(x, plot.top(), x, plot.bottom());
+        }
+
+        const double y0 = plot.bottom();
+        const int n = m_items.size();
+        QVector<QPointF> pts;
+        pts.reserve(n);
+        for (int i = 0; i < n; ++i) {
+            const double t = n > 1 ? static_cast<double>(i) / static_cast<double>(n - 1) : 0.5;
+            const double x = plot.left() + t * plot.width();
+            const double v = m_items[i].second;
+            const double y = plot.bottom() - (static_cast<double>(plot.height()) * (v / m_max));
+            pts.push_back(QPointF(x, y));
+        }
+
+        QPainterPath fillPath;
+        fillPath.moveTo(QPointF(pts.first().x(), y0));
+        for (const QPointF& pt : pts) {
+            fillPath.lineTo(pt);
+        }
+        fillPath.lineTo(QPointF(pts.last().x(), y0));
+        fillPath.closeSubpath();
+        QColor fill = palette().color(QPalette::Highlight);
+        fill.setAlpha(55);
+        p.fillPath(fillPath, fill);
+
+        QPen linePen(palette().color(QPalette::Highlight));
+        linePen.setWidth(2);
+        p.setPen(linePen);
+        for (int i = 1; i < pts.size(); ++i) {
+            p.drawLine(pts[i - 1], pts[i]);
+        }
+        p.setBrush(palette().color(QPalette::Highlight));
+        for (const QPointF& pt : pts) {
+            p.drawEllipse(pt, 4.0, 4.0);
+        }
+
+        p.setPen(palette().color(QPalette::Text));
+        const QFont f = p.font();
+        p.setFont(QFont(f.family(), f.pointSize() > 0 ? f.pointSize() - 1 : 8));
+        p.drawText(QRect(marginL - 8, 0, marginL, marginT + plot.height() - 8), Qt::AlignRight | Qt::AlignVCenter,
+            QStringLiteral("%1").arg(m_max, 0, 'f', 1));
+        p.drawText(QRect(marginL - 8, plot.bottom() - 8, marginL, 24), Qt::AlignRight | Qt::AlignTop,
+            QStringLiteral("0"));
+
+        p.setPen(palette().color(QPalette::PlaceholderText));
+        for (int i = 0; i < n; ++i) {
+            const QString txt = m_items[i].first;
+            const QString shortTxt = txt.size() > 5 ? txt.left(5) + QStringLiteral("…") : txt;
+            const double t = n > 1 ? static_cast<double>(i) / static_cast<double>(n - 1) : 0.5;
+            const int x = static_cast<int>(plot.left() + t * plot.width());
+            p.drawText(QRect(x - 28, plot.bottom() + 4, 56, 28), Qt::AlignHCenter | Qt::AlignTop, shortTxt);
+        }
+    }
+
+private:
+    QVector<QPair<QString, double>> m_items;
+    double m_max = 1.0;
+};
 
 namespace {
 
@@ -112,6 +236,9 @@ StatisticsPanel::StatisticsPanel(QWidget* parent)
     m_status->setWordWrap(true);
     root->addWidget(m_status);
 
+    m_trafficChart = new TrafficLineChartWidget(this);
+    root->addWidget(m_trafficChart);
+
     auto* scroll = new QScrollArea(this);
     scroll->setWidgetResizable(true);
     auto* host = new QWidget(scroll);
@@ -158,6 +285,13 @@ void StatisticsPanel::finishWithError(const QString& text)
 
 void StatisticsPanel::renderRows(const QVector<QPair<QString, double>>& items, double maxMb)
 {
+    if (m_trafficChart) {
+        if (items.isEmpty()) {
+            m_trafficChart->clearSeries();
+        } else {
+            m_trafficChart->setSeries(items, maxMb);
+        }
+    }
     if (!m_rowsLayout) {
         return;
     }

@@ -16,8 +16,12 @@
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QLineEdit>
+#include <QAbstractItemView>
+#include <QHeaderView>
 #include <QListWidget>
 #include <QMessageBox>
+#include <QTableWidget>
+#include <QTableWidgetItem>
 #include <QNetworkAccessManager>
 #include <QNetworkReply>
 #include <QNetworkRequest>
@@ -25,6 +29,7 @@
 #include <QProcess>
 #include <QPushButton>
 #include <QSettings>
+#include <QSizePolicy>
 #include <QStackedWidget>
 #include <QStyle>
 #include <QVBoxLayout>
@@ -109,6 +114,7 @@ MainWindow::MainWindow(AuthSession* session, QWidget* parent)
         QStringLiteral("Settings")));
 
     m_stack = new QStackedWidget(this);
+    m_stack->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
 
     // ----- Page: Home
     auto* homePage = new QWidget(this);
@@ -144,12 +150,14 @@ MainWindow::MainWindow(AuthSession* session, QWidget* parent)
     modeRow->addWidget(m_serverModeCombo, 1);
     connLay->addLayout(modeRow);
 
-    auto* manRow = new QHBoxLayout();
-    manRow->addWidget(new QLabel(QStringLiteral("Server list:"), this));
+    m_manualServerWrap = new QWidget(this);
+    auto* manRow = new QHBoxLayout(m_manualServerWrap);
+    manRow->setContentsMargins(0, 0, 0, 0);
+    manRow->addWidget(new QLabel(QStringLiteral("Server:"), this));
     m_manualServerCombo = new QComboBox(this);
     m_manualServerCombo->setMinimumWidth(200);
     manRow->addWidget(m_manualServerCombo, 1);
-    connLay->addLayout(manRow);
+    connLay->addWidget(m_manualServerWrap);
 
     auto* btnRow = new QHBoxLayout();
     m_connectBtn = new QPushButton(QStringLiteral("Connect"), this);
@@ -177,6 +185,7 @@ MainWindow::MainWindow(AuthSession* session, QWidget* parent)
 
     // ----- Page: Access
     auto* accessPage = new QWidget(this);
+    accessPage->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
     auto* accLay = new QVBoxLayout(accessPage);
     accLay->setContentsMargins(20, 20, 20, 20);
     accLay->setSpacing(12);
@@ -189,8 +198,27 @@ MainWindow::MainWindow(AuthSession* session, QWidget* parent)
     accRow->addWidget(m_refreshServersBtn);
     accRow->addStretch();
     accLay->addLayout(accRow);
-    m_serverList = new QListWidget(this);
-    accLay->addWidget(m_serverList, 1);
+    m_serverTable = new QTableWidget(this);
+    m_serverTable->setObjectName(QStringLiteral("accessServerTable"));
+    m_serverTable->setColumnCount(3);
+    m_serverTable->setHorizontalHeaderLabels({
+        QStringLiteral("Server"),
+        QStringLiteral("Online"),
+        QStringLiteral("Clients"),
+    });
+    m_serverTable->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
+    m_serverTable->setMinimumHeight(200);
+    m_serverTable->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
+    m_serverTable->setSelectionBehavior(QAbstractItemView::SelectRows);
+    m_serverTable->setSelectionMode(QAbstractItemView::SingleSelection);
+    m_serverTable->setEditTriggers(QAbstractItemView::NoEditTriggers);
+    m_serverTable->setAlternatingRowColors(true);
+    m_serverTable->verticalHeader()->setVisible(false);
+    m_serverTable->setShowGrid(true);
+    accLay->addWidget(m_serverTable, 1);
+    m_accessTotalClientsLabel = new QLabel(QStringLiteral("Total clients: —"), this);
+    m_accessTotalClientsLabel->setObjectName(QStringLiteral("muted"));
+    accLay->addWidget(m_accessTotalClientsLabel);
     m_stack->addWidget(accessPage);
 
     // ----- Page: Statistics
@@ -293,8 +321,7 @@ MainWindow::MainWindow(AuthSession* session, QWidget* parent)
     m_nav->setCurrentRow(0);
 
     connect(m_serverModeCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this, [this](int) {
-        const bool manual = m_serverModeCombo->currentData().toInt() != 0;
-        m_manualServerCombo->setEnabled(manual);
+        updateServerModeUi();
     });
 
     connect(m_themeDark, &QCheckBox::toggled, this, [this](bool dark) {
@@ -310,7 +337,16 @@ MainWindow::MainWindow(AuthSession* session, QWidget* parent)
     connect(m_grantTunCapBtn, &QPushButton::clicked, this, &MainWindow::grantOpenVpnCapNetAdmin);
     connect(m_connectBtn, &QPushButton::clicked, this, [this]() {
         saveSettings();
-        if (m_vpn && m_connectBtn->text() == QStringLiteral("Disconnect")) {
+        if (!m_connectBtn->isEnabled()) {
+            return;
+        }
+        const QString btnText = m_connectBtn->text();
+        if (btnText == QStringLiteral("Connecting…") || btnText == QStringLiteral("Disconnecting…")) {
+            return;
+        }
+        if (m_vpn && btnText == QStringLiteral("Disconnect")) {
+            m_connectBtn->setEnabled(false);
+            m_connectBtn->setText(QStringLiteral("Disconnecting…"));
             appendLog(QStringLiteral("Disconnecting…"));
             m_vpn->disconnectVpn("Disconnect button");
             return;
@@ -378,6 +414,7 @@ MainWindow::MainWindow(AuthSession* session, QWidget* parent)
     });
 
     loadSettings();
+    updateServerModeUi();
 
     const QString who = m_session->displayName();
     if (!who.isEmpty()) {
@@ -436,7 +473,6 @@ void MainWindow::loadSettings()
     m_serverModeCombo->blockSignals(true);
     m_serverModeCombo->setCurrentIndex(autoMode ? 0 : 1);
     m_serverModeCombo->blockSignals(false);
-    m_manualServerCombo->setEnabled(!autoMode);
 
     const int savedId = s.value(QStringLiteral("manualVpnServerId"), 0).toInt();
     if (savedId > 0) {
@@ -445,6 +481,7 @@ void MainWindow::loadSettings()
             m_manualServerCombo->setCurrentIndex(ix);
         }
     }
+    updateServerModeUi();
 }
 
 void MainWindow::saveSettings()
@@ -470,6 +507,17 @@ void MainWindow::navigateTo(int index)
 void MainWindow::appendLog(const QString& line)
 {
     m_log->appendPlainText(line);
+}
+
+void MainWindow::updateServerModeUi()
+{
+    const bool manual = m_serverModeCombo && m_serverModeCombo->currentData().toInt() != 0;
+    if (m_manualServerWrap) {
+        m_manualServerWrap->setVisible(manual);
+    }
+    if (m_manualServerCombo) {
+        m_manualServerCombo->setEnabled(manual);
+    }
 }
 
 void MainWindow::grantOpenVpnCapNetAdmin()
@@ -614,7 +662,10 @@ void MainWindow::refreshServers(bool showErrorDialogs)
             }
             return;
         }
-        m_serverList->clear();
+        m_serverTable->setRowCount(0);
+        if (m_accessTotalClientsLabel) {
+            m_accessTotalClientsLabel->setText(QStringLiteral("Total clients: —"));
+        }
         const QByteArray raw = reply->readAll();
         reply->deleteLater();
         QJsonParseError err{};
@@ -630,6 +681,7 @@ void MainWindow::refreshServers(bool showErrorDialogs)
             .toObject()
             .value(QStringLiteral("openVpnServerWithStatuses"))
             .toArray();
+        int totalClients = 0;
         for (const QJsonValue& v : arr) {
             const QJsonObject item = v.toObject();
             const QJsonObject serverObj = item.value(QStringLiteral("openVpnServerResponses"))
@@ -637,13 +689,21 @@ void MainWindow::refreshServers(bool showErrorDialogs)
                 .value(QStringLiteral("openVpnServer"))
                 .toObject();
             const QString name = serverObj.value(QStringLiteral("serverName")).toString();
-            const int id = serverObj.value(QStringLiteral("id")).toInt();
             const bool online = serverObj.value(QStringLiteral("isOnline")).toBool();
-            const QString line = QStringLiteral("%1 | id=%2 | online=%3")
-                .arg(name.isEmpty() ? QStringLiteral("?") : name)
-                .arg(id)
-                .arg(online ? QStringLiteral("yes") : QStringLiteral("no"));
-            m_serverList->addItem(line);
+            const int clients = item.value(QStringLiteral("countConnectedClients")).toInt();
+            totalClients += clients;
+
+            const int row = m_serverTable->rowCount();
+            m_serverTable->insertRow(row);
+            m_serverTable->setItem(row, 0,
+                new QTableWidgetItem(name.isEmpty() ? QStringLiteral("—") : name));
+            m_serverTable->setItem(row, 1,
+                new QTableWidgetItem(online ? QStringLiteral("yes") : QStringLiteral("no")));
+            m_serverTable->setItem(row, 2, new QTableWidgetItem(QString::number(clients)));
+        }
+        if (m_accessTotalClientsLabel) {
+            m_accessTotalClientsLabel->setText(
+                QStringLiteral("Total clients: %1").arg(totalClients));
         }
         applyWssServerList(raw);
     });

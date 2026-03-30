@@ -13,6 +13,8 @@ class QPushButton;
 class QLabel;
 class QListWidget;
 class QStackedWidget;
+class QTableWidget;
+class QWidget;
 class QNetworkAccessManager;
 class VpnSession;
 class StatisticsPanel;
@@ -42,6 +44,7 @@ private:
     void updateConnectButtonUi(bool vpnUp);
     void grantOpenVpnCapNetAdmin();
     void onOpenVpnCapabilityRecommended(const QString& detail);
+    void updateServerModeUi();
 
     AuthSession* m_session = nullptr;
 
@@ -51,12 +54,14 @@ private:
     QLabel* m_connectedToLabel = nullptr;
     QComboBox* m_serverModeCombo = nullptr;
     QComboBox* m_manualServerCombo = nullptr;
+    QWidget* m_manualServerWrap = nullptr;
     QPushButton* m_connectBtn = nullptr;
     QPushButton* m_saveSettingsBtn = nullptr;
     QPushButton* m_grantTunCapBtn = nullptr;
     QPushButton* m_refreshServersBtn = nullptr;
     QPushButton* m_logoutBtn = nullptr;
-    QListWidget* m_serverList = nullptr;
+    QTableWidget* m_serverTable = nullptr;
+    QLabel* m_accessTotalClientsLabel = nullptr;
     QListWidget* m_nav = nullptr;
     QStackedWidget* m_stack = nullptr;
     QCheckBox* m_themeDark = nullptr;

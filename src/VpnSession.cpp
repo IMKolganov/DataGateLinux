@@ -5,6 +5,9 @@
 #include "UdpWssBridge.h"
 #include "WssTcpBridge.h"
 
+#include <QCoreApplication>
+#include <QElapsedTimer>
+#include <QEventLoop>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QJsonParseError>
@@ -73,7 +76,15 @@ VpnSession::VpnSession(QObject* parent)
 
 VpnSession::~VpnSession()
 {
-    disconnectVpn("~VpnSession (app exit, window closed, or MainWindow destroyed e.g. logout)");
+    disconnectVpnInternal(true, "~VpnSession (app exit, window closed, or MainWindow destroyed e.g. logout)");
+}
+
+void VpnSession::abortPendingReplies()
+{
+    if (m_activeReply) {
+        m_activeReply->abort();
+        m_activeReply.clear();
+    }
 }
 
 void VpnSession::connectVpn(const QString& backendBaseUrl, const QString& bearerAccessToken,
@@ -87,6 +98,7 @@ void VpnSession::connectVpn(const QString& backendBaseUrl, const QString& bearer
         emit errorMessage(tr("Connection already in progress."));
         return;
     }
+    abortPendingReplies();
     m_connecting = true;
     m_userStopVpn = false;
     m_autoPickServer = autoPickServer;
@@ -116,7 +128,11 @@ void VpnSession::stepFetchServers()
     req.setRawHeader("Authorization", (QStringLiteral("Bearer ") + m_token).toUtf8());
 
     QNetworkReply* reply = m_nam->get(req);
+    m_activeReply = reply;
     connect(reply, &QNetworkReply::finished, this, [this, reply]() {
+        if (m_activeReply == reply) {
+            m_activeReply.clear();
+        }
         reply->deleteLater();
         if (!m_connecting) {
             return;
@@ -175,7 +191,11 @@ void VpnSession::stepTryDownload(bool afterCreate)
     const QByteArray payload = QJsonDocument(body).toJson(QJsonDocument::Compact);
 
     QNetworkReply* reply = m_nam->post(req, payload);
+    m_activeReply = reply;
     connect(reply, &QNetworkReply::finished, this, [this, reply, afterCreate]() {
+        if (m_activeReply == reply) {
+            m_activeReply.clear();
+        }
         reply->deleteLater();
         if (!m_connecting) {
             return;
@@ -248,7 +268,11 @@ void VpnSession::stepCreateOnServer()
     const QByteArray payload = QJsonDocument(body).toJson(QJsonDocument::Compact);
 
     QNetworkReply* reply = m_nam->post(req, payload);
+    m_activeReply = reply;
     connect(reply, &QNetworkReply::finished, this, [this, reply]() {
+        if (m_activeReply == reply) {
+            m_activeReply.clear();
+        }
         reply->deleteLater();
         if (!m_connecting) {
             return;
@@ -376,9 +400,28 @@ void VpnSession::stepStartBridgeAndOpenVpn(const QString& configText)
 
 void VpnSession::disconnectVpn(const char* reason)
 {
+    disconnectVpnInternal(false, reason);
+}
+
+void VpnSession::disconnectVpnInternal(bool force, const char* reason)
+{
+    if (m_disconnecting && !force) {
+        return;
+    }
+    if (m_disconnecting && force) {
+        QElapsedTimer t;
+        t.start();
+        while (m_disconnecting && t.elapsed() < 10000) {
+            QCoreApplication::processEvents(QEventLoop::AllEvents, 50);
+        }
+    }
+
+    m_disconnecting = true;
     qCInfo(lcVpn, "disconnectVpn: %s", reason ? reason : "Disconnect button or unspecified");
     m_connecting = false;
     m_userStopVpn = true;
+
+    abortPendingReplies();
 
     if (m_ovpn->state() != QProcess::NotRunning) {
         m_ovpn->terminate();
@@ -396,6 +439,7 @@ void VpnSession::disconnectVpn(const char* reason)
         m_configFile = nullptr;
     }
 
+    m_disconnecting = false;
     emit vpnDown();
 }
 
@@ -445,7 +489,10 @@ void VpnSession::onOpenVpnFinished(int exitCode, QProcess::ExitStatus st)
         }
     }
 
-    emit vpnDown();
+    // User-initiated disconnect already emitted vpnDown from disconnectVpnInternal.
+    if (!stoppedByUser) {
+        emit vpnDown();
+    }
 }
 
 void VpnSession::onOpenVpnError(QProcess::ProcessError e)

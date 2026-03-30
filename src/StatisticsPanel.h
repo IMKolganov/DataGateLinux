@@ -11,8 +11,9 @@ class QPushButton;
 class QLabel;
 class QVBoxLayout;
 class QNetworkAccessManager;
+class TrafficLineChartWidget;
 
-/// Loads per-server OpenVPN statistics from the backend and shows horizontal traffic bars (QPainter).
+/// Loads per-server OpenVPN statistics from the backend; line chart + horizontal bars (QPainter).
 class StatisticsPanel final : public QWidget {
     Q_OBJECT
 public:
@@ -35,6 +36,7 @@ private:
     QComboBox* m_serverCombo = nullptr;
     QCheckBox* m_onlyMine = nullptr;
     QLabel* m_status = nullptr;
+    TrafficLineChartWidget* m_trafficChart = nullptr;
     QVBoxLayout* m_rowsLayout = nullptr;
     QNetworkAccessManager* m_nam = nullptr;
 };

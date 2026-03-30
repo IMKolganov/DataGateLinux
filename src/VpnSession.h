@@ -2,12 +2,14 @@
 
 #include <QByteArray>
 #include <QObject>
+#include <QPointer>
 #include <QProcess>
 #include <QString>
 
 #include "DatagateUtils.h"
 
 class QNetworkAccessManager;
+class QNetworkReply;
 class QTemporaryFile;
 class UdpWssBridge;
 class WssTcpBridge;
@@ -44,6 +46,9 @@ private:
     void onOpenVpnFinished(int exitCode, QProcess::ExitStatus st);
     void onOpenVpnError(QProcess::ProcessError e);
 
+    void disconnectVpnInternal(bool force, const char* reason);
+    void abortPendingReplies();
+
     QNetworkAccessManager* m_nam = nullptr;
     WssTcpBridge* m_tcpBridge = nullptr;
     UdpWssBridge* m_udpBridge = nullptr;
@@ -59,7 +64,10 @@ private:
     QString m_commonName;
 
     bool m_connecting = false;
+    bool m_disconnecting = false;
     bool m_userStopVpn = false;
+
+    QPointer<QNetworkReply> m_activeReply;
 
     /// Accumulated OpenVPN stdout/stderr (MergedChannels); also streamed live via qCDebug(lcVpn).
     QByteArray m_ovpnLogBuffer;
