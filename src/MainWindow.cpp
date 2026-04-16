@@ -589,33 +589,6 @@ void MainWindow::showEvent(QShowEvent* e)
         m_centerOnFirstShow = false;
         AppTheme::centerWidgetOnScreen(this);
     }
-#if defined(__linux__) && defined(DATAGATE_EMBEDDED_OPENVPN3)
-    if (!m_didPtraceEmbeddedVpnWarn && !AppConfig::openVpnUseSystemBinary()) {
-        const int tracer = DatagateUtils::linuxProcSelfTracerPid();
-        if (tracer > 0) {
-            m_didPtraceEmbeddedVpnWarn = true;
-            appendLog(Datagate::tr(
-                "Embedded VPN: TracerPid=%1 (ptrace). setcap on DataGate is ignored — use an external terminal (not "
-                "the IDE’s), or set OpenVpn.UseSystemBinary=true and cap_net_admin on /usr/sbin/openvpn.")
-                .arg(tracer));
-            QMessageBox::warning(
-                this,
-                Datagate::tr("DataGate"),
-                Datagate::tr(
-                    "A debugger or IDE tool has attached ptrace to this process (TracerPid ≠ 0). Linux then ignores "
-                    "file capabilities on this executable — embedded OpenVPN cannot open TUN.\n\n"
-                    "This is not fixed by root or sudo.\n\n"
-                    "• Start DataGate from a normal system terminal outside Cursor/VS Code (Konsole, GNOME Terminal, "
-                    "etc.), not the IDE’s integrated terminal if TracerPid stays non-zero.\n"
-                    "• Or use Run without debugging / detach debugger.\n\n"
-                    "Developer workaround: in appsettings.json set \"OpenVpn\": { \"UseSystemBinary\": true }, "
-                    "sudo setcap cap_net_admin+ep $(command -v openvpn), then restart — VPN uses the openvpn binary "
-                    "instead of the embedded core.\n\n"
-                    "Launch example:\n%1")
-                    .arg(QCoreApplication::applicationFilePath()));
-        }
-    }
-#endif
     if (!m_didSilentServerRefresh) {
         m_didSilentServerRefresh = true;
         refreshServers(false);
@@ -664,8 +637,9 @@ void MainWindow::loadSettings()
     }
 #if defined(__linux__) && defined(DATAGATE_EMBEDDED_OPENVPN3)
     if (!AppConfig::openVpnUseSystemBinary()) {
-        const QString capLine = DatagateUtils::linuxFileGetcapLine(QCoreApplication::applicationFilePath());
-        qCInfo(lcUi, "Embedded OpenVPN 3: file capabilities (getcap): %s", qPrintable(capLine));
+        const QString capLine = DatagateUtils::linuxFileGetcapLine(
+            DatagateUtils::linuxEmbeddedTunCapabilityTargetExecutablePath());
+        qCInfo(lcUi, "Embedded OpenVPN 3: getcap %s", qPrintable(capLine));
     }
 #endif
 }
@@ -714,8 +688,13 @@ void MainWindow::grantOpenVpnCapNetAdmin()
 #else
     const bool capDataGateBinary = false;
 #endif
-    const QString exe = capDataGateBinary ? QCoreApplication::applicationFilePath()
-                                          : DatagateUtils::resolvedOpenVpnExecutable(m_openVpnPath->text());
+    const QString exe = capDataGateBinary
+#if defined(__linux__)
+        ? DatagateUtils::linuxEmbeddedTunCapabilityTargetExecutablePath()
+#else
+        ? QCoreApplication::applicationFilePath()
+#endif
+        : DatagateUtils::resolvedOpenVpnExecutable(m_openVpnPath->text());
     const QFileInfo fi(exe);
     if (!fi.exists()) {
         QMessageBox::warning(this, Datagate::tr("DataGate"),
@@ -1045,11 +1024,16 @@ void MainWindow::retranslateUi()
     if (m_tunHintLabel) {
 #if defined(DATAGATE_EMBEDDED_OPENVPN3)
         if (!AppConfig::openVpnUseSystemBinary()) {
+#if defined(DATAGATE_EMBEDDED_OPENVPN3_USE_EXTERNAL_HELPER)
             m_tunHintLabel->setText(Datagate::tr(
-                "Tunnel (TUN): embedded OpenVPN runs inside DataGate — Linux needs CAP_NET_ADMIN on this "
-                "application binary. Use Grant TUN or sudo setcap on that binary, then fully restart the app.\n"
-                "Do not run under a debugger (IDE “debug”): ptrace prevents setcap from applying — use Run without "
-                "debugging or start from a terminal."));
+                "Tunnel (TUN): embedded OpenVPN uses DataGateOvpn3Helper (next to this app). Grant CAP_NET_ADMIN on "
+                "that binary (Grant TUN or sudo setcap cap_net_admin+ep …), then fully restart. Re-run Grant after each "
+                "rebuild."));
+#else
+            m_tunHintLabel->setText(Datagate::tr(
+                "Tunnel (TUN): embedded OpenVPN runs in-process — Linux needs CAP_NET_ADMIN on this application "
+                "binary. Use Grant TUN or sudo setcap, then fully restart."));
+#endif
         } else
 #endif
         {

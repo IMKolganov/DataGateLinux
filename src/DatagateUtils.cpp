@@ -1,5 +1,6 @@
 #include "DatagateUtils.h"
 #include "DatagateTr.h"
+#include "LinuxCapNetAdmin.h"
 
 #include <QCoreApplication>
 #include <QFile>
@@ -23,15 +24,13 @@
 #include <QStandardPaths>
 #include <QUrlQuery>
 #include <QVector>
+#include <QDir>
 
 #include <algorithm>
 #include <cmath>
 
 #if defined(__linux__)
 #include <filesystem>
-#if defined(DATAGATE_HAVE_LIBCAP)
-#include <sys/capability.h>
-#endif
 #endif
 
 Q_LOGGING_CATEGORY(lcUtils, "datagate.utils")
@@ -472,7 +471,8 @@ std::optional<BestServer> pickBestServerWinStyle(const QByteArray& jsonBody)
         if (a.isOnline != b.isOnline) {
             return a.isOnline > b.isOnline;
         }
-        return a.countConnectedClients > b.countConnectedClients;
+        // Prefer least loaded among online (or among offline if none online).
+        return a.countConnectedClients < b.countConnectedClients;
     });
 
     const int last = loadLastSelectedServerId();
@@ -661,35 +661,30 @@ quint64 parseCapStatusField(const QByteArray& line)
 
 bool linuxTryRaiseEffectiveCapNetAdmin()
 {
-#if !defined(DATAGATE_HAVE_LIBCAP)
-    return false;
-#else
-    cap_t c = cap_get_proc();
-    if (!c) {
-        return false;
+    const bool ok = datagate_linux_try_raise_effective_cap_net_admin();
+    if (ok) {
+        qCInfo(lcUtils, "CAP_NET_ADMIN was permitted but not effective — raised effective set (libcap)");
     }
-    cap_flag_value_t fv = CAP_CLEAR;
-    if (cap_get_flag(c, CAP_NET_ADMIN, CAP_PERMITTED, &fv) != 0 || fv != CAP_SET) {
-        cap_free(c);
-        return false;
+    return ok;
+}
+
+QString linuxEmbeddedOvpn3HelperPath()
+{
+    const QString p = QDir(QCoreApplication::applicationDirPath()).filePath(QStringLiteral("DataGateOvpn3Helper"));
+    const QFileInfo fi(p);
+    if (fi.exists() && fi.isExecutable()) {
+        return fi.canonicalFilePath();
     }
-    if (cap_get_flag(c, CAP_NET_ADMIN, CAP_EFFECTIVE, &fv) == 0 && fv == CAP_SET) {
-        cap_free(c);
-        return true;
+    return {};
+}
+
+QString linuxEmbeddedTunCapabilityTargetExecutablePath()
+{
+    const QString h = linuxEmbeddedOvpn3HelperPath();
+    if (!h.isEmpty()) {
+        return h;
     }
-    cap_value_t one = CAP_NET_ADMIN;
-    if (cap_set_flag(c, CAP_EFFECTIVE, 1, &one, CAP_SET) != 0) {
-        cap_free(c);
-        return false;
-    }
-    const int r = cap_set_proc(c);
-    cap_free(c);
-    if (r != 0) {
-        return false;
-    }
-    qCInfo(lcUtils, "CAP_NET_ADMIN was permitted but not effective — raised effective set (libcap)");
-    return true;
-#endif
+    return QCoreApplication::applicationFilePath();
 }
 
 QString linuxEmbeddedVpnTunDiagnosis(const QString& qAppExecutablePath)

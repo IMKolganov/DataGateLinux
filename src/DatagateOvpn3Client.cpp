@@ -1,5 +1,5 @@
 #include "DatagateOvpn3Client.h"
-#include "DatagateUtils.h"
+#include "LinuxCapNetAdmin.h"
 
 #include <utility>
 
@@ -81,7 +81,7 @@ void DatagateOvpn3Client::setCallbacks(EventFn onEvent, LogFn onLog)
 std::string DatagateOvpn3Client::connectBlocking(const std::string& profileUtf8, const std::string& guiVersion)
 {
 #if defined(__linux__)
-    DatagateUtils::linuxTryRaiseEffectiveCapNetAdmin();
+    datagate_linux_try_raise_effective_cap_net_admin();
 #endif
     Ovpn3ClientImpl& c = m_impl->client;
 

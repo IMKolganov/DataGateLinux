@@ -78,6 +78,21 @@ public:
 
     void requestShutdown() { shutdown(); }
 
+    /// Both legs up — replacing this session would drop a working OpenVPN transport (NETWORK_EOF_ERROR loop).
+    bool isLinkUp() const
+    {
+        if (m_shuttingDown) {
+            return false;
+        }
+        if (!m_tcp || m_tcp->state() != QAbstractSocket::ConnectedState) {
+            return false;
+        }
+        if (!m_ws || m_ws->state() != QAbstractSocket::ConnectedState) {
+            return false;
+        }
+        return true;
+    }
+
 private:
     void flushPendingTcpToWebSocket()
     {
@@ -208,13 +223,21 @@ void WssTcpBridge::onNewConnection()
     while (m_server->hasPendingConnections()) {
         QTcpSocket* tcp = m_server->nextPendingConnection();
         tcp->setSocketOption(QAbstractSocket::LowDelayOption, 1);
-        // OpenVPN 2 usually keeps one local TCP to the bridge. OpenVPN 3 may start a new TCP
-        // before the previous session has fully torn down (reconnect overlap). Rejecting the new
-        // socket caused endless RESOLVE/WAIT/RECONNECTING. Replace the previous bridge session.
+        // OpenVPN 3 may open a second local TCP while the first handshake is still in progress (WS not
+        // connected yet). Replacing then is correct. Once both TCP and WSS are up, a duplicate connect
+        // must not tear down the live tunnel — that produced TCP EOF + NETWORK_EOF_ERROR after CONNECTED.
         if (m_bridgeSession) {
-            qCInfo(lcBridge) << "Replacing active TCP bridge session (reconnect / overlapping connect) on port"
+            auto* prev = static_cast<BridgeConnection*>(m_bridgeSession);
+            if (prev->isLinkUp()) {
+                qCInfo(lcBridge) << "Ignoring extra local TCP to bridge (session already up) on port"
+                                 << m_server->serverPort();
+                tcp->abort();
+                tcp->deleteLater();
+                continue;
+            }
+            qCInfo(lcBridge) << "Replacing TCP bridge session (handshake overlap / reconnect) on port"
                              << m_server->serverPort();
-            static_cast<BridgeConnection*>(m_bridgeSession)->requestShutdown();
+            prev->requestShutdown();
         }
         new BridgeConnection(tcp, m_wssUrl, this);
     }

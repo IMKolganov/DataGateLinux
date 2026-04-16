@@ -12,9 +12,11 @@
 
 #include "DatagateUtils.h"
 
+#if defined(DATAGATE_EMBEDDED_OPENVPN3) && !defined(DATAGATE_EMBEDDED_OPENVPN3_USE_EXTERNAL_HELPER)
 namespace Datagate {
 class DatagateOvpn3Client;
 }
+#endif
 
 class QNetworkAccessManager;
 class QNetworkReply;
@@ -59,7 +61,11 @@ private:
 
 #if defined(DATAGATE_EMBEDDED_OPENVPN3)
     void startEmbeddedOpenVpn3(const QString& patchedConfigUtf8, bool useUdp, quint16 bridgePort);
+#if !defined(DATAGATE_EMBEDDED_OPENVPN3_USE_EXTERNAL_HELPER)
     void onOvpn3ThreadFinished(const QString& errorMessage);
+#else
+    void ovpn3HelperFlushProtocolLines();
+#endif
     void deliverOvpn3Event(const QString& name, const QString& info);
     void maybeEmitEmbeddedTunCapHint(const QString& ovpn3LogLine);
 #endif
@@ -71,8 +77,15 @@ private:
     QTemporaryFile* m_configFile = nullptr;
 
 #if defined(DATAGATE_EMBEDDED_OPENVPN3)
+#if defined(DATAGATE_EMBEDDED_OPENVPN3_USE_EXTERNAL_HELPER)
+    QProcess* m_ovpn3Helper = nullptr;
+    QByteArray m_ovpn3HelperOutBuf;
+    QByteArray m_ovpn3HelperErrBuf;
+    QTemporaryFile* m_ovpn3HelperProfile = nullptr;
+#else
     std::unique_ptr<std::thread> m_ovpn3Thread;
     std::atomic<Datagate::DatagateOvpn3Client*> m_ovpn3Active{nullptr};
+#endif
     bool m_ovpn3TunCapHintEmitted = false;
 #endif
 

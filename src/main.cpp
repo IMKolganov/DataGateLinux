@@ -42,7 +42,7 @@ int main(int argc, char* argv[])
 
     qCInfo(lcUi, "DataGateLinux starting");
 
-#if defined(__linux__) && defined(DATAGATE_EMBEDDED_OPENVPN3)
+#if defined(__linux__) && defined(DATAGATE_EMBEDDED_OPENVPN3) && !defined(DATAGATE_EMBEDDED_OPENVPN3_USE_EXTERNAL_HELPER)
     DatagateUtils::linuxTryRaiseEffectiveCapNetAdmin();
     {
         const int tracer = DatagateUtils::linuxProcSelfTracerPid();

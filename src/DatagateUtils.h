@@ -90,6 +90,12 @@ int linuxProcSelfTracerPid();
 /// Multi-line diagnosis: /proc/self/exe vs Qt path, CapEff/CapPrm, TracerPid, getcap on running binary.
 QString linuxEmbeddedVpnTunDiagnosis(const QString& qAppExecutablePath);
 
+/// `DataGateOvpn3Helper` next to the main binary when the split-process helper is built (Linux embedded).
+QString linuxEmbeddedOvpn3HelperPath();
+
+/// setcap target for embedded TUN: helper when present, otherwise the GUI binary.
+QString linuxEmbeddedTunCapabilityTargetExecutablePath();
+
 /// If CAP_NET_ADMIN is permitted but not effective, promote to effective (needs DATAGATE_HAVE_LIBCAP + libcap).
 bool linuxTryRaiseEffectiveCapNetAdmin();
 

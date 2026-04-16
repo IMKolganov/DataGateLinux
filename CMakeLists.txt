@@ -20,9 +20,24 @@ endif()
 
 find_package(Qt6 REQUIRED COMPONENTS Core Gui Widgets Network WebSockets)
 
+set(DATAGATE_OVPN3_EMBED_LINUX_HELPER FALSE)
 set(DATAGATE_OVPN3_SOURCES "")
 if(DATAGATE_USE_EMBEDDED_OPENVPN3)
-    list(APPEND DATAGATE_OVPN3_SOURCES src/DatagateOvpn3Client.cpp)
+    if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+        set(DATAGATE_OVPN3_EMBED_LINUX_HELPER TRUE)
+        add_executable(DataGateOvpn3Helper
+            src/DataGateOvpn3HelperMain.cpp
+            src/DatagateOvpn3Client.cpp
+            src/LinuxCapNetAdmin.cpp
+        )
+        set_target_properties(DataGateOvpn3Helper PROPERTIES
+            CXX_STANDARD 20
+            CXX_STANDARD_REQUIRED ON
+        )
+        target_link_libraries(DataGateOvpn3Helper PRIVATE datagate_ovpn3_core)
+    else()
+        list(APPEND DATAGATE_OVPN3_SOURCES src/DatagateOvpn3Client.cpp)
+    endif()
 endif()
 
 qt_add_executable(DataGateLinux
@@ -59,6 +74,10 @@ qt_add_executable(DataGateLinux
     ${CMAKE_SOURCE_DIR}/i18n/datagate_ts_embed.qrc
 )
 
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    target_sources(DataGateLinux PRIVATE src/LinuxCapNetAdmin.cpp)
+endif()
+
 target_link_libraries(DataGateLinux PRIVATE
     Qt6::Core
     Qt6::Gui
@@ -69,16 +88,33 @@ target_link_libraries(DataGateLinux PRIVATE
 
 if(DATAGATE_USE_EMBEDDED_OPENVPN3)
     target_compile_definitions(DataGateLinux PRIVATE DATAGATE_EMBEDDED_OPENVPN3=1)
-    target_link_libraries(DataGateLinux PRIVATE datagate_ovpn3_core)
+    if(DATAGATE_OVPN3_EMBED_LINUX_HELPER)
+        target_compile_definitions(DataGateLinux PRIVATE DATAGATE_EMBEDDED_OPENVPN3_USE_EXTERNAL_HELPER=1)
+        add_dependencies(DataGateLinux DataGateOvpn3Helper)
+        add_custom_command(TARGET DataGateLinux POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                $<TARGET_FILE:DataGateOvpn3Helper>
+                $<TARGET_FILE_DIR:DataGateLinux>
+            COMMENT "Copy DataGateOvpn3Helper next to DataGateLinux"
+        )
+    else()
+        target_link_libraries(DataGateLinux PRIVATE datagate_ovpn3_core)
+    endif()
 endif()
 
-# Embedded OpenVPN opens TUN in-process; if permitted has CAP_NET_ADMIN but effective does not, libcap can fix it.
+# libcap: raise permitted→effective CAP_NET_ADMIN in-process (non-Linux helper embedded path only).
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     find_library(DATAGATE_LIBCAP cap)
     if(DATAGATE_LIBCAP)
-        target_compile_definitions(DataGateLinux PRIVATE DATAGATE_HAVE_LIBCAP=1)
-        target_link_libraries(DataGateLinux PRIVATE ${DATAGATE_LIBCAP})
-        message(STATUS "libcap found: ${DATAGATE_LIBCAP} (effective CAP_NET_ADMIN for embedded OpenVPN)")
+        if(DATAGATE_USE_EMBEDDED_OPENVPN3 AND DATAGATE_OVPN3_EMBED_LINUX_HELPER)
+            target_compile_definitions(DataGateOvpn3Helper PRIVATE DATAGATE_HAVE_LIBCAP=1)
+            target_link_libraries(DataGateOvpn3Helper PRIVATE ${DATAGATE_LIBCAP})
+            message(STATUS "libcap linked to DataGateOvpn3Helper: ${DATAGATE_LIBCAP}")
+        elseif(DATAGATE_USE_EMBEDDED_OPENVPN3)
+            target_compile_definitions(DataGateLinux PRIVATE DATAGATE_HAVE_LIBCAP=1)
+            target_link_libraries(DataGateLinux PRIVATE ${DATAGATE_LIBCAP})
+            message(STATUS "libcap linked to DataGateLinux: ${DATAGATE_LIBCAP} (in-process embedded OpenVPN)")
+        endif()
     endif()
 endif()
 
@@ -181,3 +217,6 @@ add_custom_command(TARGET DataGateLinux POST_BUILD
 )
 
 install(TARGETS DataGateLinux RUNTIME DESTINATION bin)
+if(TARGET DataGateOvpn3Helper)
+    install(TARGETS DataGateOvpn3Helper RUNTIME DESTINATION bin)
+endif()
