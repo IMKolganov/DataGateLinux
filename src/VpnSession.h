@@ -1,5 +1,9 @@
 #pragma once
 
+#include <atomic>
+#include <memory>
+#include <thread>
+
 #include <QByteArray>
 #include <QObject>
 #include <QPointer>
@@ -7,6 +11,10 @@
 #include <QString>
 
 #include "DatagateUtils.h"
+
+namespace Datagate {
+class DatagateOvpn3Client;
+}
 
 class QNetworkAccessManager;
 class QNetworkReply;
@@ -49,11 +57,22 @@ private:
     void disconnectVpnInternal(bool force, const char* reason);
     void abortPendingReplies();
 
+#if defined(DATAGATE_EMBEDDED_OPENVPN3)
+    void startEmbeddedOpenVpn3(const QString& patchedConfigUtf8, bool useUdp, quint16 bridgePort);
+    void onOvpn3ThreadFinished(const QString& errorMessage);
+    void deliverOvpn3Event(const QString& name, const QString& info);
+#endif
+
     QNetworkAccessManager* m_nam = nullptr;
     WssTcpBridge* m_tcpBridge = nullptr;
     UdpWssBridge* m_udpBridge = nullptr;
     QProcess* m_ovpn = nullptr;
     QTemporaryFile* m_configFile = nullptr;
+
+#if defined(DATAGATE_EMBEDDED_OPENVPN3)
+    std::unique_ptr<std::thread> m_ovpn3Thread;
+    std::atomic<Datagate::DatagateOvpn3Client*> m_ovpn3Active{nullptr};
+#endif
 
     QString m_baseUrl;
     QString m_token;

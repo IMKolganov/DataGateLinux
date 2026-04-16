@@ -6,6 +6,11 @@
 #include "UdpWssBridge.h"
 #include "WssTcpBridge.h"
 
+#if defined(DATAGATE_EMBEDDED_OPENVPN3)
+#include "DatagateOvpn3Client.h"
+#include <thread>
+#endif
+
 #include <QCoreApplication>
 #include <QElapsedTimer>
 #include <QEventLoop>
@@ -13,6 +18,7 @@
 #include <QJsonObject>
 #include <QJsonParseError>
 #include <QLoggingCategory>
+#include <QMetaObject>
 #include <QNetworkAccessManager>
 #include <QNetworkReply>
 #include <QNetworkRequest>
@@ -91,6 +97,12 @@ void VpnSession::abortPendingReplies()
 void VpnSession::connectVpn(const QString& backendBaseUrl, const QString& bearerAccessToken,
     const QString& openVpnExecutable, bool autoPickServer, int manualServerId)
 {
+#if defined(DATAGATE_EMBEDDED_OPENVPN3)
+    if (m_ovpn3Thread && m_ovpn3Thread->joinable()) {
+        emit errorMessage(Datagate::tr("Disconnect the current OpenVPN session first."));
+        return;
+    }
+#endif
     if (m_ovpn->state() != QProcess::NotRunning) {
         emit errorMessage(Datagate::tr("Disconnect the current OpenVPN session first."));
         return;
@@ -358,6 +370,13 @@ void VpnSession::stepStartBridgeAndOpenVpn(const QString& configText)
     const QString patched = DatagateUtils::patchOvpnRemoteToLocal(
         configText, QStringLiteral("127.0.0.1"), bridgePort, ignoreRg, routeBypass);
 
+#if defined(DATAGATE_EMBEDDED_OPENVPN3)
+    if (!AppConfig::openVpnUseSystemBinary()) {
+        startEmbeddedOpenVpn3(patched, useUdp, bridgePort);
+        return;
+    }
+#endif
+
     QString ovpnFileBody = patched;
     {
         const QString peerLabel = DatagateUtils::datagateLinuxPeerVersionLabel(m_openVpnExe);
@@ -445,6 +464,16 @@ void VpnSession::disconnectVpnInternal(bool force, const char* reason)
 
     abortPendingReplies();
 
+#if defined(DATAGATE_EMBEDDED_OPENVPN3)
+    if (Datagate::DatagateOvpn3Client* p = m_ovpn3Active.load()) {
+        p->requestStop();
+    }
+    if (m_ovpn3Thread && m_ovpn3Thread->joinable()) {
+        m_ovpn3Thread->join();
+    }
+    m_ovpn3Thread.reset();
+#endif
+
     if (m_ovpn->state() != QProcess::NotRunning) {
         m_ovpn->terminate();
         if (!m_ovpn->waitForFinished(4000)) {
@@ -521,3 +550,81 @@ void VpnSession::onOpenVpnError(QProcess::ProcessError e)
 {
     emit errorMessage(Datagate::tr("OpenVPN process error: %1").arg(static_cast<int>(e)));
 }
+
+#if defined(DATAGATE_EMBEDDED_OPENVPN3)
+
+void VpnSession::startEmbeddedOpenVpn3(const QString& patched, bool useUdp, quint16 bridgePort)
+{
+    emit statusMessage(useUdp ? Datagate::tr("UDP↔WSS bridge on port %1…").arg(bridgePort)
+                              : Datagate::tr("TCP↔WSS bridge on port %1…").arg(bridgePort));
+    emit statusMessage(Datagate::tr("Starting OpenVPN 3…"));
+    qCInfo(lcVpn, "OpenVPN 3: embedded core (IV_VER set at build time; guiVersion=datagate_linux/<app>)");
+
+    const QString appVer = QCoreApplication::applicationVersion().trimmed();
+    const QString guiVer = appVer.isEmpty() ? QStringLiteral("datagate_linux 0")
+                                            : QStringLiteral("datagate_linux %1").arg(appVer);
+
+    const std::string profile = patched.toUtf8().toStdString();
+    const std::string gui = guiVer.toUtf8().toStdString();
+
+    m_ovpn3Thread = std::make_unique<std::thread>([this, profile, gui]() {
+        Datagate::DatagateOvpn3Client client;
+        m_ovpn3Active.store(&client);
+        client.setCallbacks(
+            [this](const std::string& n, const std::string& i) {
+                const QString qn = QString::fromStdString(n);
+                const QString qi = QString::fromStdString(i);
+                QMetaObject::invokeMethod(
+                    this,
+                    [this, qn, qi]() { deliverOvpn3Event(qn, qi); },
+                    Qt::QueuedConnection);
+            },
+            [](const std::string& line) {
+                qCDebug(lcVpn).nospace() << "ovpn3: " << QString::fromStdString(line);
+            });
+        const std::string err = client.connectBlocking(profile, gui);
+        m_ovpn3Active.store(nullptr);
+        const QString qerr = err.empty() ? QString() : QString::fromUtf8(QByteArray::fromStdString(err));
+        QMetaObject::invokeMethod(
+            this,
+            [this, qerr]() { onOvpn3ThreadFinished(qerr); },
+            Qt::QueuedConnection);
+    });
+}
+
+void VpnSession::deliverOvpn3Event(const QString& name, const QString& info)
+{
+    if (info.isEmpty()) {
+        emit statusMessage(name);
+    } else {
+        emit statusMessage(name + QLatin1String(": ") + info);
+    }
+    if (name.compare(QLatin1String("CONNECTED"), Qt::CaseInsensitive) == 0) {
+        m_connecting = false;
+        emit vpnUp();
+    }
+}
+
+void VpnSession::onOvpn3ThreadFinished(const QString& errText)
+{
+    if (m_ovpn3Thread && m_ovpn3Thread->joinable()) {
+        m_ovpn3Thread->join();
+    }
+    m_ovpn3Thread.reset();
+
+    stopBridges();
+    m_connecting = false;
+
+    if (!errText.isEmpty() && !m_userStopVpn) {
+        emit errorMessage(Datagate::tr("OpenVPN 3: %1").arg(errText));
+    }
+
+    const bool stoppedByUser = m_userStopVpn;
+    m_userStopVpn = false;
+
+    if (!stoppedByUser) {
+        emit vpnDown();
+    }
+}
+
+#endif // DATAGATE_EMBEDDED_OPENVPN3

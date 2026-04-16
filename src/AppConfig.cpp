@@ -13,6 +13,7 @@ QString AppConfig::s_googleClientId;
 int AppConfig::s_googleRedirectPort = 51723;
 bool AppConfig::s_openVpnIgnoreRedirectGateway = false;
 bool AppConfig::s_udpBridgeFramed = true;
+bool AppConfig::s_openVpnUseSystemBinary = false;
 
 static bool readJsonFile(const QString& path, QJsonObject* out)
 {
@@ -37,6 +38,11 @@ bool AppConfig::load()
     s_googleRedirectPort = 51723;
     s_openVpnIgnoreRedirectGateway = false;
     s_udpBridgeFramed = true;
+#if defined(DATAGATE_EMBEDDED_OPENVPN3)
+    s_openVpnUseSystemBinary = false;
+#else
+    s_openVpnUseSystemBinary = true;
+#endif
 
     const QString exeDir = QCoreApplication::applicationDirPath();
     // Prefer cwd first (IDEs often set working dir to project root), then the executable directory.
@@ -82,6 +88,12 @@ bool AppConfig::load()
     // Default true (length-prefixed); set false if proxy sends one raw OpenVPN UDP datagram per WS binary frame.
     s_udpBridgeFramed = ovpn.value(QStringLiteral("UdpBridgeFramed")).toBool(true);
     qCInfo(lcUi, "AppConfig: OpenVpn.UdpBridgeFramed=%s", s_udpBridgeFramed ? "true" : "false");
+#if defined(DATAGATE_EMBEDDED_OPENVPN3)
+    if (ovpn.contains(QStringLiteral("UseSystemBinary"))) {
+        s_openVpnUseSystemBinary = ovpn.value(QStringLiteral("UseSystemBinary")).toBool(false);
+    }
+    qCInfo(lcUi, "AppConfig: OpenVpn.UseSystemBinary=%s", s_openVpnUseSystemBinary ? "true" : "false");
+#endif
 
     return !s_apiBaseUrl.isEmpty() && !s_googleClientId.isEmpty();
 }
@@ -109,4 +121,13 @@ bool AppConfig::openVpnIgnoreRedirectGateway()
 bool AppConfig::udpBridgeFramed()
 {
     return s_udpBridgeFramed;
+}
+
+bool AppConfig::openVpnUseSystemBinary()
+{
+#if !defined(DATAGATE_EMBEDDED_OPENVPN3)
+    return true;
+#else
+    return s_openVpnUseSystemBinary;
+#endif
 }

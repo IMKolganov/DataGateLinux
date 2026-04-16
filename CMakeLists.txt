@@ -7,7 +7,23 @@ set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)
 set(CMAKE_AUTOUIC ON)
 
+if(EXISTS "${CMAKE_SOURCE_DIR}/third_party/openvpn3/client/ovpncli.hpp"
+   AND EXISTS "${CMAKE_SOURCE_DIR}/third_party/asio/asio/include/asio.hpp")
+    option(DATAGATE_USE_EMBEDDED_OPENVPN3 "Link embedded OpenVPN 3 core (third_party/openvpn3 + asio)" ON)
+else()
+    option(DATAGATE_USE_EMBEDDED_OPENVPN3 "Link embedded OpenVPN 3 core (third_party/openvpn3 + asio)" OFF)
+endif()
+
+if(DATAGATE_USE_EMBEDDED_OPENVPN3)
+    include("${CMAKE_SOURCE_DIR}/cmake/DatagateOpenVpn3.cmake")
+endif()
+
 find_package(Qt6 REQUIRED COMPONENTS Core Gui Widgets Network WebSockets)
+
+set(DATAGATE_OVPN3_SOURCES "")
+if(DATAGATE_USE_EMBEDDED_OPENVPN3)
+    list(APPEND DATAGATE_OVPN3_SOURCES src/DatagateOvpn3Client.cpp)
+endif()
 
 qt_add_executable(DataGateLinux
     src/main.cpp
@@ -27,6 +43,7 @@ qt_add_executable(DataGateLinux
     src/StatisticsPanel.h
     src/VpnSession.cpp
     src/VpnSession.h
+    ${DATAGATE_OVPN3_SOURCES}
     src/WssTcpBridge.cpp
     src/WssTcpBridge.h
     src/UdpWssBridge.cpp
@@ -49,6 +66,11 @@ target_link_libraries(DataGateLinux PRIVATE
     Qt6::Network
     Qt6::WebSockets
 )
+
+if(DATAGATE_USE_EMBEDDED_OPENVPN3)
+    target_compile_definitions(DataGateLinux PRIVATE DATAGATE_EMBEDDED_OPENVPN3=1)
+    target_link_libraries(DataGateLinux PRIVATE datagate_ovpn3_core)
+endif()
 
 # Regenerate sources: python3 tools/build_catalog_jsonl.py && python3 tools/gen_datagate_ts.py
 # lrelease: often NOT on PATH when building from an IDE; search next to this Qt6 and usual distro paths.
