@@ -48,8 +48,8 @@ int main(int argc, char* argv[])
         const int tracer = DatagateUtils::linuxProcSelfTracerPid();
         if (tracer > 0) {
             qCWarning(lcUi,
-                "TracerPid=%lld: process is ptraced (debugger). File capabilities (setcap) usually do not apply — "
-                "run without debugging or from a terminal.",
+                "TracerPid=%lld: ptrace active — setcap on this binary is ignored. Use a system terminal outside the "
+                "IDE, or OpenVpn.UseSystemBinary=true + setcap on openvpn (see appsettings.example.json).",
                 static_cast<long long>(tracer));
         }
     }

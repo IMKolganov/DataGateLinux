@@ -595,17 +595,23 @@ void MainWindow::showEvent(QShowEvent* e)
         if (tracer > 0) {
             m_didPtraceEmbeddedVpnWarn = true;
             appendLog(Datagate::tr(
-                "Embedded VPN: a debugger is attached (TracerPid=%1). setcap/Grant does not give capabilities to this "
-                "process — run without debugging or from a terminal.")
+                "Embedded VPN: TracerPid=%1 (ptrace). setcap on DataGate is ignored — use an external terminal (not "
+                "the IDE’s), or set OpenVpn.UseSystemBinary=true and cap_net_admin on /usr/sbin/openvpn.")
                 .arg(tracer));
             QMessageBox::warning(
                 this,
                 Datagate::tr("DataGate"),
                 Datagate::tr(
-                    "A debugger is attached (ptrace). Linux will not apply file capabilities (setcap / Grant TUN) to "
-                    "this run — VPN TUN will fail.\n\n"
+                    "A debugger or IDE tool has attached ptrace to this process (TracerPid ≠ 0). Linux then ignores "
+                    "file capabilities on this executable — embedded OpenVPN cannot open TUN.\n\n"
                     "This is not fixed by root or sudo.\n\n"
-                    "Use “Run without debugging”, or start from a terminal:\n%1")
+                    "• Start DataGate from a normal system terminal outside Cursor/VS Code (Konsole, GNOME Terminal, "
+                    "etc.), not the IDE’s integrated terminal if TracerPid stays non-zero.\n"
+                    "• Or use Run without debugging / detach debugger.\n\n"
+                    "Developer workaround: in appsettings.json set \"OpenVpn\": { \"UseSystemBinary\": true }, "
+                    "sudo setcap cap_net_admin+ep $(command -v openvpn), then restart — VPN uses the openvpn binary "
+                    "instead of the embedded core.\n\n"
+                    "Launch example:\n%1")
                     .arg(QCoreApplication::applicationFilePath()));
         }
     }
