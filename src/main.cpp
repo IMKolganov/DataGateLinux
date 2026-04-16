@@ -44,6 +44,15 @@ int main(int argc, char* argv[])
 
 #if defined(__linux__) && defined(DATAGATE_EMBEDDED_OPENVPN3)
     DatagateUtils::linuxTryRaiseEffectiveCapNetAdmin();
+    {
+        const int tracer = DatagateUtils::linuxProcSelfTracerPid();
+        if (tracer > 0) {
+            qCWarning(lcUi,
+                "TracerPid=%lld: process is ptraced (debugger). File capabilities (setcap) usually do not apply — "
+                "run without debugging or from a terminal.",
+                static_cast<long long>(tracer));
+        }
+    }
 #endif
 
     if (!AppConfig::load()) {

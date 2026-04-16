@@ -584,6 +584,21 @@ QString linuxFileGetcapLine(const QString& canonicalExecutablePath)
     return out.isEmpty() ? err : out;
 }
 
+int linuxProcSelfTracerPid()
+{
+    QFile st(QStringLiteral("/proc/self/status"));
+    if (!st.open(QIODevice::ReadOnly)) {
+        return -1;
+    }
+    const QByteArray raw = st.readAll();
+    for (const QByteArray& line : raw.split('\n')) {
+        if (line.startsWith("TracerPid:")) {
+            return line.mid(line.indexOf(':') + 1).trimmed().toInt();
+        }
+    }
+    return -1;
+}
+
 namespace {
 
 quint64 parseCapStatusField(const QByteArray& line)
@@ -639,7 +654,6 @@ bool linuxTryRaiseEffectiveCapNetAdmin()
 
 QString linuxEmbeddedVpnTunDiagnosis(const QString& qAppExecutablePath)
 {
-    QString out;
     QString procExe;
     std::error_code ec;
     const std::filesystem::path sym = std::filesystem::read_symlink("/proc/self/exe", ec);
@@ -652,17 +666,14 @@ QString linuxEmbeddedVpnTunDiagnosis(const QString& qAppExecutablePath)
     }
     const QFileInfo fiQt(qAppExecutablePath);
     const QString qtCanon = fiQt.exists() ? fiQt.canonicalFilePath() : qAppExecutablePath;
-    out += QStringLiteral("Running binary (/proc/self/exe): %1\n").arg(procExe.isEmpty() ? QStringLiteral("(unknown)") : procExe);
-    out += QStringLiteral("QCoreApplication::applicationFilePath: %1\n").arg(qtCanon);
-    out += QStringLiteral("Paths match: %1\n\n").arg(!procExe.isEmpty() && procExe == qtCanon ? QStringLiteral("yes")
-                                                                                              : QStringLiteral("no"));
 
     QFile st(QStringLiteral("/proc/self/status"));
     quint64 capEff = 0;
     quint64 capPrm = 0;
     int noNewPrivs = -1;
     int tracerPid = -1;
-    if (st.open(QIODevice::ReadOnly)) {
+    const bool statusReadOk = st.open(QIODevice::ReadOnly);
+    if (statusReadOk) {
         const QByteArray raw = st.readAll();
         for (const QByteArray& line : raw.split('\n')) {
             if (line.startsWith("CapEff:")) {
@@ -675,7 +686,31 @@ QString linuxEmbeddedVpnTunDiagnosis(const QString& qAppExecutablePath)
                 tracerPid = line.mid(line.indexOf(':') + 1).trimmed().toInt();
             }
         }
-    } else {
+    }
+
+    QString prefix;
+    if (tracerPid > 0) {
+        prefix = Datagate::tr(
+            "——————\n"
+            "DEBUGGER / PTRACE (TracerPid is %1 — not 0)\n\n"
+            "When the process is under a debugger (ptrace), Linux usually does not give it file capabilities from "
+            "setcap: CapPrm and CapEff stay 0 even if getcap on the binary shows cap_net_admin.\n\n"
+            "This is not about root or “superuser”, and sudo on the whole app is not the right fix.\n\n"
+            "What to do: stop debugging this run — close the IDE “attach debugger” session, or use Run without "
+            "debugging / Start without debugger, or run the binary from a normal terminal:\n"
+            "  %2\n"
+            "——————\n\n")
+            .arg(tracerPid)
+            .arg(qtCanon);
+    }
+
+    QString out;
+    out += QStringLiteral("Running binary (/proc/self/exe): %1\n").arg(procExe.isEmpty() ? QStringLiteral("(unknown)") : procExe);
+    out += QStringLiteral("QCoreApplication::applicationFilePath: %1\n").arg(qtCanon);
+    out += QStringLiteral("Paths match: %1\n\n").arg(!procExe.isEmpty() && procExe == qtCanon ? QStringLiteral("yes")
+                                                                                              : QStringLiteral("no"));
+
+    if (!statusReadOk) {
         out += QStringLiteral("(could not read /proc/self/status)\n\n");
     }
 
@@ -692,9 +727,7 @@ QString linuxEmbeddedVpnTunDiagnosis(const QString& qAppExecutablePath)
         out += QStringLiteral("NoNewPrivs: %1\n").arg(noNewPrivs);
     }
     if (tracerPid > 0) {
-        out += QStringLiteral(
-            "TracerPid: %1 — a debugger may block TUN; run the binary from a terminal without attaching a debugger.\n")
-            .arg(tracerPid);
+        out += QStringLiteral("TracerPid: %1 (debugger — see block above)\n").arg(tracerPid);
     }
     out += QLatin1Char('\n');
     const QString forGetcap = procExe.isEmpty() ? qtCanon : procExe;
@@ -704,7 +737,7 @@ QString linuxEmbeddedVpnTunDiagnosis(const QString& qAppExecutablePath)
         "\nInstall libcap-dev (or libcap-devel) and rebuild — DataGate can then promote permitted CAP_NET_ADMIN to "
         "effective when needed.\n");
 #endif
-    return out;
+    return prefix + out;
 }
 
 #endif

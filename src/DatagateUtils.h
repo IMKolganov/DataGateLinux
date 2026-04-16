@@ -82,6 +82,9 @@ QString userMessageWhenApiUnavailable(QNetworkReply* rep);
 /// Linux: `getcap` output for this path (best-effort).
 QString linuxFileGetcapLine(const QString& canonicalExecutablePath);
 
+/// `/proc/self/status` TracerPid, or -1 if unreadable. Non-zero ⇒ ptrace (debugger attached).
+int linuxProcSelfTracerPid();
+
 /// Multi-line diagnosis: /proc/self/exe vs Qt path, CapEff/CapPrm, TracerPid, getcap on running binary.
 QString linuxEmbeddedVpnTunDiagnosis(const QString& qAppExecutablePath);
 

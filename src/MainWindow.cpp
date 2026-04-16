@@ -589,6 +589,27 @@ void MainWindow::showEvent(QShowEvent* e)
         m_centerOnFirstShow = false;
         AppTheme::centerWidgetOnScreen(this);
     }
+#if defined(__linux__) && defined(DATAGATE_EMBEDDED_OPENVPN3)
+    if (!m_didPtraceEmbeddedVpnWarn && !AppConfig::openVpnUseSystemBinary()) {
+        const int tracer = DatagateUtils::linuxProcSelfTracerPid();
+        if (tracer > 0) {
+            m_didPtraceEmbeddedVpnWarn = true;
+            appendLog(Datagate::tr(
+                "Embedded VPN: a debugger is attached (TracerPid=%1). setcap/Grant does not give capabilities to this "
+                "process — run without debugging or from a terminal.")
+                .arg(tracer));
+            QMessageBox::warning(
+                this,
+                Datagate::tr("DataGate"),
+                Datagate::tr(
+                    "A debugger is attached (ptrace). Linux will not apply file capabilities (setcap / Grant TUN) to "
+                    "this run — VPN TUN will fail.\n\n"
+                    "This is not fixed by root or sudo.\n\n"
+                    "Use “Run without debugging”, or start from a terminal:\n%1")
+                    .arg(QCoreApplication::applicationFilePath()));
+        }
+    }
+#endif
     if (!m_didSilentServerRefresh) {
         m_didSilentServerRefresh = true;
         refreshServers(false);
@@ -1020,9 +1041,9 @@ void MainWindow::retranslateUi()
         if (!AppConfig::openVpnUseSystemBinary()) {
             m_tunHintLabel->setText(Datagate::tr(
                 "Tunnel (TUN): embedded OpenVPN runs inside DataGate — Linux needs CAP_NET_ADMIN on this "
-                "application binary. Use Grant TUN capability or:\n"
-                "sudo setcap cap_net_admin+ep \"<path-to-DataGateLinux>\"\n"
-                "Restart the app after setcap. Prefer this over running the whole app as sudo."));
+                "application binary. Use Grant TUN or sudo setcap on that binary, then fully restart the app.\n"
+                "Do not run under a debugger (IDE “debug”): ptrace prevents setcap from applying — use Run without "
+                "debugging or start from a terminal."));
         } else
 #endif
         {

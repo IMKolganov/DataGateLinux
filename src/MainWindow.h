@@ -106,4 +106,7 @@ private:
     bool m_vpnTunnelUp = false;
     /// For retranslateUi: last total on Access page, or -1 for "—".
     int m_accessTotalClientsCount = -1;
+#if defined(__linux__) && defined(DATAGATE_EMBEDDED_OPENVPN3)
+    bool m_didPtraceEmbeddedVpnWarn = false;
+#endif
 };
