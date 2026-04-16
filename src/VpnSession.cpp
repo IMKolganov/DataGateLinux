@@ -372,7 +372,25 @@ void VpnSession::stepStartBridgeAndOpenVpn(const QString& configText)
 
 #if defined(DATAGATE_EMBEDDED_OPENVPN3)
     if (!AppConfig::openVpnUseSystemBinary()) {
-        startEmbeddedOpenVpn3(patched, useUdp, bridgePort);
+        QString embeddedBody = patched;
+        {
+#if defined(OPENVPN_VERSION)
+            const QString peerLabel = QStringLiteral(OPENVPN_VERSION);
+#else
+            const QString appVer = QCoreApplication::applicationVersion().trimmed();
+            const QString peerLabel = appVer.isEmpty() ? QStringLiteral("datagate_linux_embedded_unknown")
+                                                       : QStringLiteral("datagate_linux_%1").arg(appVer);
+#endif
+            if (!embeddedBody.contains(QLatin1String("push-peer-info"), Qt::CaseInsensitive)) {
+                embeddedBody += QStringLiteral("\npush-peer-info\n");
+            }
+            embeddedBody += QStringLiteral("\n# DataGate client version (sent as peer-info UV_DATAGATE_APP)\nsetenv "
+                                          "UV_DATAGATE_APP ");
+            embeddedBody += peerLabel;
+            embeddedBody += QLatin1Char('\n');
+            qCInfo(lcVpn, "OpenVPN 3 embedded: UV_DATAGATE_APP=%s", qPrintable(peerLabel));
+        }
+        startEmbeddedOpenVpn3(embeddedBody, useUdp, bridgePort);
         return;
     }
 #endif
@@ -580,7 +598,7 @@ void VpnSession::startEmbeddedOpenVpn3(const QString& patched, bool useUdp, quin
                     Qt::QueuedConnection);
             },
             [](const std::string& line) {
-                qCDebug(lcVpn).nospace() << "ovpn3: " << QString::fromStdString(line);
+                qCInfo(lcVpn).nospace() << "ovpn3: " << QString::fromStdString(line);
             });
         const std::string err = client.connectBlocking(profile, gui);
         m_ovpn3Active.store(nullptr);

@@ -191,14 +191,13 @@ void WssTcpBridge::onNewConnection()
     while (m_server->hasPendingConnections()) {
         QTcpSocket* tcp = m_server->nextPendingConnection();
         tcp->setSocketOption(QAbstractSocket::LowDelayOption, 1);
-        // OpenVPN may briefly overlap two local TCP connects on restart; killing the first session
-        // caused live tunnels to reset. Reject the extra socket — the active tunnel stays up.
+        // OpenVPN 2 usually keeps one local TCP to the bridge. OpenVPN 3 may start a new TCP
+        // before the previous session has fully torn down (reconnect overlap). Rejecting the new
+        // socket caused endless RESOLVE/WAIT/RECONNECTING. Replace the previous bridge session.
         if (m_bridgeSession) {
-            qCWarning(lcBridge) << "Rejecting extra TCP to bridge port" << m_server->serverPort()
-                                << "(active OpenVPN session already bound)";
-            tcp->abort();
-            tcp->deleteLater();
-            continue;
+            qCInfo(lcBridge) << "Replacing active TCP bridge session (reconnect / overlapping connect) on port"
+                             << m_server->serverPort();
+            static_cast<BridgeConnection*>(m_bridgeSession)->requestShutdown();
         }
         new BridgeConnection(tcp, m_wssUrl, this);
     }
