@@ -78,4 +78,9 @@ QString datagateLinuxPeerVersionLabel(const QString& resolvedOpenVpnExecutable);
 /// User-visible message when the API host is unreachable or returns 5xx. Empty if the caller should show a detailed/server message.
 QString userMessageWhenApiUnavailable(QNetworkReply* rep);
 
+#if defined(__linux__)
+/// Linux: `getcap` output for this path (best-effort).
+QString linuxFileGetcapLine(const QString& canonicalExecutablePath);
+#endif
+
 } // namespace DatagateUtils

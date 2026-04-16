@@ -549,4 +549,34 @@ QString userMessageWhenApiUnavailable(QNetworkReply* rep)
     return {};
 }
 
+#if defined(__linux__)
+
+QString linuxFileGetcapLine(const QString& canonicalExecutablePath)
+{
+    QFileInfo fi(canonicalExecutablePath);
+    if (!fi.exists() || !fi.isExecutable()) {
+        return {};
+    }
+    const QString path = fi.canonicalFilePath();
+    QProcess p;
+    p.start(QStringLiteral("getcap"), QStringList{path});
+    if (!p.waitForFinished(8000)) {
+        return Datagate::tr("(getcap timed out)");
+    }
+    if (p.error() == QProcess::FailedToStart) {
+        return Datagate::tr("(getcap not found — install libcap2-bin)");
+    }
+    const QString out = QString::fromUtf8(p.readAllStandardOutput()).trimmed();
+    const QString err = QString::fromUtf8(p.readAllStandardError()).trimmed();
+    if (p.exitCode() != 0 && out.isEmpty()) {
+        return err.isEmpty() ? Datagate::tr("(getcap failed)") : err;
+    }
+    if (out.isEmpty() && err.isEmpty()) {
+        return Datagate::tr("(no file capabilities — run Grant or sudo setcap)");
+    }
+    return out.isEmpty() ? err : out;
+}
+
+#endif
+
 } // namespace DatagateUtils

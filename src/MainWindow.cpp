@@ -635,6 +635,12 @@ void MainWindow::loadSettings()
     if (m_statisticsPanel) {
         m_statisticsPanel->retranslateUi();
     }
+#if defined(__linux__) && defined(DATAGATE_EMBEDDED_OPENVPN3)
+    if (!AppConfig::openVpnUseSystemBinary()) {
+        const QString capLine = DatagateUtils::linuxFileGetcapLine(QCoreApplication::applicationFilePath());
+        qCInfo(lcUi, "Embedded OpenVPN 3: file capabilities (getcap): %s", qPrintable(capLine));
+    }
+#endif
 }
 
 void MainWindow::saveSettings()
@@ -708,10 +714,19 @@ void MainWindow::grantOpenVpnCapNetAdmin()
     const QString stdOut = QString::fromUtf8(p.readAllStandardOutput()).trimmed();
     const QString combined = stdOut.isEmpty() ? errOut : (stdOut + Datagate::tr("\n") + errOut);
     if (p.exitCode() == 0) {
+        const QString capVerify = DatagateUtils::linuxFileGetcapLine(fi.canonicalFilePath());
         QMessageBox::information(this, Datagate::tr("DataGate"),
-            Datagate::tr("Capability granted.\n%1\n\nVerify: getcap %2")
-                .arg(combined, fi.canonicalFilePath()));
+            Datagate::tr(
+                "setcap finished.\n%1\n\ngetcap:\n%2\n\n"
+                "You must quit DataGate completely and start it again — only a new process picks up file capabilities.\n\n"
+                "After each CMake rebuild, run Grant again (the new executable loses the previous capability).")
+                .arg(combined.isEmpty() ? Datagate::tr("(no pkexec output)") : combined,
+                    capVerify.isEmpty() ? Datagate::tr("(empty — run: getcap \"%1\")").arg(fi.canonicalFilePath())
+                                        : capVerify));
         appendLog(Datagate::tr("setcap cap_net_admin+ep on ") + fi.canonicalFilePath());
+        if (capDataGateBinary) {
+            appendLog(Datagate::tr("Restart DataGate (exit app, then launch again) for TUN to work."));
+        }
     } else {
         QMessageBox::warning(
             this,

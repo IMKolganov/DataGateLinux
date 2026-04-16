@@ -672,13 +672,21 @@ void VpnSession::maybeEmitEmbeddedTunCapHint(const QString& ovpn3LogLine)
     }
     m_ovpn3TunCapHintEmitted = true;
     const QString exe = QCoreApplication::applicationFilePath();
+    QString getcapTail;
+#if defined(__linux__)
+    getcapTail = Datagate::tr("\n\ngetcap on this file now:\n%1")
+        .arg(DatagateUtils::linuxFileGetcapLine(exe));
+#endif
     emit openVpnCapabilitySetupRecommended(
-        Datagate::tr("TUN device could not be opened (Operation not permitted).\n\n"
-                     "Embedded OpenVPN 3 creates /dev/net/tun inside this process. On Linux, grant "
-                     "CAP_NET_ADMIN to the DataGate binary, then restart the app:\n\n"
-                     "sudo setcap cap_net_admin+ep \"%1\"\n\n"
-                     "Or use Settings → Grant TUN capability (applies to this app when embedded core is enabled).")
-            .arg(exe));
+        Datagate::tr(
+            "TUN device could not be opened (Operation not permitted).\n\n"
+            "Embedded OpenVPN 3 opens /dev/net/tun in this process; the DataGate executable needs CAP_NET_ADMIN.\n\n"
+            "If you already used Settings → Grant: file capabilities apply only after you start a new process — "
+            "completely quit DataGate (exit the application) and launch it again. Disconnecting VPN is not enough.\n\n"
+            "If you ran CMake build after Grant: run Grant again — the rebuilt binary is a new file without the old "
+            "capability.\n\n"
+            "sudo setcap cap_net_admin+ep \"%1\"%2")
+            .arg(exe, getcapTail));
 }
 
 #endif // DATAGATE_EMBEDDED_OPENVPN3
