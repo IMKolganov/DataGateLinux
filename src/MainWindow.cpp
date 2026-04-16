@@ -235,6 +235,29 @@ MainWindow::MainWindow(AuthSession* session, QWidget* parent)
     accTitle->setObjectName(QStringLiteral("titleH1"));
     m_accessPageTitle = accTitle;
     accLay->addWidget(accTitle);
+
+    m_accessSubscriptionCard = new QFrame(this);
+    m_accessSubscriptionCard->setObjectName(QStringLiteral("card"));
+    auto* subLay = new QVBoxLayout(m_accessSubscriptionCard);
+    subLay->setContentsMargins(18, 18, 18, 18);
+    subLay->setSpacing(8);
+    m_accessSubscriptionHeading = new QLabel(Datagate::tr("Your plan & quotas"), this);
+    m_accessSubscriptionHeading->setObjectName(QStringLiteral("titleH2"));
+    subLay->addWidget(m_accessSubscriptionHeading);
+    m_accessPlanLabel = new QLabel(Datagate::tr("Plan: —"), this);
+    m_accessPlanLabel->setObjectName(QStringLiteral("muted"));
+    m_accessPlanLabel->setWordWrap(true);
+    subLay->addWidget(m_accessPlanLabel);
+    m_accessTrafficLabel = new QLabel(Datagate::tr("Traffic quota: —"), this);
+    m_accessTrafficLabel->setObjectName(QStringLiteral("muted"));
+    m_accessTrafficLabel->setWordWrap(true);
+    subLay->addWidget(m_accessTrafficLabel);
+    m_accessValidLabel = new QLabel(Datagate::tr("Valid until: —"), this);
+    m_accessValidLabel->setObjectName(QStringLiteral("muted"));
+    m_accessValidLabel->setWordWrap(true);
+    subLay->addWidget(m_accessValidLabel);
+    accLay->addWidget(m_accessSubscriptionCard);
+
     auto* accRow = new QHBoxLayout();
     m_refreshServersBtn = new QPushButton(Datagate::tr("Refresh server list"), this);
     m_refreshServersBtn->setProperty("primary", true);
@@ -503,6 +526,21 @@ MainWindow::MainWindow(AuthSession* session, QWidget* parent)
             return;
         }
         const QString tok = m_session->accessToken();
+        QString licErr;
+        if (DatagateUtils::fetchUserVpnAccessInfoSync(m_nam, url, tok, &m_lastVpnAccessInfo, &licErr)) {
+            applyVpnAccessInfoToAccessPage();
+            if (!m_lastVpnAccessInfo.canUseVpn) {
+                m_connectBtn->setEnabled(true);
+                m_connectBtn->setText(Datagate::tr("Connect"));
+                const QString detail = m_lastVpnAccessInfo.restrictionMessage.isEmpty()
+                    ? Datagate::tr("Your subscription or license does not allow VPN access right now.")
+                    : m_lastVpnAccessInfo.restrictionMessage;
+                QMessageBox::warning(this, Datagate::tr("DataGate"), detail);
+                return;
+            }
+        } else {
+            qCWarning(lcUi, "Connect: license check failed: %s (connect allowed)", qPrintable(licErr));
+        }
         const bool autoPick = m_serverModeCombo->currentData().toInt() == 0;
         int manualId = 0;
         if (!autoPick) {
@@ -840,7 +878,7 @@ void MainWindow::refreshServers(bool showErrorDialogs)
 
     m_refreshServersBtn->setEnabled(false);
     QNetworkReply* reply = m_nam->get(req);
-    connect(reply, &QNetworkReply::finished, this, [this, reply, showErrorDialogs]() {
+    connect(reply, &QNetworkReply::finished, this, [this, reply, showErrorDialogs, base, tok]() {
         m_refreshServersBtn->setEnabled(true);
         if (reply->error() != QNetworkReply::NoError) {
             const QString err = reply->errorString();
@@ -898,7 +936,40 @@ void MainWindow::refreshServers(bool showErrorDialogs)
                 Datagate::tr("Total clients: %1").arg(totalClients));
         }
         applyWssServerList(raw);
+
+        QString accErr;
+        if (DatagateUtils::fetchUserVpnAccessInfoSync(m_nam, base, tok, &m_lastVpnAccessInfo, &accErr)) {
+            applyVpnAccessInfoToAccessPage();
+        } else {
+            qCWarning(lcUi, "Subscription / license info: %s", qPrintable(accErr));
+        }
     });
+}
+
+void MainWindow::applyVpnAccessInfoToAccessPage()
+{
+    const DatagateUtils::UserVpnAccessInfo& i = m_lastVpnAccessInfo;
+    if (m_accessPlanLabel) {
+        const QString p = i.planName.isEmpty() ? QStringLiteral("—") : i.planName;
+        m_accessPlanLabel->setText(Datagate::tr("Plan: %1").arg(p));
+    }
+    if (m_accessTrafficLabel) {
+        if (i.trafficUsedMb < 0 && i.trafficQuotaMb < 0) {
+            m_accessTrafficLabel->setText(Datagate::tr("Traffic quota: —"));
+        } else {
+            const QString u = i.trafficUsedMb >= 0 ? QString::number(i.trafficUsedMb, 'f', 2) : QStringLiteral("—");
+            const QString q = i.trafficQuotaMb >= 0 ? QString::number(i.trafficQuotaMb, 'f', 2) : QStringLiteral("—");
+            m_accessTrafficLabel->setText(Datagate::tr("Traffic (MB): %1 / %2").arg(u, q));
+        }
+    }
+    if (m_accessValidLabel) {
+        if (i.validUntil.isValid()) {
+            m_accessValidLabel->setText(
+                Datagate::tr("Valid until: %1").arg(i.validUntil.toLocalTime().toString(Qt::ISODate)));
+        } else {
+            m_accessValidLabel->setText(Datagate::tr("Valid until: —"));
+        }
+    }
 }
 
 void MainWindow::changeEvent(QEvent* event)
@@ -946,6 +1017,10 @@ void MainWindow::retranslateUi()
     if (m_accessPageTitle) {
         m_accessPageTitle->setText(Datagate::tr("Access"));
     }
+    if (m_accessSubscriptionHeading) {
+        m_accessSubscriptionHeading->setText(Datagate::tr("Your plan & quotas"));
+    }
+    applyVpnAccessInfoToAccessPage();
     if (m_refreshServersBtn) {
         m_refreshServersBtn->setText(Datagate::tr("Refresh server list"));
     }

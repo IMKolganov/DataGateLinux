@@ -2,6 +2,7 @@
 
 #include <QtGlobal>
 
+#include <QDateTime>
 #include <QString>
 #include <QStringList>
 #include <QUrl>
@@ -10,6 +11,7 @@
 #include <optional>
 
 class QNetworkReply;
+class QNetworkAccessManager;
 
 struct BestServer {
     int serverId = 0;
@@ -79,6 +81,23 @@ QString datagateLinuxPeerVersionLabel(const QString& resolvedOpenVpnExecutable);
 
 /// User-visible message when the API host is unreachable or returns 5xx. Empty if the caller should show a detailed/server message.
 QString userMessageWhenApiUnavailable(QNetworkReply* rep);
+
+/// VPN subscription / license snapshot (GET api/.../get-current style). Matches Android “plan + quotas” when API returns data.
+struct UserVpnAccessInfo {
+    QString planName;
+    /// -1 if unknown
+    double trafficUsedMb = -1;
+    /// -1 if unknown; 0 may mean “no quota set” depending on API
+    double trafficQuotaMb = -1;
+    QDateTime validUntil;
+    bool canUseVpn = true;
+    QString restrictionMessage;
+};
+
+/// Blocking GET (same pattern as AuthSession refresh). Tries known paths; if none exist (404), returns true and leaves defaults (fail-open).
+/// On explicit API denial, sets canUseVpn false.
+bool fetchUserVpnAccessInfoSync(QNetworkAccessManager* nam, const QString& apiBaseUrl, const QString& bearerToken,
+    UserVpnAccessInfo* out, QString* errorOut);
 
 #if defined(__linux__)
 /// Linux: `getcap` output for this path (best-effort).

@@ -1,5 +1,7 @@
 #pragma once
 
+#include "DatagateUtils.h"
+
 #include <QMainWindow>
 
 class QEvent;
@@ -9,6 +11,7 @@ class QShowEvent;
 class AuthSession;
 class QCheckBox;
 class QComboBox;
+class QFrame;
 class QLineEdit;
 class QPlainTextEdit;
 class QPushButton;
@@ -49,6 +52,7 @@ private:
     void grantOpenVpnCapNetAdmin();
     void onOpenVpnCapabilityRecommended(const QString& detail);
     void updateServerModeUi();
+    void applyVpnAccessInfoToAccessPage();
 
     AuthSession* m_session = nullptr;
 
@@ -65,6 +69,12 @@ private:
     QPushButton* m_refreshServersBtn = nullptr;
     QPushButton* m_logoutBtn = nullptr;
     QTableWidget* m_serverTable = nullptr;
+    QFrame* m_accessSubscriptionCard = nullptr;
+    QLabel* m_accessSubscriptionHeading = nullptr;
+    QLabel* m_accessPlanLabel = nullptr;
+    QLabel* m_accessTrafficLabel = nullptr;
+    QLabel* m_accessValidLabel = nullptr;
+    DatagateUtils::UserVpnAccessInfo m_lastVpnAccessInfo;
     QLabel* m_accessTotalClientsLabel = nullptr;
     QListWidget* m_nav = nullptr;
     QStackedWidget* m_stack = nullptr;

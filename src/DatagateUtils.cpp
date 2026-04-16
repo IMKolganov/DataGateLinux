@@ -14,6 +14,8 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QLoggingCategory>
+#include <QEventLoop>
+#include <QNetworkAccessManager>
 #include <QNetworkReply>
 #include <QNetworkRequest>
 #include <QProcess>
@@ -554,6 +556,186 @@ QString userMessageWhenApiUnavailable(QNetworkReply* rep)
         break;
     }
     return {};
+}
+
+namespace {
+
+QString jsonStrField(const QJsonObject& o, const QStringList& keys)
+{
+    for (const QString& k : keys) {
+        const QJsonValue v = o.value(k);
+        if (v.isString() && !v.toString().isEmpty()) {
+            return v.toString();
+        }
+    }
+    return {};
+}
+
+double jsonDoubleField(const QJsonObject& o, const QStringList& keys, double def)
+{
+    for (const QString& k : keys) {
+        if (!o.contains(k)) {
+            continue;
+        }
+        const QJsonValue v = o.value(k);
+        if (v.isDouble()) {
+            return v.toDouble();
+        }
+        if (v.isString()) {
+            bool ok = false;
+            const double d = v.toString().toDouble(&ok);
+            return ok ? d : def;
+        }
+    }
+    return def;
+}
+
+void applyUserVpnAccessFromDataObject(const QJsonObject& data, UserVpnAccessInfo* out)
+{
+    if (!out) {
+        return;
+    }
+    out->planName = jsonStrField(data,
+        {QStringLiteral("planName"), QStringLiteral("PlanName"), QStringLiteral("subscriptionPlan"),
+            QStringLiteral("tariffName"), QStringLiteral("plan")});
+
+    const double usedMb = jsonDoubleField(data,
+        {QStringLiteral("trafficUsedMb"), QStringLiteral("TrafficUsedMb"), QStringLiteral("usedTrafficMb")}, -1);
+    const double quotaMb = jsonDoubleField(data,
+        {QStringLiteral("trafficQuotaMb"), QStringLiteral("TrafficQuotaMb"), QStringLiteral("quotaTrafficMb"),
+            QStringLiteral("trafficLimitMb")},
+        -1);
+    const double usedBytes = jsonDoubleField(data,
+        {QStringLiteral("trafficUsedBytes"), QStringLiteral("TrafficUsedBytes")}, -1);
+    const double quotaBytes = jsonDoubleField(data,
+        {QStringLiteral("trafficQuotaBytes"), QStringLiteral("TrafficQuotaBytes"),
+            QStringLiteral("trafficLimitBytes")},
+        -1);
+
+    if (usedMb >= 0) {
+        out->trafficUsedMb = usedMb;
+    } else if (usedBytes >= 0) {
+        out->trafficUsedMb = usedBytes / (1024.0 * 1024.0);
+    }
+    if (quotaMb >= 0) {
+        out->trafficQuotaMb = quotaMb;
+    } else if (quotaBytes >= 0) {
+        out->trafficQuotaMb = quotaBytes / (1024.0 * 1024.0);
+    }
+
+    const QString vu = jsonStrField(data,
+        {QStringLiteral("licenseValidUntil"), QStringLiteral("LicenseValidUntil"), QStringLiteral("validUntil"),
+            QStringLiteral("subscriptionEnd"), QStringLiteral("expiresAt")});
+    if (!vu.isEmpty()) {
+        QDateTime dt = QDateTime::fromString(vu, Qt::ISODateWithMs);
+        if (!dt.isValid()) {
+            dt = QDateTime::fromString(vu, Qt::ISODate);
+        }
+        if (dt.isValid()) {
+            out->validUntil = dt.toUTC();
+        }
+    }
+
+    out->canUseVpn = true;
+    if (data.contains(QStringLiteral("canUseVpn")) && !data.value(QStringLiteral("canUseVpn")).toBool(true)) {
+        out->canUseVpn = false;
+    }
+    if (data.contains(QStringLiteral("CanUseVpn")) && !data.value(QStringLiteral("CanUseVpn")).toBool(true)) {
+        out->canUseVpn = false;
+    }
+    if (data.contains(QStringLiteral("isLicenseActive")) && !data.value(QStringLiteral("isLicenseActive")).toBool(true)) {
+        out->canUseVpn = false;
+    }
+    if (data.contains(QStringLiteral("IsLicenseActive")) && !data.value(QStringLiteral("IsLicenseActive")).toBool(true)) {
+        out->canUseVpn = false;
+    }
+
+    out->restrictionMessage = jsonStrField(data,
+        {QStringLiteral("restrictionMessage"), QStringLiteral("RestrictionMessage"), QStringLiteral("blockReason"),
+            QStringLiteral("denialReason")});
+}
+
+} // namespace
+
+bool fetchUserVpnAccessInfoSync(QNetworkAccessManager* nam, const QString& apiBaseUrl, const QString& bearerToken,
+    UserVpnAccessInfo* out, QString* errorOut)
+{
+    if (!nam || !out) {
+        if (errorOut) {
+            *errorOut = Datagate::tr("Internal error (no network manager).");
+        }
+        return false;
+    }
+    *out = UserVpnAccessInfo{};
+    QString base = apiBaseUrl.trimmed();
+    while (base.endsWith(QLatin1Char('/'))) {
+        base.chop(1);
+    }
+    if (base.isEmpty()) {
+        if (errorOut) {
+            *errorOut = Datagate::tr("Api:BaseUrl is empty.");
+        }
+        return false;
+    }
+
+    static const QStringList kPaths = {QStringLiteral("api/open-vpn-user-access/get-current"),
+        QStringLiteral("api/user-access/get-current"), QStringLiteral("api/open-vpn-license/get-current")};
+
+    const QString auth = bearerToken.trimmed();
+
+    for (const QString& path : kPaths) {
+        const QUrl url(base + QLatin1Char('/') + path);
+        QNetworkRequest req(url);
+        req.setRawHeader("Accept", "application/json");
+        req.setRawHeader("Authorization", (QStringLiteral("Bearer ") + auth).toUtf8());
+
+        QNetworkReply* rep = nam->get(req);
+        QEventLoop loop;
+        QObject::connect(rep, &QNetworkReply::finished, &loop, &QEventLoop::quit);
+        loop.exec();
+
+        const int code = rep->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
+        const QNetworkReply::NetworkError nerr = rep->error();
+        const QByteArray raw = rep->readAll();
+        rep->deleteLater();
+
+        if (code == 404) {
+            continue;
+        }
+        if (nerr != QNetworkReply::NoError) {
+            qCWarning(lcUtils, "GET %s failed: %s", qPrintable(path), qPrintable(QString::fromUtf8(raw.left(200))));
+            continue;
+        }
+
+        QJsonParseError pe{};
+        const QJsonDocument doc = QJsonDocument::fromJson(raw, &pe);
+        if (pe.error != QJsonParseError::NoError || !doc.isObject()) {
+            qCWarning(lcUtils, "user-access: invalid JSON for %s", qPrintable(path));
+            continue;
+        }
+        const QJsonObject root = doc.object();
+        if (!root.value(QStringLiteral("success")).toBool(false)) {
+            out->canUseVpn = false;
+            out->restrictionMessage = root.value(QStringLiteral("message")).toString();
+            if (out->restrictionMessage.isEmpty()) {
+                out->restrictionMessage = root.value(QStringLiteral("Message")).toString();
+            }
+            return true;
+        }
+        QJsonObject data = root.value(QStringLiteral("data")).toObject();
+        if (data.isEmpty()) {
+            data = root;
+        }
+        applyUserVpnAccessFromDataObject(data, out);
+        qCInfo(lcUtils, "user-access: loaded from %s", qPrintable(path));
+        return true;
+    }
+
+    if (errorOut) {
+        errorOut->clear();
+    }
+    qCInfo(lcUtils, "user-access: no endpoint matched — license check skipped");
+    return true;
 }
 
 #if defined(__linux__)
