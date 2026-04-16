@@ -19,6 +19,8 @@ struct BestServer {
     QString apiUrl;
     int countConnectedClients = 0;
     bool isOnline = false;
+    /// From v2 API; true if missing (v1-compatible).
+    bool isAccessibleForUserQuotaPlan = true;
 };
 
 struct ParsedRemote {
@@ -41,6 +43,9 @@ QString installationIdFromSettings();
 void ensureInstallationId();
 
 QString externalIdFromJwt(const QString& accessToken);
+
+/// ASP.NET nameidentifier — same as DataGateAndroid [JwtClaimsReader] (nameid / SOAP claim).
+QString userIdFromJwt(const QString& accessToken);
 
 /// First `proto` line value (e.g. udp, tcp-client, tcp).
 QString tryGetProtoFromOvpn(const QString& ovpnUtf8);
@@ -82,20 +87,34 @@ QString datagateLinuxPeerVersionLabel(const QString& resolvedOpenVpnExecutable);
 /// User-visible message when the API host is unreachable or returns 5xx. Empty if the caller should show a detailed/server message.
 QString userMessageWhenApiUnavailable(QNetworkReply* rep);
 
-/// VPN subscription / license snapshot (GET api/.../get-current style). Matches Android “plan + quotas” when API returns data.
+/// Quota plan summary — plans + assignments; usage from [GET api/open-vpn-clients/overview/summary] (dashboard parity).
 struct UserVpnAccessInfo {
     QString planName;
-    /// -1 if unknown
+    QString effectiveFrom;
+    QString assignmentNote;
+    /// Monthly quota from matched plan (display), MB; -1 if unknown
+    double monthlyQuotaMb = -1;
+    /// -1 if unknown (usage not always exposed by these endpoints)
     double trafficUsedMb = -1;
-    /// -1 if unknown; 0 may mean “no quota set” depending on API
-    double trafficQuotaMb = -1;
     QDateTime validUntil;
     bool canUseVpn = true;
     QString restrictionMessage;
+    QString quotaApiError;
+    /// Limit for the current period (month or day), bytes; <=0 means no cap / unknown
+    qint64 quotaLimitBytes = 0;
+    /// Same semantics as OpenVpnGateMonitorFrontend UserTrafficQuotaProgress (monthly vs daily cap).
+    bool quotaPeriodIsMonthly = true;
+    /// Totals for ExternalId in [From, To]; -1 if not fetched
+    qint64 trafficUsedBytesForPeriod = -1;
+    /// JWT had no sub/externalId — overview summary cannot filter by client
+    bool trafficUsageNeedsExternalId = false;
 };
 
-/// Blocking GET (same pattern as AuthSession refresh). Tries known paths; if none exist (404), returns true and leaves defaults (fail-open).
-/// On explicit API denial, sets canUseVpn false.
+QString formatDataSizeBytes(qint64 bytes);
+/// ISO8601 date/time string → human text using QLocale::system() / setDefault (language-aware).
+QString formatIsoDateTimeForLocale(const QString& iso);
+
+/// POST api/quota-plans/get-all + GET api/user-quota-plans/get-by-user-id/{userId} (Android parity).
 bool fetchUserVpnAccessInfoSync(QNetworkAccessManager* nam, const QString& apiBaseUrl, const QString& bearerToken,
     UserVpnAccessInfo* out, QString* errorOut);
 

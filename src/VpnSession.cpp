@@ -212,7 +212,7 @@ void VpnSession::connectVpn(const QString& backendBaseUrl, const QString& bearer
 
 void VpnSession::stepFetchServers()
 {
-    QUrl url(joinUrl(m_baseUrl, QStringLiteral("api/open-vpn-servers/get-all-with-status")));
+    QUrl url(joinUrl(m_baseUrl, QStringLiteral("api/v2/open-vpn-servers/get-all-with-status")));
     QNetworkRequest req(url);
     req.setHeader(QNetworkRequest::ContentTypeHeader, QStringLiteral("application/json"));
     req.setRawHeader("Accept", "application/json");
@@ -250,6 +250,11 @@ void VpnSession::stepFetchServers()
                 emit errorMessage(
                     Datagate::tr("Server id %1 not found or is not WSS-enabled (refresh the list on Access).")
                         .arg(m_manualServerId));
+                return;
+            }
+            if (!best->isAccessibleForUserQuotaPlan) {
+                m_connecting = false;
+                emit errorMessage(Datagate::tr("This VPN server is not included in your quota plan."));
                 return;
             }
         }

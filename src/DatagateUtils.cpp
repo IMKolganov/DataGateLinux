@@ -10,9 +10,13 @@
 #include <QAbstractSocket>
 #include <QHostAddress>
 #include <QHostInfo>
+#include <QDate>
+#include <QDateTime>
+#include <QTime>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QLocale>
 #include <QLoggingCategory>
 #include <QEventLoop>
 #include <QNetworkAccessManager>
@@ -24,12 +28,16 @@
 #include <QRandomGenerator>
 #include <QSettings>
 #include <QStandardPaths>
+#include <QTimeZone>
 #include <QUrlQuery>
 #include <QVector>
 #include <QDir>
 
+#include <climits>
+
 #include <algorithm>
 #include <cmath>
+#include <tuple>
 
 #if defined(__linux__)
 #include <filesystem>
@@ -209,6 +217,30 @@ QString externalIdFromJwt(const QString& accessToken)
         return sub;
     }
     return o.value(QStringLiteral("nameid")).toString();
+}
+
+QString userIdFromJwt(const QString& accessToken)
+{
+    if (accessToken.isEmpty()) {
+        return {};
+    }
+    const QString payload = base64UrlDecodePayload(accessToken);
+    if (payload.isEmpty()) {
+        return {};
+    }
+    QJsonParseError err{};
+    const QJsonDocument doc = QJsonDocument::fromJson(payload.toUtf8(), &err);
+    if (err.error != QJsonParseError::NoError || !doc.isObject()) {
+        return {};
+    }
+    const QJsonObject o = doc.object();
+    const QString n1 = o.value(QStringLiteral("nameid")).toString().trimmed();
+    if (!n1.isEmpty()) {
+        return n1;
+    }
+    return o.value(QStringLiteral("http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier"))
+        .toString()
+        .trimmed();
 }
 
 QString tryGetProtoFromOvpn(const QString& ovpnUtf8)
@@ -451,6 +483,17 @@ std::optional<QVector<BestServer>> parseWssServersFromStatusJson(const QByteArra
         if (b.countConnectedClients < 0) {
             b.countConnectedClients = 0;
         }
+        {
+            const QJsonValue v1 = serverObj.value(QStringLiteral("isAccessibleForUserQuotaPlan"));
+            const QJsonValue v2 = serverObj.value(QStringLiteral("IsAccessibleForUserQuotaPlan"));
+            if (v1.isUndefined() && v2.isUndefined()) {
+                b.isAccessibleForUserQuotaPlan = true;
+            } else if (!v1.isUndefined()) {
+                b.isAccessibleForUserQuotaPlan = v1.toBool(true);
+            } else {
+                b.isAccessibleForUserQuotaPlan = v2.toBool(true);
+            }
+        }
         ranked.push_back(b);
     }
     if (ranked.isEmpty()) {
@@ -467,7 +510,17 @@ std::optional<BestServer> pickBestServerWinStyle(const QByteArray& jsonBody)
     if (!rankedOpt.has_value()) {
         return std::nullopt;
     }
-    QVector<BestServer> ranked = *rankedOpt;
+    QVector<BestServer> ranked;
+    ranked.reserve(rankedOpt->size());
+    for (const BestServer& b : *rankedOpt) {
+        if (b.isAccessibleForUserQuotaPlan) {
+            ranked.push_back(b);
+        }
+    }
+    if (ranked.isEmpty()) {
+        qCWarning(lcUtils) << "pickBestServerWinStyle: no WSS servers allowed by user quota plan";
+        return std::nullopt;
+    }
 
     std::sort(ranked.begin(), ranked.end(), [](const BestServer& a, const BestServer& b) {
         if (a.isOnline != b.isOnline) {
@@ -560,99 +613,173 @@ QString userMessageWhenApiUnavailable(QNetworkReply* rep)
 
 namespace {
 
-QString jsonStrField(const QJsonObject& o, const QStringList& keys)
-{
-    for (const QString& k : keys) {
-        const QJsonValue v = o.value(k);
-        if (v.isString() && !v.toString().isEmpty()) {
-            return v.toString();
-        }
-    }
-    return {};
-}
+struct QuotaPlanRow {
+    int id = -1;
+    QString name;
+    qint64 monthlyQuotaBytes = -1;
+    qint64 dailyQuotaBytes = -1;
+};
 
-double jsonDoubleField(const QJsonObject& o, const QStringList& keys, double def)
+struct UserQuotaAssignment {
+    int id = -1;
+    int quotaPlanId = -1;
+    QString effectiveFrom;
+    QString effectiveTo;
+    QString note;
+};
+
+QHash<int, QuotaPlanRow> parseQuotaPlansPayload(const QJsonObject& root, QString* errOut)
 {
-    for (const QString& k : keys) {
-        if (!o.contains(k)) {
+    QHash<int, QuotaPlanRow> byId;
+    if (!root.value(QStringLiteral("success")).toBool(false)) {
+        if (errOut) {
+            *errOut = root.value(QStringLiteral("message")).toString();
+            if (errOut->isEmpty()) {
+                *errOut = root.value(QStringLiteral("Message")).toString();
+            }
+            if (errOut->isEmpty()) {
+                *errOut = QStringLiteral("quota-plans");
+            }
+        }
+        return byId;
+    }
+    const QJsonObject dataObj = root.value(QStringLiteral("data")).toObject();
+    QJsonArray arr = dataObj.value(QStringLiteral("quotaPlans")).toArray();
+    if (arr.isEmpty()) {
+        arr = dataObj.value(QStringLiteral("QuotaPlans")).toArray();
+    }
+    for (const QJsonValue& v : arr) {
+        const QJsonObject o = v.toObject();
+        const int id = o.value(QStringLiteral("id")).toInt(o.value(QStringLiteral("Id")).toInt(-1));
+        if (id < 0) {
             continue;
         }
-        const QJsonValue v = o.value(k);
-        if (v.isDouble()) {
-            return v.toDouble();
+        QuotaPlanRow row;
+        row.id = id;
+        row.name = o.value(QStringLiteral("name")).toString(o.value(QStringLiteral("Name")).toString());
+        const QJsonValue mq = o.value(QStringLiteral("monthlyQuotaBytes"));
+        if (mq.isUndefined()) {
+            row.monthlyQuotaBytes = static_cast<qint64>(o.value(QStringLiteral("MonthlyQuotaBytes")).toDouble(-1));
+        } else if (mq.isDouble()) {
+            row.monthlyQuotaBytes = static_cast<qint64>(mq.toDouble());
+        } else {
+            row.monthlyQuotaBytes = mq.toVariant().toLongLong();
         }
-        if (v.isString()) {
-            bool ok = false;
-            const double d = v.toString().toDouble(&ok);
-            return ok ? d : def;
+        const QJsonValue dq = o.value(QStringLiteral("dailyQuotaBytes"));
+        if (dq.isUndefined()) {
+            row.dailyQuotaBytes = static_cast<qint64>(o.value(QStringLiteral("DailyQuotaBytes")).toDouble(-1));
+        } else if (dq.isDouble()) {
+            row.dailyQuotaBytes = static_cast<qint64>(dq.toDouble());
+        } else {
+            row.dailyQuotaBytes = dq.toVariant().toLongLong();
         }
+        byId.insert(id, row);
     }
-    return def;
+    return byId;
 }
 
-void applyUserVpnAccessFromDataObject(const QJsonObject& data, UserVpnAccessInfo* out)
+QVector<UserQuotaAssignment> parseUserQuotaAssignments(const QJsonObject& root, QString* errOut)
 {
-    if (!out) {
-        return;
-    }
-    out->planName = jsonStrField(data,
-        {QStringLiteral("planName"), QStringLiteral("PlanName"), QStringLiteral("subscriptionPlan"),
-            QStringLiteral("tariffName"), QStringLiteral("plan")});
-
-    const double usedMb = jsonDoubleField(data,
-        {QStringLiteral("trafficUsedMb"), QStringLiteral("TrafficUsedMb"), QStringLiteral("usedTrafficMb")}, -1);
-    const double quotaMb = jsonDoubleField(data,
-        {QStringLiteral("trafficQuotaMb"), QStringLiteral("TrafficQuotaMb"), QStringLiteral("quotaTrafficMb"),
-            QStringLiteral("trafficLimitMb")},
-        -1);
-    const double usedBytes = jsonDoubleField(data,
-        {QStringLiteral("trafficUsedBytes"), QStringLiteral("TrafficUsedBytes")}, -1);
-    const double quotaBytes = jsonDoubleField(data,
-        {QStringLiteral("trafficQuotaBytes"), QStringLiteral("TrafficQuotaBytes"),
-            QStringLiteral("trafficLimitBytes")},
-        -1);
-
-    if (usedMb >= 0) {
-        out->trafficUsedMb = usedMb;
-    } else if (usedBytes >= 0) {
-        out->trafficUsedMb = usedBytes / (1024.0 * 1024.0);
-    }
-    if (quotaMb >= 0) {
-        out->trafficQuotaMb = quotaMb;
-    } else if (quotaBytes >= 0) {
-        out->trafficQuotaMb = quotaBytes / (1024.0 * 1024.0);
-    }
-
-    const QString vu = jsonStrField(data,
-        {QStringLiteral("licenseValidUntil"), QStringLiteral("LicenseValidUntil"), QStringLiteral("validUntil"),
-            QStringLiteral("subscriptionEnd"), QStringLiteral("expiresAt")});
-    if (!vu.isEmpty()) {
-        QDateTime dt = QDateTime::fromString(vu, Qt::ISODateWithMs);
-        if (!dt.isValid()) {
-            dt = QDateTime::fromString(vu, Qt::ISODate);
+    QVector<UserQuotaAssignment> out;
+    if (!root.value(QStringLiteral("success")).toBool(false)) {
+        if (errOut) {
+            *errOut = root.value(QStringLiteral("message")).toString();
+            if (errOut->isEmpty()) {
+                *errOut = root.value(QStringLiteral("Message")).toString();
+            }
+            if (errOut->isEmpty()) {
+                *errOut = QStringLiteral("user-quota-plans");
+            }
         }
-        if (dt.isValid()) {
-            out->validUntil = dt.toUTC();
+        return out;
+    }
+    const QJsonObject dataObj = root.value(QStringLiteral("data")).toObject();
+    QJsonArray arr = dataObj.value(QStringLiteral("items")).toArray();
+    if (arr.isEmpty()) {
+        arr = dataObj.value(QStringLiteral("Items")).toArray();
+    }
+    for (const QJsonValue& v : arr) {
+        const QJsonObject o = v.toObject();
+        UserQuotaAssignment u;
+        u.id = o.value(QStringLiteral("id")).toInt(o.value(QStringLiteral("Id")).toInt(-1));
+        u.quotaPlanId = o.value(QStringLiteral("quotaPlanId")).toInt(o.value(QStringLiteral("QuotaPlanId")).toInt(-1));
+        u.effectiveFrom = o.value(QStringLiteral("effectiveFrom")).toString(o.value(QStringLiteral("EffectiveFrom")).toString());
+        u.effectiveTo = o.value(QStringLiteral("effectiveTo")).toString(o.value(QStringLiteral("EffectiveTo")).toString());
+        u.note = o.value(QStringLiteral("note")).toString(o.value(QStringLiteral("Note")).toString());
+        out.push_back(u);
+    }
+    return out;
+}
+
+static QDateTime parseAssignmentIso(const QString& s)
+{
+    const QString t = s.trimmed();
+    if (t.isEmpty()) {
+        return {};
+    }
+    QDateTime d = QDateTime::fromString(t, Qt::ISODateWithMs);
+    if (!d.isValid()) {
+        d = QDateTime::fromString(t, Qt::ISODate);
+    }
+    return d;
+}
+
+/// Same window as OpenVpnGateMonitorFrontend [UserTrafficQuotaProgress.pickActiveAssignment].
+static std::optional<UserQuotaAssignment> pickActiveAssignmentValidNow(const QVector<UserQuotaAssignment>& items)
+{
+    const QDateTime now = QDateTime::currentDateTime();
+    const qint64 tms = now.toMSecsSinceEpoch();
+    QVector<UserQuotaAssignment> valid;
+    valid.reserve(items.size());
+    for (const UserQuotaAssignment& a : items) {
+        const QDateTime from = parseAssignmentIso(a.effectiveFrom);
+        const qint64 fromMs = from.isValid() ? from.toMSecsSinceEpoch() : LLONG_MIN;
+        const QString et = a.effectiveTo.trimmed();
+        qint64 toMs = LLONG_MAX;
+        if (!et.isEmpty()) {
+            const QDateTime to = parseAssignmentIso(et);
+            toMs = to.isValid() ? to.toMSecsSinceEpoch() : LLONG_MAX;
+        }
+        if (fromMs <= tms && tms <= toMs) {
+            valid.push_back(a);
         }
     }
+    if (valid.isEmpty()) {
+        return std::nullopt;
+    }
+    std::sort(valid.begin(), valid.end(), [](const UserQuotaAssignment& a, const UserQuotaAssignment& b) {
+        const qint64 af = parseAssignmentIso(a.effectiveFrom).toMSecsSinceEpoch();
+        const qint64 bf = parseAssignmentIso(b.effectiveFrom).toMSecsSinceEpoch();
+        if (af != bf) {
+            return af < bf;
+        }
+        return a.id < b.id;
+    });
+    return valid.back();
+}
 
-    out->canUseVpn = true;
-    if (data.contains(QStringLiteral("canUseVpn")) && !data.value(QStringLiteral("canUseVpn")).toBool(true)) {
-        out->canUseVpn = false;
+static qint64 readOverviewTrafficUsedBytes(const QJsonObject& root)
+{
+    QJsonObject data = root.value(QStringLiteral("data")).toObject();
+    if (data.isEmpty()) {
+        data = root;
     }
-    if (data.contains(QStringLiteral("CanUseVpn")) && !data.value(QStringLiteral("CanUseVpn")).toBool(true)) {
-        out->canUseVpn = false;
+    QJsonObject totals = data.value(QStringLiteral("totals")).toObject();
+    if (totals.isEmpty()) {
+        totals = data.value(QStringLiteral("Totals")).toObject();
     }
-    if (data.contains(QStringLiteral("isLicenseActive")) && !data.value(QStringLiteral("isLicenseActive")).toBool(true)) {
-        out->canUseVpn = false;
+    const QJsonValue tt = totals.value(QStringLiteral("trafficTotalBytes"));
+    if (tt.isDouble() || tt.isString()) {
+        const qint64 v = static_cast<qint64>(tt.toDouble());
+        if (v >= 0) {
+            return v;
+        }
     }
-    if (data.contains(QStringLiteral("IsLicenseActive")) && !data.value(QStringLiteral("IsLicenseActive")).toBool(true)) {
-        out->canUseVpn = false;
-    }
-
-    out->restrictionMessage = jsonStrField(data,
-        {QStringLiteral("restrictionMessage"), QStringLiteral("RestrictionMessage"), QStringLiteral("blockReason"),
-            QStringLiteral("denialReason")});
+    const qint64 inn = static_cast<qint64>(totals.value(QStringLiteral("trafficInBytes")).toDouble(0))
+        + static_cast<qint64>(totals.value(QStringLiteral("TrafficInBytes")).toDouble(0));
+    const qint64 out = static_cast<qint64>(totals.value(QStringLiteral("trafficOutBytes")).toDouble(0))
+        + static_cast<qint64>(totals.value(QStringLiteral("TrafficOutBytes")).toDouble(0));
+    return inn + out;
 }
 
 } // namespace
@@ -678,63 +805,192 @@ bool fetchUserVpnAccessInfoSync(QNetworkAccessManager* nam, const QString& apiBa
         return false;
     }
 
-    static const QStringList kPaths = {QStringLiteral("api/open-vpn-user-access/get-current"),
-        QStringLiteral("api/user-access/get-current"), QStringLiteral("api/open-vpn-license/get-current")};
-
     const QString auth = bearerToken.trimmed();
+    if (auth.isEmpty()) {
+        if (errorOut) {
+            errorOut->clear();
+        }
+        qCWarning(lcUtils, "fetchUserVpnAccessInfoSync: empty bearer token");
+        return true;
+    }
 
-    for (const QString& path : kPaths) {
-        const QUrl url(base + QLatin1Char('/') + path);
-        QNetworkRequest req(url);
-        req.setRawHeader("Accept", "application/json");
-        req.setRawHeader("Authorization", (QStringLiteral("Bearer ") + auth).toUtf8());
+    bool uidOk = false;
+    const int userId = userIdFromJwt(auth).trimmed().toInt(&uidOk);
+    if (!uidOk || userId <= 0) {
+        qCWarning(lcUtils, "fetchUserVpnAccessInfoSync: JWT has no numeric user id (nameid / nameidentifier)");
+        if (errorOut) {
+            errorOut->clear();
+        }
+        return true;
+    }
 
-        QNetworkReply* rep = nam->get(req);
+    auto runRequest = [nam](QNetworkRequest req, const QByteArray& payload) {
+        QNetworkReply* rep = payload.isEmpty() ? nam->get(req) : nam->post(req, payload);
         QEventLoop loop;
         QObject::connect(rep, &QNetworkReply::finished, &loop, &QEventLoop::quit);
         loop.exec();
-
         const int code = rep->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
         const QNetworkReply::NetworkError nerr = rep->error();
         const QByteArray raw = rep->readAll();
         rep->deleteLater();
+        return std::tuple<int, QNetworkReply::NetworkError, QByteArray>{code, nerr, raw};
+    };
 
-        if (code == 404) {
-            continue;
-        }
-        if (nerr != QNetworkReply::NoError) {
-            qCWarning(lcUtils, "GET %s failed: %s", qPrintable(path), qPrintable(QString::fromUtf8(raw.left(200))));
-            continue;
-        }
-
-        QJsonParseError pe{};
-        const QJsonDocument doc = QJsonDocument::fromJson(raw, &pe);
-        if (pe.error != QJsonParseError::NoError || !doc.isObject()) {
-            qCWarning(lcUtils, "user-access: invalid JSON for %s", qPrintable(path));
-            continue;
-        }
-        const QJsonObject root = doc.object();
-        if (!root.value(QStringLiteral("success")).toBool(false)) {
-            out->canUseVpn = false;
-            out->restrictionMessage = root.value(QStringLiteral("message")).toString();
-            if (out->restrictionMessage.isEmpty()) {
-                out->restrictionMessage = root.value(QStringLiteral("Message")).toString();
+    {
+        const QUrl url(base + QStringLiteral("/api/quota-plans/get-all"));
+        QNetworkRequest req(url);
+        req.setHeader(QNetworkRequest::ContentTypeHeader, QStringLiteral("application/json; charset=utf-8"));
+        req.setRawHeader("Accept", "application/json");
+        req.setRawHeader("Authorization", (QStringLiteral("Bearer ") + auth).toUtf8());
+        QJsonObject body;
+        body.insert(QStringLiteral("includeInactive"), true);
+        const QByteArray payload = QJsonDocument(body).toJson(QJsonDocument::Compact);
+        const auto [code, nerr, raw] = runRequest(req, payload);
+        if (nerr != QNetworkReply::NoError || code < 200 || code >= 300) {
+            out->quotaApiError = Datagate::tr("Quota plans: %1").arg(
+                nerr != QNetworkReply::NoError ? QString::fromUtf8(raw.left(300)) : QString::number(code));
+            qCWarning(lcUtils, "POST api/quota-plans/get-all failed: code=%d err=%d", code, static_cast<int>(nerr));
+            if (errorOut) {
+                errorOut->clear();
             }
             return true;
         }
-        QJsonObject data = root.value(QStringLiteral("data")).toObject();
-        if (data.isEmpty()) {
-            data = root;
+        QJsonParseError pe{};
+        const QJsonDocument doc = QJsonDocument::fromJson(raw, &pe);
+        if (pe.error != QJsonParseError::NoError || !doc.isObject()) {
+            out->quotaApiError = Datagate::tr("Invalid JSON from quota-plans/get-all.");
+            if (errorOut) {
+                errorOut->clear();
+            }
+            return true;
         }
-        applyUserVpnAccessFromDataObject(data, out);
-        qCInfo(lcUtils, "user-access: loaded from %s", qPrintable(path));
-        return true;
+        QString planErr;
+        const QJsonObject rootPlan = doc.object();
+        const QHash<int, QuotaPlanRow> plansById = parseQuotaPlansPayload(rootPlan, &planErr);
+        if (!rootPlan.value(QStringLiteral("success")).toBool(false)) {
+            out->quotaApiError = planErr.isEmpty() ? rootPlan.value(QStringLiteral("message")).toString() : planErr;
+            if (out->quotaApiError.isEmpty()) {
+                out->quotaApiError = Datagate::tr("Quota plans request failed.");
+            }
+            if (errorOut) {
+                errorOut->clear();
+            }
+            return true;
+        }
+
+        const QUrl urlUser(
+            base + QStringLiteral("/api/user-quota-plans/get-by-user-id/") + QString::number(userId));
+        QNetworkRequest reqUser(urlUser);
+        reqUser.setRawHeader("Accept", "application/json");
+        reqUser.setRawHeader("Authorization", (QStringLiteral("Bearer ") + auth).toUtf8());
+        const auto [codeU, nerrU, rawU] = runRequest(reqUser, {});
+        if (nerrU != QNetworkReply::NoError || codeU < 200 || codeU >= 300) {
+            out->quotaApiError = Datagate::tr("User quota plans: %1").arg(
+                nerrU != QNetworkReply::NoError ? QString::fromUtf8(rawU.left(300)) : QString::number(codeU));
+            qCWarning(lcUtils, "GET user-quota-plans failed: code=%d err=%d", codeU, static_cast<int>(nerrU));
+            if (errorOut) {
+                errorOut->clear();
+            }
+            return true;
+        }
+        QJsonParseError peU{};
+        const QJsonDocument docU = QJsonDocument::fromJson(rawU, &peU);
+        if (peU.error != QJsonParseError::NoError || !docU.isObject()) {
+            out->quotaApiError = Datagate::tr("Invalid JSON from user-quota-plans.");
+            if (errorOut) {
+                errorOut->clear();
+            }
+            return true;
+        }
+        QString userErr;
+        const QVector<UserQuotaAssignment> assignments = parseUserQuotaAssignments(docU.object(), &userErr);
+        if (!docU.object().value(QStringLiteral("success")).toBool(false)) {
+            out->quotaApiError = userErr.isEmpty() ? docU.object().value(QStringLiteral("message")).toString() : userErr;
+            if (out->quotaApiError.isEmpty()) {
+                out->quotaApiError = Datagate::tr("User quota plans request failed.");
+            }
+            if (errorOut) {
+                errorOut->clear();
+            }
+            return true;
+        }
+
+        const QString ext = externalIdFromJwt(auth).trimmed();
+        out->trafficUsageNeedsExternalId = ext.isEmpty();
+        out->quotaLimitBytes = 0;
+        out->trafficUsedBytesForPeriod = -1;
+
+        const std::optional<UserQuotaAssignment> active = pickActiveAssignmentValidNow(assignments);
+        if (active.has_value()) {
+            const QuotaPlanRow* plan = nullptr;
+            const auto pit = plansById.constFind(active->quotaPlanId);
+            if (pit != plansById.constEnd()) {
+                plan = &pit.value();
+            }
+            if (plan && !plan->name.isEmpty()) {
+                out->planName = plan->name;
+            } else if (active->quotaPlanId >= 0) {
+                out->planName = QStringLiteral("Quota plan #%1").arg(active->quotaPlanId);
+            }
+            out->effectiveFrom = active->effectiveFrom.trimmed();
+            out->assignmentNote = active->note.trimmed();
+            if (plan) {
+                if (plan->monthlyQuotaBytes > 0) {
+                    out->quotaLimitBytes = plan->monthlyQuotaBytes;
+                    out->quotaPeriodIsMonthly = true;
+                    out->monthlyQuotaMb = static_cast<double>(plan->monthlyQuotaBytes) / (1024.0 * 1024.0);
+                } else if (plan->dailyQuotaBytes > 0) {
+                    out->quotaLimitBytes = plan->dailyQuotaBytes;
+                    out->quotaPeriodIsMonthly = false;
+                    out->monthlyQuotaMb = -1;
+                }
+            }
+        }
+
+        if (!ext.isEmpty() && out->quotaLimitBytes > 0) {
+            const QDate today = QDate::currentDate();
+            QDateTime fromUtc;
+            QDateTime toUtc;
+            if (out->quotaPeriodIsMonthly) {
+                const QDate first(today.year(), today.month(), 1);
+                const QDate last(today.year(), today.month(), today.daysInMonth());
+                fromUtc = QDateTime(first, QTime(0, 0, 0), Qt::LocalTime).toUTC();
+                toUtc = QDateTime(last, QTime(23, 59, 59, 999), Qt::LocalTime).toUTC();
+            } else {
+                fromUtc = QDateTime(today, QTime(0, 0, 0), Qt::LocalTime).toUTC();
+                toUtc = QDateTime(today, QTime(23, 59, 59, 999), Qt::LocalTime).toUTC();
+            }
+            QUrl ovUrl(base + QStringLiteral("/api/open-vpn-clients/overview/summary"));
+            QUrlQuery oq;
+            oq.addQueryItem(QStringLiteral("From"), fromUtc.toString(Qt::ISODateWithMs));
+            oq.addQueryItem(QStringLiteral("To"), toUtc.toString(Qt::ISODateWithMs));
+            oq.addQueryItem(QStringLiteral("ExternalId"), ext);
+            ovUrl.setQuery(oq);
+            QNetworkRequest ovReq(ovUrl);
+            ovReq.setRawHeader("Accept", "application/json");
+            ovReq.setRawHeader("Authorization", (QStringLiteral("Bearer ") + auth).toUtf8());
+            const auto [oc, onerr, oraw] = runRequest(ovReq, {});
+            if (onerr == QNetworkReply::NoError && oc >= 200 && oc < 300) {
+                QJsonParseError jpe{};
+                const QJsonDocument odoc = QJsonDocument::fromJson(oraw, &jpe);
+                if (jpe.error == QJsonParseError::NoError && odoc.isObject()) {
+                    const QJsonObject oroot = odoc.object();
+                    if (oroot.value(QStringLiteral("success")).toBool(true)) {
+                        out->trafficUsedBytesForPeriod = readOverviewTrafficUsedBytes(oroot);
+                    }
+                }
+            } else {
+                qCWarning(lcUtils, "GET overview/summary failed: code=%d err=%d", oc, static_cast<int>(onerr));
+            }
+        }
+
+        qCInfo(lcUtils, "user quota UI: loaded for userId=%d", userId);
     }
 
+    out->canUseVpn = true;
     if (errorOut) {
         errorOut->clear();
     }
-    qCInfo(lcUtils, "user-access: no endpoint matched — license check skipped");
     return true;
 }
 
@@ -958,5 +1214,29 @@ QString linuxEmbeddedVpnTunDiagnosis(const QString& qAppExecutablePath)
 }
 
 #endif
+
+QString formatDataSizeBytes(qint64 bytes)
+{
+    if (bytes < 0) {
+        return QStringLiteral("—");
+    }
+    return QLocale().formattedDataSize(bytes, 2, QLocale::DataSizeFormat::DataSizeIecFormat);
+}
+
+QString formatIsoDateTimeForLocale(const QString& iso)
+{
+    const QString s = iso.trimmed();
+    if (s.isEmpty()) {
+        return {};
+    }
+    QDateTime dt = QDateTime::fromString(s, Qt::ISODateWithMs);
+    if (!dt.isValid()) {
+        dt = QDateTime::fromString(s, Qt::ISODate);
+    }
+    if (!dt.isValid()) {
+        return s;
+    }
+    return QLocale().toString(dt.toLocalTime(), QLocale::ShortFormat);
+}
 
 } // namespace DatagateUtils

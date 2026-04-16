@@ -63,6 +63,21 @@ QFrame#card {
 QLabel#titleH1 { color: %4; font-size: 20px; font-weight: 600; }
 QLabel#titleH2 { color: %4; font-size: 14px; font-weight: 600; }
 QLabel#muted { color: %5; font-size: 13px; }
+QLabel#accessTrafficTitle { color: %4; font-size: 14px; font-weight: 600; }
+QProgressBar#accessQuotaProgress {
+  border: 1px solid %3;
+  border-radius: 6px;
+  background-color: %8;
+  min-height: 12px;
+  max-height: 12px;
+}
+QProgressBar#accessQuotaProgress::chunk {
+  border-radius: 5px;
+  background-color: %9;
+}
+QProgressBar#accessQuotaProgress[overquota="true"]::chunk {
+  background-color: #dc2626;
+}
 QListWidget#navPane {
   background-color: %6;
   border: none;
@@ -160,6 +175,21 @@ QFrame#card {
 QLabel#titleH1 { color: %4; font-size: 20px; font-weight: 600; }
 QLabel#titleH2 { color: %4; font-size: 14px; font-weight: 600; }
 QLabel#muted { color: %5; font-size: 13px; }
+QLabel#accessTrafficTitle { color: %4; font-size: 14px; font-weight: 600; }
+QProgressBar#accessQuotaProgress {
+  border: 1px solid %3;
+  border-radius: 6px;
+  background-color: %8;
+  min-height: 12px;
+  max-height: 12px;
+}
+QProgressBar#accessQuotaProgress::chunk {
+  border-radius: 5px;
+  background-color: %9;
+}
+QProgressBar#accessQuotaProgress[overquota="true"]::chunk {
+  background-color: #dc2626;
+}
 QListWidget#navPane {
   background-color: %6;
   border: none;
