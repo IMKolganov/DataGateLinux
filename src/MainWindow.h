@@ -65,6 +65,7 @@ private:
     QListWidget* m_nav = nullptr;
     QStackedWidget* m_stack = nullptr;
     QCheckBox* m_themeDark = nullptr;
+    QComboBox* m_languageCombo = nullptr;
     StatisticsPanel* m_statisticsPanel = nullptr;
 
     bool m_centerOnFirstShow = true;

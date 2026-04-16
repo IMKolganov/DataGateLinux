@@ -1,4 +1,5 @@
 #include "DatagateUtils.h"
+#include "DatagateTr.h"
 
 #include <QFile>
 #include <QFileInfo>
@@ -10,6 +11,8 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QLoggingCategory>
+#include <QNetworkReply>
+#include <QNetworkRequest>
 #include <QProcess>
 #include <QSet>
 #include <QRandomGenerator>
@@ -458,6 +461,40 @@ std::optional<BestServer> pickServerByIdFromStatusJson(const QByteArray& jsonBod
         }
     }
     return std::nullopt;
+}
+
+QString userMessageWhenApiUnavailable(QNetworkReply* rep)
+{
+    if (!rep) {
+        return Datagate::tr("The API is temporarily unavailable. Try again later.");
+    }
+    const int http = rep->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
+    if (http >= 500 && http < 600) {
+        return Datagate::tr("The API is temporarily unavailable. Try again later.");
+    }
+    const QNetworkReply::NetworkError err = rep->error();
+    if (err == QNetworkReply::NoError) {
+        return {};
+    }
+    switch (err) {
+    case QNetworkReply::ConnectionRefusedError:
+    case QNetworkReply::RemoteHostClosedError:
+    case QNetworkReply::HostNotFoundError:
+    case QNetworkReply::TimeoutError:
+    case QNetworkReply::NetworkSessionFailedError:
+    case QNetworkReply::TemporaryNetworkFailureError:
+    case QNetworkReply::SslHandshakeFailedError:
+    case QNetworkReply::UnknownNetworkError:
+    case QNetworkReply::ProtocolUnknownError:
+    case QNetworkReply::ProxyConnectionRefusedError:
+    case QNetworkReply::ProxyConnectionClosedError:
+    case QNetworkReply::ProxyNotFoundError:
+    case QNetworkReply::ProxyTimeoutError:
+        return Datagate::tr("The API is temporarily unavailable. Try again later.");
+    default:
+        break;
+    }
+    return {};
 }
 
 } // namespace DatagateUtils

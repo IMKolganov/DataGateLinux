@@ -7,6 +7,8 @@
 #include <utility>
 #include <optional>
 
+class QNetworkReply;
+
 struct BestServer {
     int serverId = 0;
     QString name;
@@ -69,5 +71,8 @@ int loadLastSelectedServerId();
 
 /// Resolve OpenVPN executable path (absolute path or lookup in PATH), same rules as VpnSession launch.
 QString resolvedOpenVpnExecutable(const QString& openVpnCmdOrPath);
+
+/// User-visible message when the API host is unreachable or returns 5xx. Empty if the caller should show a detailed/server message.
+QString userMessageWhenApiUnavailable(QNetworkReply* rep);
 
 } // namespace DatagateUtils

@@ -1,6 +1,8 @@
 #include "GoogleAuthHelper.h"
 
 #include "AppLogging.h"
+#include "DatagateTr.h"
+#include "DatagateUtils.h"
 
 #include <QDesktopServices>
 #include <QFile>
@@ -122,11 +124,11 @@ void GoogleAuthHelper::signInWithGoogle(const QString& clientId, int redirectPor
     qCInfo(lcOAuth, "signInWithGoogle: redirectPort=%d apiBase=%s", redirectPort, qPrintable(apiBaseUrl.trimmed()));
 
     if (!m_nam || clientId.trimmed().isEmpty()) {
-        emit finishedError(QStringLiteral("Google Client ID is required."));
+        emit finishedError(Datagate::tr("Google Client ID is required."));
         return;
     }
     if (redirectPort <= 0 || redirectPort > 65535) {
-        emit finishedError(QStringLiteral("Invalid OAuth redirect port."));
+        emit finishedError(Datagate::tr("Invalid OAuth redirect port."));
         return;
     }
 
@@ -143,9 +145,9 @@ void GoogleAuthHelper::signInWithGoogle(const QString& clientId, int redirectPor
     if (!server->listen(QHostAddress::LocalHost, static_cast<quint16>(redirectPort))) {
         qCWarning(lcOAuth, "listen failed: %s", qPrintable(server->errorString()));
         emit finishedError(
-            QStringLiteral("Could not listen on port %1 for OAuth: %2. "
-                           "Close another DataGate instance or change RedirectPort in appsettings "
-                           "and add http://127.0.0.1:PORT/ in Google Cloud (same as Windows).")
+            Datagate::tr("Could not listen on port %1 for OAuth: %2. "
+                         "Close another DataGate instance or change RedirectPort in appsettings "
+                         "and add http://127.0.0.1:PORT/ in Google Cloud (same as Windows).")
                 .arg(redirectPort)
                 .arg(server->errorString()));
         server->deleteLater();
@@ -161,8 +163,8 @@ void GoogleAuthHelper::signInWithGoogle(const QString& clientId, int redirectPor
             return;
         }
         cancelOAuth();
-        emit finishedError(QStringLiteral(
-            "[silent]Sign-in timed out or the browser tab was closed. Click Sign in with Google again."));
+        emit finishedError(QStringLiteral("[silent]")
+            + Datagate::tr("Sign-in timed out or the browser tab was closed. Click Sign in with Google again."));
     });
     m_oauthTimeout->start();
 
@@ -203,7 +205,7 @@ void GoogleAuthHelper::signInWithGoogle(const QString& clientId, int redirectPor
 
             const int firstLineEnd = accumulated->indexOf("\r\n");
             if (firstLineEnd < 0) {
-                emit finishedError(QStringLiteral("Invalid OAuth HTTP request."));
+                emit finishedError(Datagate::tr("Invalid OAuth HTTP request."));
                 sock->close();
                 server->close();
                 if (m_pendingServer == server) {
@@ -216,7 +218,7 @@ void GoogleAuthHelper::signInWithGoogle(const QString& clientId, int redirectPor
             const int sp1 = firstLineBytes.indexOf(' ');
             const int sp2 = firstLineBytes.indexOf(' ', sp1 + 1);
             if (sp1 < 0 || sp2 < 0 || sp2 <= sp1) {
-                emit finishedError(QStringLiteral("Invalid OAuth HTTP request line."));
+                emit finishedError(Datagate::tr("Invalid OAuth HTTP request line."));
                 sock->close();
                 server->close();
                 if (m_pendingServer == server) {
@@ -234,7 +236,7 @@ void GoogleAuthHelper::signInWithGoogle(const QString& clientId, int redirectPor
 
             const QString err = q.value(QStringLiteral("error"));
             if (!err.isEmpty()) {
-                emit finishedError(QStringLiteral("Google OAuth: %1 %2")
+                emit finishedError(Datagate::tr("Google OAuth: %1 %2")
                     .arg(err, q.value(QStringLiteral("error_description"))));
                 sock->write("HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\nConnection: close\r\n\r\n"
                     "<html><body>Error. You can close this window.</body></html>");
@@ -248,7 +250,7 @@ void GoogleAuthHelper::signInWithGoogle(const QString& clientId, int redirectPor
             }
 
             if (q.value(QStringLiteral("state")) != state) {
-                emit finishedError(QStringLiteral("OAuth state mismatch."));
+                emit finishedError(Datagate::tr("OAuth state mismatch."));
                 sock->write("HTTP/1.1 400 Bad Request\r\nConnection: close\r\n\r\n");
                 sock->close();
                 server->close();
@@ -261,7 +263,7 @@ void GoogleAuthHelper::signInWithGoogle(const QString& clientId, int redirectPor
 
             const QString code = q.value(QStringLiteral("code"));
             if (code.isEmpty()) {
-                emit finishedError(QStringLiteral("Authorization code not received."));
+                emit finishedError(Datagate::tr("Authorization code not received."));
                 sock->write("HTTP/1.1 400 Bad Request\r\nConnection: close\r\n\r\n");
                 sock->close();
                 server->close();
@@ -298,14 +300,19 @@ void GoogleAuthHelper::signInWithGoogle(const QString& clientId, int redirectPor
             connect(rep, &QNetworkReply::finished, this, [this, rep]() {
                 rep->deleteLater();
                 const QByteArray raw = rep->readAll();
+                const QString unavailable = DatagateUtils::userMessageWhenApiUnavailable(rep);
+                if (!unavailable.isEmpty()) {
+                    emit finishedError(unavailable);
+                    return;
+                }
                 if (rep->error() != QNetworkReply::NoError) {
-                    emit finishedError(QStringLiteral("API login: %1 %2").arg(rep->errorString(), QString::fromUtf8(raw)));
+                    emit finishedError(Datagate::tr("API login: %1 %2").arg(rep->errorString(), QString::fromUtf8(raw)));
                     return;
                 }
                 QJsonParseError pe{};
                 const QJsonDocument doc = QJsonDocument::fromJson(raw, &pe);
                 if (pe.error != QJsonParseError::NoError || !doc.isObject()) {
-                    emit finishedError(QStringLiteral("Invalid JSON from API."));
+                    emit finishedError(Datagate::tr("Invalid JSON from API."));
                     return;
                 }
                 const QJsonObject root = doc.object();
@@ -316,7 +323,7 @@ void GoogleAuthHelper::signInWithGoogle(const QString& clientId, int redirectPor
                 const QJsonObject data = root.value(QStringLiteral("data")).toObject();
                 const QString token = data.value(QStringLiteral("token")).toString();
                 if (token.isEmpty()) {
-                    emit finishedError(QStringLiteral("No token in API response."));
+                    emit finishedError(Datagate::tr("No token in API response."));
                     return;
                 }
                 qCInfo(lcOAuth, "google-code-login API success");
@@ -332,7 +339,7 @@ void GoogleAuthHelper::signInWithGoogle(const QString& clientId, int redirectPor
             m_pendingServer = nullptr;
         }
         server->deleteLater();
-        emit finishedError(QStringLiteral("Could not open browser."));
+        emit finishedError(Datagate::tr("Could not open browser."));
         return;
     }
 }

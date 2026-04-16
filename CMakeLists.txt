@@ -35,6 +35,9 @@ qt_add_executable(DataGateLinux
     src/GoogleAuthHelper.h
     src/DatagateUtils.cpp
     src/DatagateUtils.h
+    src/DatagateTr.h
+    src/DatagateTranslator.cpp
+    src/DatagateTranslator.h
 )
 
 target_link_libraries(DataGateLinux PRIVATE
@@ -44,6 +47,40 @@ target_link_libraries(DataGateLinux PRIVATE
     Qt6::Network
     Qt6::WebSockets
 )
+
+# Regenerate sources: python3 tools/build_catalog_jsonl.py && python3 tools/gen_datagate_ts.py
+# (after editing tools/translations_index.py or UI strings). Requires lrelease to ship .qm.
+find_program(DATAGATE_LRELEASE NAMES lrelease-qt6 lrelease)
+set(DATAGATE_TS_FILES
+    ${CMAKE_SOURCE_DIR}/i18n/datagate_en.ts
+    ${CMAKE_SOURCE_DIR}/i18n/datagate_ru.ts
+    ${CMAKE_SOURCE_DIR}/i18n/datagate_fr.ts
+    ${CMAKE_SOURCE_DIR}/i18n/datagate_el.ts
+)
+if(DATAGATE_LRELEASE)
+    set(DATAGATE_QM_FILES "")
+    foreach(_ts ${DATAGATE_TS_FILES})
+        get_filename_component(_name_we ${_ts} NAME_WE)
+        set(_qm ${CMAKE_BINARY_DIR}/i18n/${_name_we}.qm)
+        add_custom_command(
+            OUTPUT ${_qm}
+            COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_BINARY_DIR}/i18n
+            COMMAND ${DATAGATE_LRELEASE} ${_ts} -qm ${_qm}
+            DEPENDS ${_ts}
+            COMMENT "lrelease ${_name_we}.qm"
+        )
+        list(APPEND DATAGATE_QM_FILES ${_qm})
+    endforeach()
+    add_custom_target(datagate_qm ALL DEPENDS ${DATAGATE_QM_FILES})
+    add_dependencies(DataGateLinux datagate_qm)
+    add_custom_command(TARGET DataGateLinux POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E make_directory $<TARGET_FILE_DIR:DataGateLinux>/i18n
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different ${DATAGATE_QM_FILES} $<TARGET_FILE_DIR:DataGateLinux>/i18n/
+        COMMENT "Copy translation .qm next to executable"
+    )
+else()
+    message(WARNING "lrelease not found (install qt6-l10n-tools or qt6-tools); UI will stay in English.")
+endif()
 
 if(UNIX AND NOT APPLE)
     target_compile_definitions(DataGateLinux PRIVATE DATAGATE_LINUX=1)

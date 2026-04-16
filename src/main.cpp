@@ -1,6 +1,8 @@
 #include "AppConfig.h"
 #include "AppLogging.h"
 #include "AuthSession.h"
+#include "DatagateTr.h"
+#include "DatagateTranslator.h"
 #include "LoginDialog.h"
 #include "MainWindow.h"
 
@@ -24,6 +26,8 @@ int main(int argc, char* argv[])
     QCoreApplication::setOrganizationName(QStringLiteral("DataGate"));
     QCoreApplication::setApplicationName(QStringLiteral("DataGateLinux"));
 
+    DatagateTranslator::installFromSettings();
+
     QTranslator qtTranslator;
     if (qtTranslator.load(QLocale::system(), QStringLiteral("qt"), QStringLiteral("_"),
             QLibraryInfo::path(QLibraryInfo::TranslationsPath))) {
@@ -35,10 +39,10 @@ int main(int argc, char* argv[])
     if (!AppConfig::load()) {
         QMessageBox::critical(
             nullptr,
-            QStringLiteral("DataGate"),
-            QStringLiteral("appsettings.json not found (cwd, folder with exe, or AppConfig path), "
-                           "or Api:BaseUrl / GoogleAuth:ClientId are empty.\n"
-                           "See stderr log line \"AppConfig: loaded …\" when DATAGATE_LOG=1 or Debug build."));
+            Datagate::tr("DataGate"),
+            Datagate::tr("appsettings.json not found (cwd, folder with exe, or AppConfig path), "
+                         "or Api:BaseUrl / GoogleAuth:ClientId are empty.\n"
+                         "See stderr log line \"AppConfig: loaded …\" when DATAGATE_LOG=1 or Debug build."));
         return 1;
     }
 

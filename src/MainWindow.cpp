@@ -4,6 +4,8 @@
 #include "AppLogging.h"
 #include "AppTheme.h"
 #include "AuthSession.h"
+#include "DatagateTr.h"
+#include "DatagateTranslator.h"
 #include "DatagateUtils.h"
 #include "StatisticsPanel.h"
 #include "VpnSession.h"
@@ -60,7 +62,7 @@ MainWindow::MainWindow(AuthSession* session, QWidget* parent)
     , m_nam(new QNetworkAccessManager(this))
     , m_vpn(new VpnSession(this))
 {
-    setWindowTitle(QStringLiteral("DataGate OpenVPN 3"));
+    setWindowTitle(Datagate::tr("DataGate OpenVPN 3"));
     resize(980, 620);
     setMinimumSize(640, 480);
 
@@ -74,7 +76,7 @@ MainWindow::MainWindow(AuthSession* session, QWidget* parent)
 
     auto* titleRow = new QHBoxLayout();
     titleRow->setContentsMargins(16, 12, 16, 8);
-    auto* appTitle = new QLabel(QStringLiteral("DataGate OpenVPN 3"), this);
+    auto* appTitle = new QLabel(Datagate::tr("DataGate OpenVPN 3"), this);
     QFont tf = appTitle->font();
     tf.setPointSize(11);
     tf.setWeight(QFont::DemiBold);
@@ -96,22 +98,22 @@ MainWindow::MainWindow(AuthSession* session, QWidget* parent)
     m_nav->addItem(new QListWidgetItem(
         iconFromThemeOr({QStringLiteral("folder-home"), QStringLiteral("go-home"), QStringLiteral("user-home")},
             st, QStyle::SP_DirHomeIcon),
-        QStringLiteral("Home")));
+        Datagate::tr("Home")));
     m_nav->addItem(new QListWidgetItem(
         iconFromThemeOr({QStringLiteral("network-server"), QStringLiteral("network-wired"),
                             QStringLiteral("applications-internet")},
             st, QStyle::SP_DriveNetIcon),
-        QStringLiteral("Access")));
+        Datagate::tr("Access")));
     m_nav->addItem(new QListWidgetItem(
         iconFromThemeOr({QStringLiteral("office-chart-line"), QStringLiteral("view-statistics"),
                             QStringLiteral("insert-chart"), QStringLiteral("x-office-chart")},
             st, QStyle::SP_FileDialogContentsView),
-        QStringLiteral("Statistics")));
+        Datagate::tr("Statistics")));
     m_nav->addItem(new QListWidgetItem(
         iconFromThemeOr({QStringLiteral("preferences-system"), QStringLiteral("applications-system"),
                             QStringLiteral("system-settings"), QStringLiteral("emblem-system")},
             st, QStyle::SP_FileDialogDetailedView),
-        QStringLiteral("Settings")));
+        Datagate::tr("Settings")));
 
     m_stack = new QStackedWidget(this);
     m_stack->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
@@ -122,7 +124,7 @@ MainWindow::MainWindow(AuthSession* session, QWidget* parent)
     homeOuter->setContentsMargins(20, 20, 20, 20);
     homeOuter->setSpacing(16);
 
-    auto* welcome = new QLabel(QStringLiteral("Welcome to DataGate OpenVPN 3"), this);
+    auto* welcome = new QLabel(Datagate::tr("Welcome to DataGate OpenVPN 3"), this);
     welcome->setObjectName(QStringLiteral("titleH1"));
     homeOuter->addWidget(welcome);
 
@@ -130,37 +132,37 @@ MainWindow::MainWindow(AuthSession* session, QWidget* parent)
     connCard->setObjectName(QStringLiteral("card"));
     auto* connLay = new QVBoxLayout(connCard);
     connLay->setContentsMargins(18, 18, 18, 18);
-    auto* connTitle = new QLabel(QStringLiteral("Connection status"), this);
+    auto* connTitle = new QLabel(Datagate::tr("Connection status"), this);
     connTitle->setObjectName(QStringLiteral("titleH2"));
     connLay->addWidget(connTitle);
-    m_status = new QLabel(QStringLiteral("Idle"), this);
+    m_status = new QLabel(Datagate::tr("Idle"), this);
     m_status->setObjectName(QStringLiteral("muted"));
     m_status->setWordWrap(true);
     connLay->addWidget(m_status);
-    m_connectedToLabel = new QLabel(QStringLiteral("Connected to: —"), this);
+    m_connectedToLabel = new QLabel(Datagate::tr("Connected to: —"), this);
     m_connectedToLabel->setObjectName(QStringLiteral("muted"));
     m_connectedToLabel->setWordWrap(true);
     connLay->addWidget(m_connectedToLabel);
 
     auto* modeRow = new QHBoxLayout();
-    modeRow->addWidget(new QLabel(QStringLiteral("VPN server:"), this));
+    modeRow->addWidget(new QLabel(Datagate::tr("VPN server:"), this));
     m_serverModeCombo = new QComboBox(this);
-    m_serverModeCombo->addItem(QStringLiteral("Automatic (best server)"), 0);
-    m_serverModeCombo->addItem(QStringLiteral("Choose server…"), 1);
+    m_serverModeCombo->addItem(Datagate::tr("Automatic (best server)"), 0);
+    m_serverModeCombo->addItem(Datagate::tr("Choose server…"), 1);
     modeRow->addWidget(m_serverModeCombo, 1);
     connLay->addLayout(modeRow);
 
     m_manualServerWrap = new QWidget(this);
     auto* manRow = new QHBoxLayout(m_manualServerWrap);
     manRow->setContentsMargins(0, 0, 0, 0);
-    manRow->addWidget(new QLabel(QStringLiteral("Server:"), this));
+    manRow->addWidget(new QLabel(Datagate::tr("Server:"), this));
     m_manualServerCombo = new QComboBox(this);
     m_manualServerCombo->setMinimumWidth(200);
     manRow->addWidget(m_manualServerCombo, 1);
     connLay->addWidget(m_manualServerWrap);
 
     auto* btnRow = new QHBoxLayout();
-    m_connectBtn = new QPushButton(QStringLiteral("Connect"), this);
+    m_connectBtn = new QPushButton(Datagate::tr("Connect"), this);
     m_connectBtn->setProperty("primary", true);
     btnRow->addWidget(m_connectBtn);
     btnRow->addStretch();
@@ -171,7 +173,7 @@ MainWindow::MainWindow(AuthSession* session, QWidget* parent)
     logCard->setObjectName(QStringLiteral("card"));
     auto* logLay = new QVBoxLayout(logCard);
     logLay->setContentsMargins(18, 18, 18, 18);
-    auto* logTitle = new QLabel(QStringLiteral("Engine logs"), this);
+    auto* logTitle = new QLabel(Datagate::tr("Engine logs"), this);
     logTitle->setObjectName(QStringLiteral("titleH2"));
     logLay->addWidget(logTitle);
     m_log = new QPlainTextEdit(this);
@@ -189,11 +191,11 @@ MainWindow::MainWindow(AuthSession* session, QWidget* parent)
     auto* accLay = new QVBoxLayout(accessPage);
     accLay->setContentsMargins(20, 20, 20, 20);
     accLay->setSpacing(12);
-    auto* accTitle = new QLabel(QStringLiteral("Access"), this);
+    auto* accTitle = new QLabel(Datagate::tr("Access"), this);
     accTitle->setObjectName(QStringLiteral("titleH1"));
     accLay->addWidget(accTitle);
     auto* accRow = new QHBoxLayout();
-    m_refreshServersBtn = new QPushButton(QStringLiteral("Refresh server list"), this);
+    m_refreshServersBtn = new QPushButton(Datagate::tr("Refresh server list"), this);
     m_refreshServersBtn->setProperty("primary", true);
     accRow->addWidget(m_refreshServersBtn);
     accRow->addStretch();
@@ -202,9 +204,9 @@ MainWindow::MainWindow(AuthSession* session, QWidget* parent)
     m_serverTable->setObjectName(QStringLiteral("accessServerTable"));
     m_serverTable->setColumnCount(3);
     m_serverTable->setHorizontalHeaderLabels({
-        QStringLiteral("Server"),
-        QStringLiteral("Online"),
-        QStringLiteral("Clients"),
+        Datagate::tr("Server"),
+        Datagate::tr("Online"),
+        Datagate::tr("Clients"),
     });
     m_serverTable->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
     m_serverTable->setMinimumHeight(200);
@@ -216,7 +218,7 @@ MainWindow::MainWindow(AuthSession* session, QWidget* parent)
     m_serverTable->verticalHeader()->setVisible(false);
     m_serverTable->setShowGrid(true);
     accLay->addWidget(m_serverTable, 1);
-    m_accessTotalClientsLabel = new QLabel(QStringLiteral("Total clients: —"), this);
+    m_accessTotalClientsLabel = new QLabel(Datagate::tr("Total clients: —"), this);
     m_accessTotalClientsLabel->setObjectName(QStringLiteral("muted"));
     accLay->addWidget(m_accessTotalClientsLabel);
     m_stack->addWidget(accessPage);
@@ -226,7 +228,7 @@ MainWindow::MainWindow(AuthSession* session, QWidget* parent)
     auto* statLay = new QVBoxLayout(statPage);
     statLay->setContentsMargins(20, 20, 20, 20);
     statLay->setSpacing(12);
-    auto* statTitle = new QLabel(QStringLiteral("Statistics"), this);
+    auto* statTitle = new QLabel(Datagate::tr("Statistics"), this);
     statTitle->setObjectName(QStringLiteral("titleH1"));
     statLay->addWidget(statTitle);
     m_statisticsPanel = new StatisticsPanel(this);
@@ -238,24 +240,45 @@ MainWindow::MainWindow(AuthSession* session, QWidget* parent)
     auto* setOuter = new QVBoxLayout(settingsPage);
     setOuter->setContentsMargins(20, 20, 20, 20);
     setOuter->setSpacing(16);
-    auto* setTitle = new QLabel(QStringLiteral("Settings"), this);
+    auto* setTitle = new QLabel(Datagate::tr("Settings"), this);
     setTitle->setObjectName(QStringLiteral("titleH1"));
     setOuter->addWidget(setTitle);
+
+    auto* langCard = new QFrame(this);
+    langCard->setObjectName(QStringLiteral("card"));
+    auto* langLay = new QVBoxLayout(langCard);
+    langLay->setContentsMargins(18, 18, 18, 18);
+    auto* langH = new QLabel(Datagate::tr("Language"), this);
+    langH->setObjectName(QStringLiteral("titleH2"));
+    langLay->addWidget(langH);
+    auto* langSub = new QLabel(
+        Datagate::tr("Interface language. Save settings to apply; restart the app if some labels stay in the old language."),
+        this);
+    langSub->setObjectName(QStringLiteral("muted"));
+    langSub->setWordWrap(true);
+    langLay->addWidget(langSub);
+    m_languageCombo = new QComboBox(this);
+    m_languageCombo->addItem(QStringLiteral("English"), QStringLiteral("en"));
+    m_languageCombo->addItem(QStringLiteral("Русский"), QStringLiteral("ru"));
+    m_languageCombo->addItem(QStringLiteral("Français"), QStringLiteral("fr"));
+    m_languageCombo->addItem(QStringLiteral("Ελληνικά"), QStringLiteral("el"));
+    langLay->addWidget(m_languageCombo);
+    setOuter->addWidget(langCard);
 
     auto* appearCard = new QFrame(this);
     appearCard->setObjectName(QStringLiteral("card"));
     auto* appearLay = new QVBoxLayout(appearCard);
     appearLay->setContentsMargins(18, 18, 18, 18);
-    auto* appearH = new QLabel(QStringLiteral("Appearance"), this);
+    auto* appearH = new QLabel(Datagate::tr("Appearance"), this);
     appearH->setObjectName(QStringLiteral("titleH2"));
     appearLay->addWidget(appearH);
-    auto* appearSub = new QLabel(QStringLiteral("Choose the application theme."), this);
+    auto* appearSub = new QLabel(Datagate::tr("Choose the application theme."), this);
     appearSub->setObjectName(QStringLiteral("muted"));
     appearLay->addWidget(appearSub);
     auto* themeRow = new QHBoxLayout();
-    auto* themeLbl = new QLabel(QStringLiteral("Theme"), this);
+    auto* themeLbl = new QLabel(Datagate::tr("Theme"), this);
     themeLbl->setObjectName(QStringLiteral("titleH2"));
-    m_themeDark = new QCheckBox(QStringLiteral("Dark mode"), this);
+    m_themeDark = new QCheckBox(Datagate::tr("Dark mode"), this);
     m_themeDark->setChecked(true);
     themeRow->addWidget(themeLbl);
     themeRow->addStretch();
@@ -269,10 +292,10 @@ MainWindow::MainWindow(AuthSession* session, QWidget* parent)
     vpnLay->setContentsMargins(18, 18, 18, 18);
     vpnLay->setSpacing(12);
     m_openVpnPath = new QLineEdit(this);
-    m_openVpnPath->setPlaceholderText(QStringLiteral("openvpn"));
-    vpnLay->addRow(QStringLiteral("OpenVPN command"), m_openVpnPath);
+    m_openVpnPath->setPlaceholderText(Datagate::tr("openvpn"));
+    vpnLay->addRow(Datagate::tr("OpenVPN command"), m_openVpnPath);
     auto* tunHint = new QLabel(
-        QStringLiteral(
+        Datagate::tr(
             "Tunnel (TUN): Linux allows TUN only with CAP_NET_ADMIN on the openvpn binary. "
             "Use Grant TUN capability or: sudo setcap cap_net_admin+ep $(command -v openvpn). "
             "Avoid running the whole app as sudo if possible."),
@@ -280,10 +303,10 @@ MainWindow::MainWindow(AuthSession* session, QWidget* parent)
     tunHint->setObjectName(QStringLiteral("muted"));
     tunHint->setWordWrap(true);
     vpnLay->addRow(tunHint);
-    m_grantTunCapBtn = new QPushButton(QStringLiteral("Grant TUN capability…"), this);
+    m_grantTunCapBtn = new QPushButton(Datagate::tr("Grant TUN capability…"), this);
     m_grantTunCapBtn->setProperty("secondary", true);
     vpnLay->addRow(m_grantTunCapBtn);
-    m_saveSettingsBtn = new QPushButton(QStringLiteral("Save settings"), this);
+    m_saveSettingsBtn = new QPushButton(Datagate::tr("Save settings"), this);
     m_saveSettingsBtn->setProperty("secondary", true);
     vpnLay->addRow(m_saveSettingsBtn);
     setOuter->addWidget(vpnCard);
@@ -292,13 +315,13 @@ MainWindow::MainWindow(AuthSession* session, QWidget* parent)
     accountCard->setObjectName(QStringLiteral("card"));
     auto* accCardLay = new QVBoxLayout(accountCard);
     accCardLay->setContentsMargins(18, 18, 18, 18);
-    auto* accH = new QLabel(QStringLiteral("Account"), this);
+    auto* accH = new QLabel(Datagate::tr("Account"), this);
     accH->setObjectName(QStringLiteral("titleH2"));
     accCardLay->addWidget(accH);
-    auto* accSub = new QLabel(QStringLiteral("Sign out from the application."), this);
+    auto* accSub = new QLabel(Datagate::tr("Sign out from the application."), this);
     accSub->setObjectName(QStringLiteral("muted"));
     accCardLay->addWidget(accSub);
-    m_logoutBtn = new QPushButton(QStringLiteral("Logout"), this);
+    m_logoutBtn = new QPushButton(Datagate::tr("Logout"), this);
     m_logoutBtn->setProperty("secondary", true);
     accCardLay->addWidget(m_logoutBtn);
     setOuter->addWidget(accountCard);
@@ -324,6 +347,12 @@ MainWindow::MainWindow(AuthSession* session, QWidget* parent)
         updateServerModeUi();
     });
 
+    connect(m_languageCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this, [this](int) {
+        const QString code = m_languageCombo->currentData().toString();
+        DatagateTranslator::setLanguageCode(code);
+        DatagateTranslator::installForLanguage(code);
+    });
+
     connect(m_themeDark, &QCheckBox::toggled, this, [this](bool dark) {
         AppTheme::apply(dark);
         QSettings s;
@@ -332,7 +361,7 @@ MainWindow::MainWindow(AuthSession* session, QWidget* parent)
 
     connect(m_saveSettingsBtn, &QPushButton::clicked, this, [this]() {
         saveSettings();
-        appendLog(QStringLiteral("Settings saved."));
+        appendLog(Datagate::tr("Settings saved."));
     });
     connect(m_grantTunCapBtn, &QPushButton::clicked, this, &MainWindow::grantOpenVpnCapNetAdmin);
     connect(m_connectBtn, &QPushButton::clicked, this, [this]() {
@@ -341,19 +370,19 @@ MainWindow::MainWindow(AuthSession* session, QWidget* parent)
             return;
         }
         const QString btnText = m_connectBtn->text();
-        if (btnText == QStringLiteral("Connecting…") || btnText == QStringLiteral("Disconnecting…")) {
+        if (btnText == Datagate::tr("Connecting…") || btnText == Datagate::tr("Disconnecting…")) {
             return;
         }
-        if (m_vpn && btnText == QStringLiteral("Disconnect")) {
+        if (m_vpn && btnText == Datagate::tr("Disconnect")) {
             m_connectBtn->setEnabled(false);
-            m_connectBtn->setText(QStringLiteral("Disconnecting…"));
-            appendLog(QStringLiteral("Disconnecting…"));
+            m_connectBtn->setText(Datagate::tr("Disconnecting…"));
+            appendLog(Datagate::tr("Disconnecting…"));
             m_vpn->disconnectVpn("Disconnect button");
             return;
         }
         const QString url = AppConfig::apiBaseUrl().trimmed();
         if (url.isEmpty()) {
-            QMessageBox::warning(this, QStringLiteral("DataGate"), QStringLiteral("Api:BaseUrl is missing in appsettings.json."));
+            QMessageBox::warning(this, Datagate::tr("DataGate"), Datagate::tr("Api:BaseUrl is missing in appsettings.json."));
             return;
         }
         qCInfo(lcUi, "Connect: ensureValidAccessToken");
@@ -361,9 +390,9 @@ MainWindow::MainWindow(AuthSession* session, QWidget* parent)
             qCWarning(lcUi, "Connect: ensureValidAccessToken failed");
             QMessageBox::warning(
                 this,
-                QStringLiteral("DataGate"),
-                QStringLiteral("Could not obtain a valid access token (same check as DataGateWin). "
-                               "Use Settings → Logout, then sign in again, or check the network / API."));
+                Datagate::tr("DataGate"),
+                Datagate::tr("Could not obtain an access token. The API may be unavailable — try again later, "
+                             "or the session expired — sign out (Settings) and sign in again."));
             return;
         }
         const QString tok = m_session->accessToken();
@@ -373,12 +402,12 @@ MainWindow::MainWindow(AuthSession* session, QWidget* parent)
             manualId = m_manualServerCombo->currentData().toInt();
             if (manualId <= 0) {
                 QMessageBox::warning(
-                    this, QStringLiteral("DataGate"), QStringLiteral("Choose a VPN server or refresh the list."));
+                    this, Datagate::tr("DataGate"), Datagate::tr("Choose a VPN server or refresh the list."));
                 return;
             }
         }
         m_connectBtn->setEnabled(false);
-        m_connectBtn->setText(QStringLiteral("Connecting…"));
+        m_connectBtn->setText(Datagate::tr("Connecting…"));
         m_vpn->connectVpn(url, tok, m_openVpnPath->text(), autoPick, manualId);
     });
     connect(m_refreshServersBtn, &QPushButton::clicked, this, [this]() { refreshServers(true); });
@@ -393,8 +422,8 @@ MainWindow::MainWindow(AuthSession* session, QWidget* parent)
     });
     connect(m_vpn, &VpnSession::errorMessage, this, [this](const QString& t) {
         m_status->setText(t);
-        appendLog(QStringLiteral("Error: ") + t);
-        QMessageBox::warning(this, QStringLiteral("DataGate"), t);
+        appendLog(Datagate::tr("Error: ") + t);
+        QMessageBox::warning(this, Datagate::tr("DataGate"), t);
         updateConnectButtonUi(false);
     });
     connect(m_vpn, &VpnSession::openVpnCapabilitySetupRecommended, this,
@@ -403,13 +432,13 @@ MainWindow::MainWindow(AuthSession* session, QWidget* parent)
         updateConnectButtonUi(true);
         if (m_connectedToLabel) {
             const QString n = m_vpn->activeServerName();
-            m_connectedToLabel->setText(QStringLiteral("Connected to: %1").arg(n.isEmpty() ? QStringLiteral("—") : n));
+            m_connectedToLabel->setText(Datagate::tr("Connected to: %1").arg(n.isEmpty() ? Datagate::tr("—") : n));
         }
     });
     connect(m_vpn, &VpnSession::vpnDown, this, [this]() {
         updateConnectButtonUi(false);
         if (m_connectedToLabel) {
-            m_connectedToLabel->setText(QStringLiteral("Connected to: —"));
+            m_connectedToLabel->setText(Datagate::tr("Connected to: —"));
         }
     });
 
@@ -418,7 +447,7 @@ MainWindow::MainWindow(AuthSession* session, QWidget* parent)
 
     const QString who = m_session->displayName();
     if (!who.isEmpty()) {
-        m_status->setText(QStringLiteral("Signed in as %1.").arg(who));
+        m_status->setText(Datagate::tr("Signed in as %1.").arg(who));
     }
 }
 
@@ -431,10 +460,10 @@ void MainWindow::updateConnectButtonUi(bool vpnUp)
     }
     if (vpnUp) {
         m_connectBtn->setEnabled(true);
-        m_connectBtn->setText(QStringLiteral("Disconnect"));
+        m_connectBtn->setText(Datagate::tr("Disconnect"));
     } else {
         m_connectBtn->setEnabled(true);
-        m_connectBtn->setText(QStringLiteral("Connect"));
+        m_connectBtn->setText(Datagate::tr("Connect"));
     }
 }
 
@@ -481,6 +510,18 @@ void MainWindow::loadSettings()
             m_manualServerCombo->setCurrentIndex(ix);
         }
     }
+
+    const QString lang = DatagateTranslator::currentLanguageCode();
+    m_languageCombo->blockSignals(true);
+    const int lix = m_languageCombo->findData(lang);
+    if (lix >= 0) {
+        m_languageCombo->setCurrentIndex(lix);
+    } else {
+        m_languageCombo->setCurrentIndex(0);
+    }
+    m_languageCombo->blockSignals(false);
+    DatagateTranslator::installForLanguage(lang);
+
     updateServerModeUi();
 }
 
@@ -494,6 +535,7 @@ void MainWindow::saveSettings()
     if (mid > 0) {
         s.setValue(QStringLiteral("manualVpnServerId"), mid);
     }
+    s.setValue(QStringLiteral("General/language"), m_languageCombo->currentData().toString());
 }
 
 void MainWindow::navigateTo(int index)
@@ -525,18 +567,18 @@ void MainWindow::grantOpenVpnCapNetAdmin()
     const QString exe = DatagateUtils::resolvedOpenVpnExecutable(m_openVpnPath->text());
     const QFileInfo fi(exe);
     if (!fi.exists()) {
-        QMessageBox::warning(this, QStringLiteral("DataGate"),
-            QStringLiteral("OpenVPN binary not found: %1").arg(exe));
+        QMessageBox::warning(this, Datagate::tr("DataGate"),
+            Datagate::tr("OpenVPN binary not found: %1").arg(exe));
         return;
     }
     if (!fi.isExecutable()) {
-        QMessageBox::warning(this, QStringLiteral("DataGate"),
-            QStringLiteral("Not an executable: %1").arg(exe));
+        QMessageBox::warning(this, Datagate::tr("DataGate"),
+            Datagate::tr("Not an executable: %1").arg(exe));
         return;
     }
     if (!exe.contains(QStringLiteral("openvpn"), Qt::CaseInsensitive)) {
-        QMessageBox::warning(this, QStringLiteral("DataGate"),
-            QStringLiteral("Refusing setcap: path must contain “openvpn”."));
+        QMessageBox::warning(this, Datagate::tr("DataGate"),
+            Datagate::tr("Refusing setcap: path must contain “openvpn”."));
         return;
     }
 #if defined(__linux__)
@@ -546,42 +588,42 @@ void MainWindow::grantOpenVpnCapNetAdmin()
     p.waitForFinished(-1);
     const QString errOut = QString::fromUtf8(p.readAllStandardError()).trimmed();
     const QString stdOut = QString::fromUtf8(p.readAllStandardOutput()).trimmed();
-    const QString combined = stdOut.isEmpty() ? errOut : (stdOut + QStringLiteral("\n") + errOut);
+    const QString combined = stdOut.isEmpty() ? errOut : (stdOut + Datagate::tr("\n") + errOut);
     if (p.exitCode() == 0) {
-        QMessageBox::information(this, QStringLiteral("DataGate"),
-            QStringLiteral("Capability granted.\n%1\n\nVerify: getcap %2")
+        QMessageBox::information(this, Datagate::tr("DataGate"),
+            Datagate::tr("Capability granted.\n%1\n\nVerify: getcap %2")
                 .arg(combined, fi.canonicalFilePath()));
-        appendLog(QStringLiteral("setcap cap_net_admin+ep on ") + fi.canonicalFilePath());
+        appendLog(Datagate::tr("setcap cap_net_admin+ep on ") + fi.canonicalFilePath());
     } else {
         QMessageBox::warning(
             this,
-            QStringLiteral("DataGate"),
-            QStringLiteral("pkexec/setcap failed (exit %1).\n\n%2\n\nManual:\n"
+            Datagate::tr("DataGate"),
+            Datagate::tr("pkexec/setcap failed (exit %1).\n\n%2\n\nManual:\n"
                            "sudo setcap cap_net_admin+ep %3\ngetcap %3")
                 .arg(p.exitCode())
-                .arg(combined.isEmpty() ? QStringLiteral("(no output)") : combined)
+                .arg(combined.isEmpty() ? Datagate::tr("(no output)") : combined)
                 .arg(fi.canonicalFilePath()));
     }
 #else
     Q_UNUSED(exe);
-    QMessageBox::information(this, QStringLiteral("DataGate"), QStringLiteral("Linux only."));
+    QMessageBox::information(this, Datagate::tr("DataGate"), Datagate::tr("Linux only."));
 #endif
 }
 
 void MainWindow::onOpenVpnCapabilityRecommended(const QString& detail)
 {
-    m_status->setText(QStringLiteral("TUN / OpenVPN capability setup may be required."));
+    m_status->setText(Datagate::tr("TUN / OpenVPN capability setup may be required."));
     appendLog(detail);
     updateConnectButtonUi(false);
 
     QMessageBox box(this);
     box.setIcon(QMessageBox::Warning);
-    box.setWindowTitle(QStringLiteral("DataGate"));
-    box.setText(QStringLiteral(
+    box.setWindowTitle(Datagate::tr("DataGate"));
+    box.setText(Datagate::tr(
         "OpenVPN needs CAP_NET_ADMIN on the openvpn binary to create a TUN device. DataGate cannot add this to itself."));
     box.setInformativeText(detail);
-    auto* grantBtn = box.addButton(QStringLiteral("Grant TUN capability…"), QMessageBox::AcceptRole);
-    auto* settingsBtn = box.addButton(QStringLiteral("Open Settings"), QMessageBox::ActionRole);
+    auto* grantBtn = box.addButton(Datagate::tr("Grant TUN capability…"), QMessageBox::AcceptRole);
+    auto* settingsBtn = box.addButton(Datagate::tr("Open Settings"), QMessageBox::ActionRole);
     box.addButton(QMessageBox::Close);
     box.exec();
     if (box.clickedButton() == grantBtn) {
@@ -624,8 +666,8 @@ void MainWindow::refreshServers(bool showErrorDialogs)
         if (showErrorDialogs) {
             QMessageBox::information(
                 this,
-                QStringLiteral("DataGate"),
-                QStringLiteral("Configure Api:BaseUrl in appsettings.json."));
+                Datagate::tr("DataGate"),
+                Datagate::tr("Configure Api:BaseUrl in appsettings.json."));
             navigateTo(3);
         }
         return;
@@ -634,8 +676,8 @@ void MainWindow::refreshServers(bool showErrorDialogs)
         if (showErrorDialogs) {
             QMessageBox::warning(
                 this,
-                QStringLiteral("DataGate"),
-                QStringLiteral("Could not refresh the session. Check the network or sign in again (Settings → Logout)."));
+                Datagate::tr("DataGate"),
+                Datagate::tr("The API is unavailable — try again later. If your network is fine, sign out (Settings) and sign in again."));
         }
         return;
     }
@@ -656,15 +698,15 @@ void MainWindow::refreshServers(bool showErrorDialogs)
             const QString err = reply->errorString();
             reply->deleteLater();
             if (showErrorDialogs) {
-                QMessageBox::warning(this, QStringLiteral("DataGate"), err);
+                QMessageBox::warning(this, Datagate::tr("DataGate"), err);
             } else {
-                appendLog(QStringLiteral("Silent server refresh failed: %1").arg(err));
+                appendLog(Datagate::tr("Silent server refresh failed: %1").arg(err));
             }
             return;
         }
         m_serverTable->setRowCount(0);
         if (m_accessTotalClientsLabel) {
-            m_accessTotalClientsLabel->setText(QStringLiteral("Total clients: —"));
+            m_accessTotalClientsLabel->setText(Datagate::tr("Total clients: —"));
         }
         const QByteArray raw = reply->readAll();
         reply->deleteLater();
@@ -672,7 +714,7 @@ void MainWindow::refreshServers(bool showErrorDialogs)
         const QJsonDocument doc = QJsonDocument::fromJson(raw, &err);
         if (err.error != QJsonParseError::NoError || !doc.isObject()) {
             if (showErrorDialogs) {
-                QMessageBox::warning(this, QStringLiteral("DataGate"), QStringLiteral("Invalid JSON."));
+                QMessageBox::warning(this, Datagate::tr("DataGate"), Datagate::tr("Invalid JSON."));
             }
             return;
         }
@@ -696,14 +738,14 @@ void MainWindow::refreshServers(bool showErrorDialogs)
             const int row = m_serverTable->rowCount();
             m_serverTable->insertRow(row);
             m_serverTable->setItem(row, 0,
-                new QTableWidgetItem(name.isEmpty() ? QStringLiteral("—") : name));
+                new QTableWidgetItem(name.isEmpty() ? Datagate::tr("—") : name));
             m_serverTable->setItem(row, 1,
-                new QTableWidgetItem(online ? QStringLiteral("yes") : QStringLiteral("no")));
+                new QTableWidgetItem(online ? Datagate::tr("yes") : Datagate::tr("no")));
             m_serverTable->setItem(row, 2, new QTableWidgetItem(QString::number(clients)));
         }
         if (m_accessTotalClientsLabel) {
             m_accessTotalClientsLabel->setText(
-                QStringLiteral("Total clients: %1").arg(totalClients));
+                Datagate::tr("Total clients: %1").arg(totalClients));
         }
         applyWssServerList(raw);
     });

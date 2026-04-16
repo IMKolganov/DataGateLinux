@@ -1,6 +1,7 @@
 #include "LoginDialog.h"
 
 #include "AppConfig.h"
+#include "DatagateTr.h"
 #include "AppLogging.h"
 #include "AppTheme.h"
 #include "AuthSession.h"
@@ -22,7 +23,7 @@ LoginDialog::LoginDialog(AuthSession* session, QNetworkAccessManager* nam, QWidg
     , m_session(session)
     , m_google(new GoogleAuthHelper(nam, this))
 {
-    setWindowTitle(QStringLiteral("DataGate — Sign in"));
+    setWindowTitle(Datagate::tr("DataGate — Sign in"));
     setModal(true);
     resize(420, 220);
     setFixedSize(420, 220);
@@ -31,7 +32,7 @@ LoginDialog::LoginDialog(AuthSession* session, QNetworkAccessManager* nam, QWidg
     root->setContentsMargins(24, 24, 24, 24);
     root->setSpacing(16);
 
-    auto* title = new QLabel(QStringLiteral("Welcome to DataGate"), this);
+    auto* title = new QLabel(Datagate::tr("Welcome to DataGate"), this);
     QFont tf = title->font();
     tf.setPointSize(12);
     tf.setWeight(QFont::DemiBold);
@@ -39,7 +40,7 @@ LoginDialog::LoginDialog(AuthSession* session, QNetworkAccessManager* nam, QWidg
     root->addWidget(title);
 
     auto* hint = new QLabel(
-        QStringLiteral("Sign in with your Google account to continue."),
+        Datagate::tr("Sign in with your Google account to continue."),
         this);
     hint->setWordWrap(true);
     root->addWidget(hint);
@@ -50,9 +51,9 @@ LoginDialog::LoginDialog(AuthSession* session, QNetworkAccessManager* nam, QWidg
 
     auto* row = new QHBoxLayout();
     row->addStretch();
-    m_cancel = new QPushButton(QStringLiteral("Cancel"), this);
+    m_cancel = new QPushButton(Datagate::tr("Cancel"), this);
     m_cancel->setProperty("secondary", true);
-    m_signIn = new QPushButton(QStringLiteral("Sign in with Google"), this);
+    m_signIn = new QPushButton(Datagate::tr("Sign in with Google"), this);
     m_signIn->setProperty("primary", true);
     row->addWidget(m_cancel);
     row->addWidget(m_signIn);
@@ -68,12 +69,12 @@ LoginDialog::LoginDialog(AuthSession* session, QNetworkAccessManager* nam, QWidg
         if (api.isEmpty() || cid.isEmpty()) {
             QMessageBox::warning(
                 this,
-                QStringLiteral("DataGate"),
-                QStringLiteral("Configure Api:BaseUrl and GoogleAuth:ClientId in appsettings.json."));
+                Datagate::tr("DataGate"),
+                Datagate::tr("Configure Api:BaseUrl and GoogleAuth:ClientId in appsettings.json."));
             return;
         }
         m_signIn->setEnabled(false);
-        m_status->setText(QStringLiteral("Waiting for browser sign-in…"));
+        m_status->setText(Datagate::tr("Waiting for browser sign-in…"));
         m_google->signInWithGoogle(cid, AppConfig::googleRedirectPort(), api);
     });
     connect(m_google, &GoogleAuthHelper::finishedSuccess, this, [this](const QJsonObject& data) {
@@ -90,7 +91,7 @@ LoginDialog::LoginDialog(AuthSession* session, QNetworkAccessManager* nam, QWidg
             return;
         }
         m_status->setText(err);
-        QMessageBox::warning(this, QStringLiteral("DataGate"), err);
+        QMessageBox::warning(this, Datagate::tr("DataGate"), err);
     });
 }
 

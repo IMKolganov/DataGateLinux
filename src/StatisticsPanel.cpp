@@ -1,5 +1,6 @@
 #include "StatisticsPanel.h"
 
+#include "DatagateTr.h"
 #include "DatagateUtils.h"
 
 #include <QVector>
@@ -54,11 +55,11 @@ protected:
 
         p.setPen(palette().color(QPalette::Text));
         p.drawText(r.adjusted(8, 4, -8, -8), Qt::AlignTop | Qt::AlignLeft,
-            QStringLiteral("Traffic (MB) — per client"));
+            Datagate::tr("Traffic (MB) — per client"));
 
         if (m_items.isEmpty()) {
             p.setPen(palette().color(QPalette::PlaceholderText));
-            p.drawText(r, Qt::AlignCenter, QStringLiteral("No data"));
+            p.drawText(r, Qt::AlignCenter, Datagate::tr("No data"));
             return;
         }
 
@@ -189,7 +190,7 @@ protected:
         p.fillRect(fill, fillCol);
 
         p.setPen(palette().color(QPalette::Text));
-        const QString txt = QStringLiteral("%1 — %2 MB").arg(m_title).arg(m_mb, 0, 'f', 2);
+        const QString txt = Datagate::tr("%1 — %2 MB").arg(m_title).arg(m_mb, 0, 'f', 2);
         p.drawText(r.adjusted(8, 0, -8, 0), Qt::AlignVCenter | Qt::AlignLeft, txt);
     }
 
@@ -210,24 +211,24 @@ StatisticsPanel::StatisticsPanel(QWidget* parent)
     root->setSpacing(12);
 
     auto* hint = new QLabel(
-        QStringLiteral("Per-server traffic from the API (GET open-vpn-statistics/get/{id})."), this);
+        Datagate::tr("Per-server traffic from the API (GET open-vpn-statistics/get/{id})."), this);
     hint->setObjectName(QStringLiteral("muted"));
     hint->setWordWrap(true);
     root->addWidget(hint);
 
     auto* row1 = new QHBoxLayout();
-    row1->addWidget(new QLabel(QStringLiteral("Server:"), this));
+    row1->addWidget(new QLabel(Datagate::tr("Server:"), this));
     m_serverCombo = new QComboBox(this);
     m_serverCombo->setMinimumWidth(220);
     row1->addWidget(m_serverCombo);
     row1->addStretch();
     root->addLayout(row1);
 
-    m_onlyMine = new QCheckBox(QStringLiteral("Only my traffic (JWT externalId)"), this);
+    m_onlyMine = new QCheckBox(Datagate::tr("Only my traffic (JWT externalId)"), this);
     m_onlyMine->setChecked(false);
     root->addWidget(m_onlyMine);
 
-    auto* loadBtn = new QPushButton(QStringLiteral("Load statistics"), this);
+    auto* loadBtn = new QPushButton(Datagate::tr("Load statistics"), this);
     loadBtn->setProperty("primary", true);
     root->addWidget(loadBtn);
 
@@ -261,7 +262,7 @@ void StatisticsPanel::setServers(const QVector<QPair<int, QString>>& idAndName)
     m_serverCombo->clear();
     for (const auto& p : idAndName) {
         if (p.first > 0) {
-            m_serverCombo->addItem(p.second.isEmpty() ? QStringLiteral("Server %1").arg(p.first) : p.second,
+            m_serverCombo->addItem(p.second.isEmpty() ? Datagate::tr("Server %1").arg(p.first) : p.second,
                 p.first);
         }
     }
@@ -272,7 +273,7 @@ void StatisticsPanel::loadStatistics(const QString& apiBaseUrl, const QString& b
     m_apiBase = apiBaseUrl.trimmed();
     m_bearer = bearerAccessToken.trimmed();
     if (!m_bearer.isEmpty() && m_status) {
-        m_status->setText(QStringLiteral("Ready. Choose a server and tap Load statistics."));
+        m_status->setText(Datagate::tr("Ready. Choose a server and tap Load statistics."));
     }
 }
 
@@ -317,16 +318,16 @@ void StatisticsPanel::renderRows(const QVector<QPair<QString, double>>& items, d
 void StatisticsPanel::onLoadClicked()
 {
     if (m_apiBase.isEmpty() || m_bearer.isEmpty()) {
-        finishWithError(QStringLiteral("Sign in and ensure Api:BaseUrl is set."));
+        finishWithError(Datagate::tr("Sign in and ensure Api:BaseUrl is set."));
         return;
     }
     const int sid = m_serverCombo ? m_serverCombo->currentData().toInt() : 0;
     if (sid <= 0) {
-        finishWithError(QStringLiteral("Choose a VPN server (refresh list on Access if empty)."));
+        finishWithError(Datagate::tr("Choose a VPN server (refresh list on Access if empty)."));
         return;
     }
 
-    finishWithError(QStringLiteral("Loading…"));
+    finishWithError(Datagate::tr("Loading…"));
     QUrl url(joinApi(m_apiBase, QStringLiteral("api/open-vpn-statistics/get/%1").arg(sid)));
     QNetworkRequest req(url);
     req.setRawHeader("Accept", "application/json");
@@ -336,20 +337,20 @@ void StatisticsPanel::onLoadClicked()
     connect(reply, &QNetworkReply::finished, this, [this, reply]() {
         reply->deleteLater();
         if (reply->error() != QNetworkReply::NoError) {
-            finishWithError(QStringLiteral("Error: %1").arg(reply->errorString()));
+            finishWithError(Datagate::tr("Error: %1").arg(reply->errorString()));
             return;
         }
         const QByteArray body = reply->readAll();
         QJsonParseError jerr{};
         const QJsonDocument doc = QJsonDocument::fromJson(body, &jerr);
         if (jerr.error != QJsonParseError::NoError || !doc.isObject()) {
-            finishWithError(QStringLiteral("Invalid JSON."));
+            finishWithError(Datagate::tr("Invalid JSON."));
             return;
         }
         const QJsonObject rootObj = doc.object();
         if (!rootObj.value(QStringLiteral("success")).toBool(false)) {
             finishWithError(
-                QStringLiteral("API: %1").arg(rootObj.value(QStringLiteral("message")).toString()));
+                Datagate::tr("API: %1").arg(rootObj.value(QStringLiteral("message")).toString()));
             return;
         }
         QJsonObject data = rootObj.value(QStringLiteral("data")).toObject();
@@ -373,7 +374,7 @@ void StatisticsPanel::onLoadClicked()
             }
             const QString cn = o.value(QStringLiteral("commonName")).toString();
             const QString label = cn.isEmpty()
-                ? (ext.isEmpty() ? QStringLiteral("(client)") : ext)
+                ? (ext.isEmpty() ? Datagate::tr("(client)") : ext)
                 : cn;
             double mb = o.value(QStringLiteral("totalMbTraffic")).toDouble();
             if (mb <= 0) {
@@ -387,14 +388,14 @@ void StatisticsPanel::onLoadClicked()
 
         if (items.isEmpty()) {
             finishWithError(filterExt.isEmpty()
-                    ? QStringLiteral("No clientTraffics rows in the response.")
-                    : QStringLiteral("No rows for your externalId in this response."));
+                    ? Datagate::tr("No clientTraffics rows in the response.")
+                    : Datagate::tr("No rows for your externalId in this response."));
             renderRows({}, 1);
             return;
         }
 
         if (m_status) {
-            m_status->setText(QStringLiteral("Loaded %1 row(s).").arg(items.size()));
+            m_status->setText(Datagate::tr("Loaded %1 row(s).").arg(items.size()));
         }
         renderRows(items, maxMb);
     });
