@@ -68,6 +68,9 @@ public:
         connect(m_ws, &QWebSocket::connected, this, [this]() {
             qCDebug(lcBridge) << "WebSocket connected for bridge" << m_wssUrl;
             m_pingTimer->start();
+            // QWebSocket drops sendBinaryMessage until Connected; OpenVPN sends TLS immediately
+            // after TCP connect — buffer until here so the first flight reaches the proxy.
+            flushPendingTcpToWebSocket();
         });
 
         m_ws->open(m_wssUrl);
@@ -76,6 +79,18 @@ public:
     void requestShutdown() { shutdown(); }
 
 private:
+    void flushPendingTcpToWebSocket()
+    {
+        if (!m_ws || m_pendingTcpToWs.isEmpty()) {
+            return;
+        }
+        if (m_ws->state() != QAbstractSocket::ConnectedState) {
+            return;
+        }
+        m_ws->sendBinaryMessage(m_pendingTcpToWs);
+        m_pendingTcpToWs.clear();
+    }
+
     void onTcpReady()
     {
         if (!m_tcp || !m_ws) {
@@ -85,7 +100,8 @@ private:
         if (chunk.isEmpty()) {
             return;
         }
-        m_ws->sendBinaryMessage(chunk);
+        m_pendingTcpToWs.append(chunk);
+        flushPendingTcpToWebSocket();
     }
 
     void onWsBinary(const QByteArray& message)
@@ -135,6 +151,7 @@ private:
     QTcpSocket* m_tcp = nullptr;
     QWebSocket* m_ws = nullptr;
     QTimer* m_pingTimer = nullptr;
+    QByteArray m_pendingTcpToWs;
     bool m_shuttingDown = false;
 };
 
