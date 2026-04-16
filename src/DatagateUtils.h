@@ -1,5 +1,7 @@
 #pragma once
 
+#include <QtGlobal>
+
 #include <QString>
 #include <QStringList>
 #include <QUrl>
@@ -90,6 +92,10 @@ QString linuxEmbeddedVpnTunDiagnosis(const QString& qAppExecutablePath);
 
 /// If CAP_NET_ADMIN is permitted but not effective, promote to effective (needs DATAGATE_HAVE_LIBCAP + libcap).
 bool linuxTryRaiseEffectiveCapNetAdmin();
+
+/// Lower 64 capability bits from /proc/self/status (CapPrm / CapEff).
+quint64 linuxProcSelfCapPermittedU64();
+quint64 linuxProcSelfCapEffectiveU64();
 #endif
 
 } // namespace DatagateUtils

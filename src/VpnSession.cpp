@@ -672,20 +672,39 @@ void VpnSession::maybeEmitEmbeddedTunCapHint(const QString& ovpn3LogLine)
     }
     m_ovpn3TunCapHintEmitted = true;
     const QString exe = QCoreApplication::applicationFilePath();
+    QString lead;
     QString diagTail;
 #if defined(__linux__)
-    diagTail = QStringLiteral("\n\n") + DatagateUtils::linuxEmbeddedVpnTunDiagnosis(exe);
+    {
+        const QString gc = DatagateUtils::linuxFileGetcapLine(exe);
+        const bool fileHasNetAdmin = gc.contains(QLatin1String("cap_net_admin"), Qt::CaseInsensitive);
+        constexpr quint64 kNetAdminBit = (1ULL << 12);
+        const quint64 prm = DatagateUtils::linuxProcSelfCapPermittedU64();
+        const bool procHasNetAdmin = (prm & kNetAdminBit) != 0;
+        if (fileHasNetAdmin && !procHasNetAdmin) {
+            lead = Datagate::tr(
+                "getcap shows cap_net_admin on this binary, but the running process still has CapPrm=0 for it — "
+                "so this is not “missing rights on the file”.\n\n"
+                "Usually: (1) DataGate was started before setcap — capabilities apply only to the next exec; "
+                "pressing Connect again does not reload them. Fully quit the application (exit the process), then "
+                "start DataGate again.\n"
+                "(2) Or a debugger still ptraces this process — then setcap never applies; run from a normal terminal "
+                "without IDE attach, or set OpenVpn.UseSystemBinary=true and setcap on /usr/sbin/openvpn.\n\n");
+        }
+        diagTail = QStringLiteral("\n\n") + DatagateUtils::linuxEmbeddedVpnTunDiagnosis(exe);
+    }
 #endif
     emit openVpnCapabilitySetupRecommended(
-        Datagate::tr(
-            "TUN device could not be opened (Operation not permitted).\n\n"
-            "Embedded OpenVPN 3 opens /dev/net/tun in this process; the DataGate executable needs CAP_NET_ADMIN.\n\n"
-            "If you already used Settings → Grant: file capabilities apply only after you start a new process — "
-            "completely quit DataGate (exit the application) and launch it again. Disconnecting VPN is not enough.\n\n"
-            "If you ran CMake build after Grant: run Grant again — the rebuilt binary is a new file without the old "
-            "capability.\n\n"
-            "sudo setcap cap_net_admin+ep \"%1\"%2")
-            .arg(exe, diagTail));
+        lead
+            + Datagate::tr(
+                  "TUN device could not be opened (Operation not permitted).\n\n"
+                  "Embedded OpenVPN 3 opens /dev/net/tun in this process; the DataGate executable needs CAP_NET_ADMIN "
+                  "in the process (not only on disk).\n\n"
+                  "If you already used Settings → Grant: capabilities apply only after a full new process — quit "
+                  "DataGate completely and launch again. Disconnecting VPN is not enough.\n\n"
+                  "If you ran CMake build after Grant: run Grant again — the new binary replaces the file.\n\n"
+                  "sudo setcap cap_net_admin+ep \"%1\"%2")
+                  .arg(exe, diagTail));
 }
 
 #endif // DATAGATE_EMBEDDED_OPENVPN3

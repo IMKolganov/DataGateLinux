@@ -601,6 +601,46 @@ int linuxProcSelfTracerPid()
 
 namespace {
 
+quint64 readProcSelfCapLine(const QByteArray& prefix)
+{
+    QFile st(QStringLiteral("/proc/self/status"));
+    if (!st.open(QIODevice::ReadOnly)) {
+        return 0;
+    }
+    const QByteArray raw = st.readAll();
+    for (const QByteArray& line : raw.split('\n')) {
+        if (line.startsWith(prefix)) {
+            const int tab = line.indexOf('\t');
+            if (tab < 0) {
+                return 0;
+            }
+            QByteArray hex = line.mid(tab + 1).trimmed();
+            const int sp = hex.indexOf(' ');
+            if (sp > 0) {
+                hex = hex.left(sp);
+            }
+            bool ok = false;
+            const quint64 v = hex.toULongLong(&ok, 16);
+            return ok ? v : 0;
+        }
+    }
+    return 0;
+}
+
+} // namespace
+
+quint64 linuxProcSelfCapPermittedU64()
+{
+    return readProcSelfCapLine("CapPrm:");
+}
+
+quint64 linuxProcSelfCapEffectiveU64()
+{
+    return readProcSelfCapLine("CapEff:");
+}
+
+namespace {
+
 quint64 parseCapStatusField(const QByteArray& line)
 {
     const int tab = line.indexOf('\t');
