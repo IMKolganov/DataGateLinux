@@ -13,6 +13,7 @@
 #include <QFileInfo>
 #include <QCheckBox>
 #include <QComboBox>
+#include <QCoreApplication>
 #include <QFormLayout>
 #include <QFrame>
 #include <QHBoxLayout>
@@ -675,11 +676,17 @@ void MainWindow::updateServerModeUi()
 
 void MainWindow::grantOpenVpnCapNetAdmin()
 {
-    const QString exe = DatagateUtils::resolvedOpenVpnExecutable(m_openVpnPath->text());
+#if defined(DATAGATE_EMBEDDED_OPENVPN3)
+    const bool capDataGateBinary = !AppConfig::openVpnUseSystemBinary();
+#else
+    const bool capDataGateBinary = false;
+#endif
+    const QString exe = capDataGateBinary ? QCoreApplication::applicationFilePath()
+                                          : DatagateUtils::resolvedOpenVpnExecutable(m_openVpnPath->text());
     const QFileInfo fi(exe);
     if (!fi.exists()) {
         QMessageBox::warning(this, Datagate::tr("DataGate"),
-            Datagate::tr("OpenVPN binary not found: %1").arg(exe));
+            Datagate::tr("Executable not found: %1").arg(exe));
         return;
     }
     if (!fi.isExecutable()) {
@@ -687,7 +694,7 @@ void MainWindow::grantOpenVpnCapNetAdmin()
             Datagate::tr("Not an executable: %1").arg(exe));
         return;
     }
-    if (!exe.contains(QStringLiteral("openvpn"), Qt::CaseInsensitive)) {
+    if (!capDataGateBinary && !exe.contains(QStringLiteral("openvpn"), Qt::CaseInsensitive)) {
         QMessageBox::warning(this, Datagate::tr("DataGate"),
             Datagate::tr("Refusing setcap: path must contain “openvpn”."));
         return;
@@ -730,8 +737,17 @@ void MainWindow::onOpenVpnCapabilityRecommended(const QString& detail)
     QMessageBox box(this);
     box.setIcon(QMessageBox::Warning);
     box.setWindowTitle(Datagate::tr("DataGate"));
-    box.setText(Datagate::tr(
-        "OpenVPN needs CAP_NET_ADMIN on the openvpn binary to create a TUN device. DataGate cannot add this to itself."));
+#if defined(DATAGATE_EMBEDDED_OPENVPN3)
+    if (!AppConfig::openVpnUseSystemBinary()) {
+        box.setText(Datagate::tr(
+            "Embedded OpenVPN runs inside DataGate. Linux requires CAP_NET_ADMIN on the DataGate "
+            "executable to create a TUN device (not on the separate openvpn binary)."));
+    } else
+#endif
+    {
+        box.setText(Datagate::tr(
+            "OpenVPN needs CAP_NET_ADMIN on the openvpn binary to create a TUN device. DataGate cannot add this to itself."));
+    }
     box.setInformativeText(detail);
     auto* grantBtn = box.addButton(Datagate::tr("Grant TUN capability…"), QMessageBox::AcceptRole);
     auto* settingsBtn = box.addButton(Datagate::tr("Open Settings"), QMessageBox::ActionRole);
@@ -985,10 +1001,21 @@ void MainWindow::retranslateUi()
         }
     }
     if (m_tunHintLabel) {
-        m_tunHintLabel->setText(Datagate::tr(
-            "Tunnel (TUN): Linux allows TUN only with CAP_NET_ADMIN on the openvpn binary. "
-            "Use Grant TUN capability or: sudo setcap cap_net_admin+ep $(command -v openvpn). "
-            "Avoid running the whole app as sudo if possible."));
+#if defined(DATAGATE_EMBEDDED_OPENVPN3)
+        if (!AppConfig::openVpnUseSystemBinary()) {
+            m_tunHintLabel->setText(Datagate::tr(
+                "Tunnel (TUN): embedded OpenVPN runs inside DataGate — Linux needs CAP_NET_ADMIN on this "
+                "application binary. Use Grant TUN capability or:\n"
+                "sudo setcap cap_net_admin+ep \"<path-to-DataGateLinux>\"\n"
+                "Restart the app after setcap. Prefer this over running the whole app as sudo."));
+        } else
+#endif
+        {
+            m_tunHintLabel->setText(Datagate::tr(
+                "Tunnel (TUN): Linux allows TUN only with CAP_NET_ADMIN on the openvpn binary. "
+                "Use Grant TUN capability or: sudo setcap cap_net_admin+ep $(command -v openvpn). "
+                "Avoid running the whole app as sudo if possible."));
+        }
     }
     if (m_grantTunCapBtn) {
         m_grantTunCapBtn->setText(Datagate::tr("Grant TUN capability…"));

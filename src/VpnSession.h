@@ -61,6 +61,7 @@ private:
     void startEmbeddedOpenVpn3(const QString& patchedConfigUtf8, bool useUdp, quint16 bridgePort);
     void onOvpn3ThreadFinished(const QString& errorMessage);
     void deliverOvpn3Event(const QString& name, const QString& info);
+    void maybeEmitEmbeddedTunCapHint(const QString& ovpn3LogLine);
 #endif
 
     QNetworkAccessManager* m_nam = nullptr;
@@ -72,6 +73,7 @@ private:
 #if defined(DATAGATE_EMBEDDED_OPENVPN3)
     std::unique_ptr<std::thread> m_ovpn3Thread;
     std::atomic<Datagate::DatagateOvpn3Client*> m_ovpn3Active{nullptr};
+    bool m_ovpn3TunCapHintEmitted = false;
 #endif
 
     QString m_baseUrl;

@@ -573,6 +573,7 @@ void VpnSession::onOpenVpnError(QProcess::ProcessError e)
 
 void VpnSession::startEmbeddedOpenVpn3(const QString& patched, bool useUdp, quint16 bridgePort)
 {
+    m_ovpn3TunCapHintEmitted = false;
     emit statusMessage(useUdp ? Datagate::tr("UDP↔WSS bridge on port %1…").arg(bridgePort)
                               : Datagate::tr("TCP↔WSS bridge on port %1…").arg(bridgePort));
     emit statusMessage(Datagate::tr("Starting OpenVPN 3…"));
@@ -597,8 +598,19 @@ void VpnSession::startEmbeddedOpenVpn3(const QString& patched, bool useUdp, quin
                     [this, qn, qi]() { deliverOvpn3Event(qn, qi); },
                     Qt::QueuedConnection);
             },
-            [](const std::string& line) {
-                qCInfo(lcVpn).nospace() << "ovpn3: " << QString::fromStdString(line);
+            [this](const std::string& line) {
+                const QString qline = QString::fromStdString(line);
+                qCInfo(lcVpn).nospace() << "ovpn3: " << qline;
+#if defined(__linux__)
+                if (qline.contains(QLatin1String("tun_ioctl"), Qt::CaseInsensitive)
+                    || (qline.contains(QLatin1String("TUN Error"), Qt::CaseInsensitive)
+                        && qline.contains(QLatin1String("Operation not permitted"), Qt::CaseInsensitive))) {
+                    QMetaObject::invokeMethod(
+                        this,
+                        [this, qline]() { maybeEmitEmbeddedTunCapHint(qline); },
+                        Qt::QueuedConnection);
+                }
+#endif
             });
         const std::string err = client.connectBlocking(profile, gui);
         m_ovpn3Active.store(nullptr);
@@ -634,7 +646,10 @@ void VpnSession::onOvpn3ThreadFinished(const QString& errText)
     m_connecting = false;
 
     if (!errText.isEmpty() && !m_userStopVpn) {
-        emit errorMessage(Datagate::tr("OpenVPN 3: %1").arg(errText));
+        if (!(m_ovpn3TunCapHintEmitted
+                && errText.contains(QLatin1String("tun"), Qt::CaseInsensitive))) {
+            emit errorMessage(Datagate::tr("OpenVPN 3: %1").arg(errText));
+        }
     }
 
     const bool stoppedByUser = m_userStopVpn;
@@ -643,6 +658,27 @@ void VpnSession::onOvpn3ThreadFinished(const QString& errText)
     if (!stoppedByUser) {
         emit vpnDown();
     }
+}
+
+void VpnSession::maybeEmitEmbeddedTunCapHint(const QString& ovpn3LogLine)
+{
+    if (m_ovpn3TunCapHintEmitted) {
+        return;
+    }
+    if (!ovpn3LogLine.contains(QLatin1String("tun_ioctl"), Qt::CaseInsensitive)
+        && !(ovpn3LogLine.contains(QLatin1String("TUN Error"), Qt::CaseInsensitive)
+            && ovpn3LogLine.contains(QLatin1String("Operation not permitted"), Qt::CaseInsensitive))) {
+        return;
+    }
+    m_ovpn3TunCapHintEmitted = true;
+    const QString exe = QCoreApplication::applicationFilePath();
+    emit openVpnCapabilitySetupRecommended(
+        Datagate::tr("TUN device could not be opened (Operation not permitted).\n\n"
+                     "Embedded OpenVPN 3 creates /dev/net/tun inside this process. On Linux, grant "
+                     "CAP_NET_ADMIN to the DataGate binary, then restart the app:\n\n"
+                     "sudo setcap cap_net_admin+ep \"%1\"\n\n"
+                     "Or use Settings → Grant TUN capability (applies to this app when embedded core is enabled).")
+            .arg(exe));
 }
 
 #endif // DATAGATE_EMBEDDED_OPENVPN3
