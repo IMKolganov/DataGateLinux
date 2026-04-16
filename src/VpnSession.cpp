@@ -683,13 +683,11 @@ void VpnSession::maybeEmitEmbeddedTunCapHint(const QString& ovpn3LogLine)
         const bool procHasNetAdmin = (prm & kNetAdminBit) != 0;
         if (fileHasNetAdmin && !procHasNetAdmin) {
             lead = Datagate::tr(
-                "getcap shows cap_net_admin on this binary, but the running process still has CapPrm=0 for it — "
-                "so this is not “missing rights on the file”.\n\n"
-                "Usually: (1) DataGate was started before setcap — capabilities apply only to the next exec; "
-                "pressing Connect again does not reload them. Fully quit the application (exit the process), then "
-                "start DataGate again.\n"
-                "(2) Or a debugger still ptraces this process — then setcap never applies; run from a normal terminal "
-                "without IDE attach, or set OpenVpn.UseSystemBinary=true and setcap on /usr/sbin/openvpn.\n\n");
+                "On disk, this binary already has cap_net_admin, but this running process never received it "
+                "(CapPrm still has no NET_ADMIN). That is a process lifetime / exec issue, not “wrong chmod”.\n\n"
+                "Typical fixes: fully exit DataGate and start it again after any setcap (Connect alone does not "
+                "re-exec the app). If an IDE debugger attaches, the kernel often never applies file caps — use a "
+                "normal terminal, or switch to external OpenVPN (see below).\n\n");
         }
         diagTail = QStringLiteral("\n\n") + DatagateUtils::linuxEmbeddedVpnTunDiagnosis(exe);
     }
@@ -697,13 +695,16 @@ void VpnSession::maybeEmitEmbeddedTunCapHint(const QString& ovpn3LogLine)
     emit openVpnCapabilitySetupRecommended(
         lead
             + Datagate::tr(
-                  "TUN device could not be opened (Operation not permitted).\n\n"
-                  "Embedded OpenVPN 3 opens /dev/net/tun in this process; the DataGate executable needs CAP_NET_ADMIN "
-                  "in the process (not only on disk).\n\n"
-                  "If you already used Settings → Grant: capabilities apply only after a full new process — quit "
-                  "DataGate completely and launch again. Disconnecting VPN is not enough.\n\n"
-                  "If you ran CMake build after Grant: run Grant again — the new binary replaces the file.\n\n"
-                  "sudo setcap cap_net_admin+ep \"%1\"%2")
+                  "TUN could not be created (kernel returned Operation not permitted).\n\n"
+                  "With embedded OpenVPN 3, the tunnel is opened inside this same process. On Linux the ioctl to "
+                  "/dev/net/tun requires CAP_NET_ADMIN in that process — it is a kernel rule, not a DataGate bug.\n\n"
+                  "Practical options:\n"
+                  "• Prefer external OpenVPN for desktop: in appsettings.json set \"OpenVpn\": { \"UseSystemBinary\": "
+                  "true }, install openvpn, grant cap on that binary only, restart DataGate — TUN runs in the child "
+                  "process.\n"
+                  "• Or keep embedded: run DataGate from a fresh process after setcap on this binary (see Settings → "
+                  "Grant TUN), without IDE ptrace.\n\n"
+                  "Technical (embedded path): sudo setcap cap_net_admin+ep \"%1\"%2")
                   .arg(exe, diagTail));
 }
 
