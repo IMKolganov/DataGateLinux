@@ -270,8 +270,10 @@ void VpnSession::stepCreateOnServer()
     body.insert(QStringLiteral("vpnServerId"), m_server.serverId);
     body.insert(QStringLiteral("commonName"), m_commonName);
     body.insert(QStringLiteral("externalId"), ext);
+    const QString appVer = QCoreApplication::applicationVersion().trimmed();
     body.insert(QStringLiteral("issuedTo"),
-        QStringLiteral("datagate linux user %1 device %2").arg(ext, installId));
+        QStringLiteral("datagate linux app %1 user %2 device %3")
+            .arg(appVer.isEmpty() ? QStringLiteral("unknown") : appVer, ext, installId));
     const QByteArray payload = QJsonDocument(body).toJson(QJsonDocument::Compact);
 
     QNetworkReply* reply = m_nam->post(req, payload);
@@ -356,6 +358,19 @@ void VpnSession::stepStartBridgeAndOpenVpn(const QString& configText)
     const QString patched = DatagateUtils::patchOvpnRemoteToLocal(
         configText, QStringLiteral("127.0.0.1"), bridgePort, ignoreRg, routeBypass);
 
+    QString ovpnFileBody = patched;
+    {
+        const QString peerLabel = DatagateUtils::datagateLinuxPeerVersionLabel(m_openVpnExe);
+        if (!ovpnFileBody.contains(QLatin1String("push-peer-info"), Qt::CaseInsensitive)) {
+            ovpnFileBody += QStringLiteral("\npush-peer-info\n");
+        }
+        ovpnFileBody += QStringLiteral("\n# DataGate client version (sent as peer-info UV_DATAGATE_APP)\nsetenv "
+                                         "UV_DATAGATE_APP ");
+        ovpnFileBody += peerLabel;
+        ovpnFileBody += QLatin1Char('\n');
+        qCInfo(lcVpn, "OpenVPN peer-info: UV_DATAGATE_APP=%s", qPrintable(peerLabel));
+    }
+
     delete m_configFile;
     m_configFile = new QTemporaryFile(this);
     m_configFile->setFileTemplate(QStringLiteral("datagate-XXXXXX.ovpn"));
@@ -365,7 +380,7 @@ void VpnSession::stepStartBridgeAndOpenVpn(const QString& configText)
         emit errorMessage(Datagate::tr("Could not create temporary config file."));
         return;
     }
-    m_configFile->write(patched.toUtf8());
+    m_configFile->write(ovpnFileBody.toUtf8());
     m_configFile->flush();
 
     emit statusMessage(useUdp ? Datagate::tr("UDP↔WSS bridge on port %1…").arg(bridgePort)

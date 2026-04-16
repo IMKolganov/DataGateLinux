@@ -2,6 +2,8 @@
 
 #include <QMainWindow>
 
+class QEvent;
+class QFormLayout;
 class QShowEvent;
 
 class AuthSession;
@@ -33,8 +35,10 @@ signals:
 
 protected:
     void showEvent(QShowEvent* e) override;
+    void changeEvent(QEvent* event) override;
 
 private:
+    void retranslateUi();
     void loadSettings();
     void saveSettings();
     void refreshServers(bool showErrorDialogs = true);
@@ -73,4 +77,33 @@ private:
 
     VpnSession* m_vpn = nullptr;
     QNetworkAccessManager* m_nam = nullptr;
+
+    QFormLayout* m_settingsVpnForm = nullptr;
+    QLabel* m_appTitleLabel = nullptr;
+    QLabel* m_welcomeLabel = nullptr;
+    QLabel* m_connTitleLabel = nullptr;
+    QLabel* m_vpnServerLabel = nullptr;
+    QLabel* m_manualServerLabel = nullptr;
+    QLabel* m_logSectionTitle = nullptr;
+    QLabel* m_accessPageTitle = nullptr;
+    QLabel* m_statPageTitle = nullptr;
+    QLabel* m_settingsPageTitle = nullptr;
+    QLabel* m_langHeading = nullptr;
+    QLabel* m_langHint = nullptr;
+    QLabel* m_appearHeading = nullptr;
+    QLabel* m_appearHint = nullptr;
+    QLabel* m_themeLabel = nullptr;
+    QLabel* m_downloadHeading = nullptr;
+    QLabel* m_downloadHint = nullptr;
+    QLabel* m_downloadLinkLabel = nullptr;
+    QLabel* m_downloadPlatformWin = nullptr;
+    QLabel* m_downloadPlatformLinux = nullptr;
+    QLabel* m_downloadPlatformAndroid = nullptr;
+    QLabel* m_downloadPlatformIos = nullptr;
+    QLabel* m_tunHintLabel = nullptr;
+    QLabel* m_accountHeading = nullptr;
+    QLabel* m_accountHint = nullptr;
+    bool m_vpnTunnelUp = false;
+    /// For retranslateUi: last total on Access page, or -1 for "—".
+    int m_accessTotalClientsCount = -1;
 };

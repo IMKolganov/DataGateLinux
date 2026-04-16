@@ -8,6 +8,30 @@
       <translation>L’API est temporairement indisponible. Réessayez plus tard.</translation>
     </message>
     <message>
+      <source>You're signed in</source>
+      <translation>Vous êtes connecté(e).</translation>
+    </message>
+    <message>
+      <source>You can close this tab and return to the DataGate app.</source>
+      <translation>Vous pouvez fermer cet onglet et revenir à DataGate.</translation>
+    </message>
+    <message>
+      <source>Sign-in did not complete</source>
+      <translation>La connexion n’a pas abouti.</translation>
+    </message>
+    <message>
+      <source>You can close this tab and try again from DataGate.</source>
+      <translation>Fermez cet onglet et réessayez depuis DataGate.</translation>
+    </message>
+    <message>
+      <source>Invalid sign-in request</source>
+      <translation>Requête de connexion invalide.</translation>
+    </message>
+    <message>
+      <source>Close this tab and start sign-in again from DataGate.</source>
+      <translation>Fermez cet onglet et recommencez la connexion depuis DataGate.</translation>
+    </message>
+    <message>
       <source>Google Client ID is required.</source>
       <translation>Le Client ID Google est requis.</translation>
     </message>
@@ -176,8 +200,8 @@
       <translation>Langue</translation>
     </message>
     <message>
-      <source>Interface language. Save settings to apply; restart the app if some labels stay in the old language.</source>
-      <translation>Langue de l’interface. Enregistrez les paramètres ; redémarrez l’application si certains libellés restent dans l’ancienne langue.</translation>
+      <source>Choosing a language updates the interface immediately; it is saved automatically. Use Save settings for VPN path, theme, and server options.</source>
+      <translation>La langue de l’interface se met à jour dès le choix et est enregistrée automatiquement. Utilisez Enregistrer les paramètres pour le chemin OpenVPN, le thème et le serveur.</translation>
     </message>
     <message>
       <source>Appearance</source>
@@ -194,6 +218,30 @@
     <message>
       <source>Dark mode</source>
       <translation>Mode sombre</translation>
+    </message>
+    <message>
+      <source>More apps</source>
+      <translation>Autres applications</translation>
+    </message>
+    <message>
+      <source>You can download other DataGate apps for your devices from the website:</source>
+      <translation>Vous pouvez télécharger les autres applications DataGate pour vos appareils sur le site :</translation>
+    </message>
+    <message>
+      <source>Windows</source>
+      <translation>Windows</translation>
+    </message>
+    <message>
+      <source>Linux</source>
+      <translation>Linux</translation>
+    </message>
+    <message>
+      <source>Android</source>
+      <translation>Android</translation>
+    </message>
+    <message>
+      <source>iOS</source>
+      <translation>iOS</translation>
     </message>
     <message>
       <source>openvpn</source>

@@ -20,6 +20,7 @@ public:
     explicit StatisticsPanel(QWidget* parent = nullptr);
 
     void setServers(const QVector<QPair<int, QString>>& idAndName);
+    void retranslateUi();
 
 public slots:
     void loadStatistics(const QString& apiBaseUrl, const QString& bearerAccessToken);
@@ -35,6 +36,9 @@ private:
 
     QComboBox* m_serverCombo = nullptr;
     QCheckBox* m_onlyMine = nullptr;
+    QPushButton* m_loadBtn = nullptr;
+    QLabel* m_hintLabel = nullptr;
+    QLabel* m_serverLabel = nullptr;
     QLabel* m_status = nullptr;
     TrafficLineChartWidget* m_trafficChart = nullptr;
     QVBoxLayout* m_rowsLayout = nullptr;

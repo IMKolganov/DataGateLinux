@@ -8,6 +8,30 @@
       <translation>Сервер API временно недоступен. Попробуйте позже.</translation>
     </message>
     <message>
+      <source>You're signed in</source>
+      <translation>Вы вошли</translation>
+    </message>
+    <message>
+      <source>You can close this tab and return to the DataGate app.</source>
+      <translation>Можно закрыть эту вкладку и вернуться в DataGate.</translation>
+    </message>
+    <message>
+      <source>Sign-in did not complete</source>
+      <translation>Вход не завершён</translation>
+    </message>
+    <message>
+      <source>You can close this tab and try again from DataGate.</source>
+      <translation>Закройте вкладку и попробуйте снова из DataGate.</translation>
+    </message>
+    <message>
+      <source>Invalid sign-in request</source>
+      <translation>Некорректный запрос входа</translation>
+    </message>
+    <message>
+      <source>Close this tab and start sign-in again from DataGate.</source>
+      <translation>Закройте вкладку и начните вход снова из DataGate.</translation>
+    </message>
+    <message>
       <source>Google Client ID is required.</source>
       <translation>Требуется Google Client ID.</translation>
     </message>
@@ -176,8 +200,8 @@
       <translation>Язык</translation>
     </message>
     <message>
-      <source>Interface language. Save settings to apply; restart the app if some labels stay in the old language.</source>
-      <translation>Язык интерфейса. Сохраните настройки; при необходимости перезапустите приложение, если подписи не обновились.</translation>
+      <source>Choosing a language updates the interface immediately; it is saved automatically. Use Save settings for VPN path, theme, and server options.</source>
+      <translation>После выбора язык интерфейса меняется сразу, выбор сохраняется автоматически. Путь OpenVPN, тема и сервер — кнопкой «Сохранить настройки».</translation>
     </message>
     <message>
       <source>Appearance</source>
@@ -194,6 +218,30 @@
     <message>
       <source>Dark mode</source>
       <translation>Тёмная тема</translation>
+    </message>
+    <message>
+      <source>More apps</source>
+      <translation>Другие приложения</translation>
+    </message>
+    <message>
+      <source>You can download other DataGate apps for your devices from the website:</source>
+      <translation>Другие приложения DataGate для ваших устройств можно скачать на сайте:</translation>
+    </message>
+    <message>
+      <source>Windows</source>
+      <translation>Windows</translation>
+    </message>
+    <message>
+      <source>Linux</source>
+      <translation>Linux</translation>
+    </message>
+    <message>
+      <source>Android</source>
+      <translation>Android</translation>
+    </message>
+    <message>
+      <source>iOS</source>
+      <translation>iOS</translation>
     </message>
     <message>
       <source>openvpn</source>

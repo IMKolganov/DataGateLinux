@@ -36,6 +36,7 @@
 #include <QStyle>
 #include <QVBoxLayout>
 
+#include <QEvent>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
@@ -54,6 +55,36 @@ QIcon iconFromThemeOr(const QStringList& names, QStyle* st, QStyle::StandardPixm
     return st->standardIcon(sp);
 }
 
+struct PlatformCol {
+    QWidget* wrap = nullptr;
+    QLabel* caption = nullptr;
+};
+
+PlatformCol makePlatformColumn(QWidget* parent, QStyle* style, const QStringList& iconNames,
+    QStyle::StandardPixmap fallback, const QString& caption)
+{
+    PlatformCol out;
+    out.wrap = new QWidget(parent);
+    auto* vl = new QVBoxLayout(out.wrap);
+    vl->setContentsMargins(6, 0, 6, 0);
+    vl->setSpacing(6);
+    auto* ic = new QLabel(parent);
+    const QIcon ico = iconFromThemeOr(iconNames, style, fallback);
+    const QPixmap pm = ico.pixmap(32, 32);
+    if (!pm.isNull()) {
+        ic->setPixmap(pm);
+    } else {
+        ic->setText(QStringLiteral("·"));
+    }
+    ic->setAlignment(Qt::AlignCenter);
+    out.caption = new QLabel(caption, parent);
+    out.caption->setObjectName(QStringLiteral("muted"));
+    out.caption->setAlignment(Qt::AlignCenter);
+    vl->addWidget(ic);
+    vl->addWidget(out.caption);
+    return out;
+}
+
 } // namespace
 
 MainWindow::MainWindow(AuthSession* session, QWidget* parent)
@@ -63,8 +94,8 @@ MainWindow::MainWindow(AuthSession* session, QWidget* parent)
     , m_vpn(new VpnSession(this))
 {
     setWindowTitle(Datagate::tr("DataGate OpenVPN 3"));
-    resize(980, 620);
-    setMinimumSize(640, 480);
+    resize(1000, 720);
+    setMinimumSize(950, 900);
 
     auto* central = new QWidget(this);
     central->setObjectName(QStringLiteral("centralRoot"));
@@ -77,6 +108,7 @@ MainWindow::MainWindow(AuthSession* session, QWidget* parent)
     auto* titleRow = new QHBoxLayout();
     titleRow->setContentsMargins(16, 12, 16, 8);
     auto* appTitle = new QLabel(Datagate::tr("DataGate OpenVPN 3"), this);
+    m_appTitleLabel = appTitle;
     QFont tf = appTitle->font();
     tf.setPointSize(11);
     tf.setWeight(QFont::DemiBold);
@@ -126,6 +158,7 @@ MainWindow::MainWindow(AuthSession* session, QWidget* parent)
 
     auto* welcome = new QLabel(Datagate::tr("Welcome to DataGate OpenVPN 3"), this);
     welcome->setObjectName(QStringLiteral("titleH1"));
+    m_welcomeLabel = welcome;
     homeOuter->addWidget(welcome);
 
     auto* connCard = new QFrame(this);
@@ -134,6 +167,7 @@ MainWindow::MainWindow(AuthSession* session, QWidget* parent)
     connLay->setContentsMargins(18, 18, 18, 18);
     auto* connTitle = new QLabel(Datagate::tr("Connection status"), this);
     connTitle->setObjectName(QStringLiteral("titleH2"));
+    m_connTitleLabel = connTitle;
     connLay->addWidget(connTitle);
     m_status = new QLabel(Datagate::tr("Idle"), this);
     m_status->setObjectName(QStringLiteral("muted"));
@@ -145,7 +179,9 @@ MainWindow::MainWindow(AuthSession* session, QWidget* parent)
     connLay->addWidget(m_connectedToLabel);
 
     auto* modeRow = new QHBoxLayout();
-    modeRow->addWidget(new QLabel(Datagate::tr("VPN server:"), this));
+    auto* vpnServerLbl = new QLabel(Datagate::tr("VPN server:"), this);
+    m_vpnServerLabel = vpnServerLbl;
+    modeRow->addWidget(vpnServerLbl);
     m_serverModeCombo = new QComboBox(this);
     m_serverModeCombo->addItem(Datagate::tr("Automatic (best server)"), 0);
     m_serverModeCombo->addItem(Datagate::tr("Choose server…"), 1);
@@ -155,7 +191,9 @@ MainWindow::MainWindow(AuthSession* session, QWidget* parent)
     m_manualServerWrap = new QWidget(this);
     auto* manRow = new QHBoxLayout(m_manualServerWrap);
     manRow->setContentsMargins(0, 0, 0, 0);
-    manRow->addWidget(new QLabel(Datagate::tr("Server:"), this));
+    auto* manualServerLbl = new QLabel(Datagate::tr("Server:"), this);
+    m_manualServerLabel = manualServerLbl;
+    manRow->addWidget(manualServerLbl);
     m_manualServerCombo = new QComboBox(this);
     m_manualServerCombo->setMinimumWidth(200);
     manRow->addWidget(m_manualServerCombo, 1);
@@ -175,6 +213,7 @@ MainWindow::MainWindow(AuthSession* session, QWidget* parent)
     logLay->setContentsMargins(18, 18, 18, 18);
     auto* logTitle = new QLabel(Datagate::tr("Engine logs"), this);
     logTitle->setObjectName(QStringLiteral("titleH2"));
+    m_logSectionTitle = logTitle;
     logLay->addWidget(logTitle);
     m_log = new QPlainTextEdit(this);
     m_log->setObjectName(QStringLiteral("engineLog"));
@@ -193,6 +232,7 @@ MainWindow::MainWindow(AuthSession* session, QWidget* parent)
     accLay->setSpacing(12);
     auto* accTitle = new QLabel(Datagate::tr("Access"), this);
     accTitle->setObjectName(QStringLiteral("titleH1"));
+    m_accessPageTitle = accTitle;
     accLay->addWidget(accTitle);
     auto* accRow = new QHBoxLayout();
     m_refreshServersBtn = new QPushButton(Datagate::tr("Refresh server list"), this);
@@ -230,6 +270,7 @@ MainWindow::MainWindow(AuthSession* session, QWidget* parent)
     statLay->setSpacing(12);
     auto* statTitle = new QLabel(Datagate::tr("Statistics"), this);
     statTitle->setObjectName(QStringLiteral("titleH1"));
+    m_statPageTitle = statTitle;
     statLay->addWidget(statTitle);
     m_statisticsPanel = new StatisticsPanel(this);
     statLay->addWidget(m_statisticsPanel, 1);
@@ -242,6 +283,7 @@ MainWindow::MainWindow(AuthSession* session, QWidget* parent)
     setOuter->setSpacing(16);
     auto* setTitle = new QLabel(Datagate::tr("Settings"), this);
     setTitle->setObjectName(QStringLiteral("titleH1"));
+    m_settingsPageTitle = setTitle;
     setOuter->addWidget(setTitle);
 
     auto* langCard = new QFrame(this);
@@ -250,11 +292,15 @@ MainWindow::MainWindow(AuthSession* session, QWidget* parent)
     langLay->setContentsMargins(18, 18, 18, 18);
     auto* langH = new QLabel(Datagate::tr("Language"), this);
     langH->setObjectName(QStringLiteral("titleH2"));
+    m_langHeading = langH;
     langLay->addWidget(langH);
     auto* langSub = new QLabel(
-        Datagate::tr("Interface language. Save settings to apply; restart the app if some labels stay in the old language."),
+        Datagate::tr(
+            "Choosing a language updates the interface immediately; it is saved automatically. "
+            "Use Save settings for VPN path, theme, and server options."),
         this);
     langSub->setObjectName(QStringLiteral("muted"));
+    m_langHint = langSub;
     langSub->setWordWrap(true);
     langLay->addWidget(langSub);
     m_languageCombo = new QComboBox(this);
@@ -271,13 +317,15 @@ MainWindow::MainWindow(AuthSession* session, QWidget* parent)
     appearLay->setContentsMargins(18, 18, 18, 18);
     auto* appearH = new QLabel(Datagate::tr("Appearance"), this);
     appearH->setObjectName(QStringLiteral("titleH2"));
+    m_appearHeading = appearH;
     appearLay->addWidget(appearH);
     auto* appearSub = new QLabel(Datagate::tr("Choose the application theme."), this);
     appearSub->setObjectName(QStringLiteral("muted"));
+    m_appearHint = appearSub;
     appearLay->addWidget(appearSub);
     auto* themeRow = new QHBoxLayout();
     auto* themeLbl = new QLabel(Datagate::tr("Theme"), this);
-    themeLbl->setObjectName(QStringLiteral("titleH2"));
+    m_themeLabel = themeLbl;
     m_themeDark = new QCheckBox(Datagate::tr("Dark mode"), this);
     m_themeDark->setChecked(true);
     themeRow->addWidget(themeLbl);
@@ -285,6 +333,56 @@ MainWindow::MainWindow(AuthSession* session, QWidget* parent)
     themeRow->addWidget(m_themeDark);
     appearLay->addLayout(themeRow);
     setOuter->addWidget(appearCard);
+
+    auto* downloadCard = new QFrame(this);
+    downloadCard->setObjectName(QStringLiteral("card"));
+    auto* downloadLay = new QVBoxLayout(downloadCard);
+    downloadLay->setContentsMargins(18, 18, 18, 18);
+    downloadLay->setSpacing(12);
+    auto* downloadH = new QLabel(Datagate::tr("More apps"), this);
+    downloadH->setObjectName(QStringLiteral("titleH2"));
+    m_downloadHeading = downloadH;
+    downloadLay->addWidget(downloadH);
+    auto* downloadSub = new QLabel(
+        Datagate::tr("You can download other DataGate apps for your devices from the website:"),
+        this);
+    downloadSub->setObjectName(QStringLiteral("muted"));
+    m_downloadHint = downloadSub;
+    downloadSub->setWordWrap(true);
+    downloadLay->addWidget(downloadSub);
+    auto* platformsRow = new QHBoxLayout();
+    platformsRow->setSpacing(8);
+    const PlatformCol colWin = makePlatformColumn(this, st,
+        {QStringLiteral("computer"), QStringLiteral("user-desktop"), QStringLiteral("start-here")},
+        QStyle::SP_FileDialogListView, Datagate::tr("Windows"));
+    platformsRow->addWidget(colWin.wrap);
+    m_downloadPlatformWin = colWin.caption;
+    const PlatformCol colLnx = makePlatformColumn(this, st,
+        {QStringLiteral("computer"), QStringLiteral("distributor-logo"), QStringLiteral("start-here")},
+        QStyle::SP_ComputerIcon, Datagate::tr("Linux"));
+    platformsRow->addWidget(colLnx.wrap);
+    m_downloadPlatformLinux = colLnx.caption;
+    const PlatformCol colAnd = makePlatformColumn(this, st,
+        {QStringLiteral("phone"), QStringLiteral("smartphone"), QStringLiteral("multimedia-player")},
+        QStyle::SP_FileDialogContentsView, Datagate::tr("Android"));
+    platformsRow->addWidget(colAnd.wrap);
+    m_downloadPlatformAndroid = colAnd.caption;
+    const PlatformCol colIos = makePlatformColumn(this, st,
+        {QStringLiteral("phone"), QStringLiteral("apple"), QStringLiteral("input-dialpad")},
+        QStyle::SP_MessageBoxInformation, Datagate::tr("iOS"));
+    platformsRow->addWidget(colIos.wrap);
+    m_downloadPlatformIos = colIos.caption;
+    platformsRow->addStretch();
+    downloadLay->addLayout(platformsRow);
+    auto* downloadLink = new QLabel(
+        QStringLiteral("<a href=\"https://datagateapp.com/download\">https://datagateapp.com/download</a>"),
+        this);
+    downloadLink->setOpenExternalLinks(true);
+    downloadLink->setTextInteractionFlags(Qt::TextBrowserInteraction);
+    downloadLink->setWordWrap(true);
+    downloadLay->addWidget(downloadLink);
+    m_downloadLinkLabel = downloadLink;
+    setOuter->addWidget(downloadCard);
 
     auto* vpnCard = new QFrame(this);
     vpnCard->setObjectName(QStringLiteral("card"));
@@ -302,6 +400,7 @@ MainWindow::MainWindow(AuthSession* session, QWidget* parent)
         this);
     tunHint->setObjectName(QStringLiteral("muted"));
     tunHint->setWordWrap(true);
+    m_tunHintLabel = tunHint;
     vpnLay->addRow(tunHint);
     m_grantTunCapBtn = new QPushButton(Datagate::tr("Grant TUN capability…"), this);
     m_grantTunCapBtn->setProperty("secondary", true);
@@ -309,6 +408,7 @@ MainWindow::MainWindow(AuthSession* session, QWidget* parent)
     m_saveSettingsBtn = new QPushButton(Datagate::tr("Save settings"), this);
     m_saveSettingsBtn->setProperty("secondary", true);
     vpnLay->addRow(m_saveSettingsBtn);
+    m_settingsVpnForm = vpnLay;
     setOuter->addWidget(vpnCard);
 
     auto* accountCard = new QFrame(this);
@@ -317,9 +417,11 @@ MainWindow::MainWindow(AuthSession* session, QWidget* parent)
     accCardLay->setContentsMargins(18, 18, 18, 18);
     auto* accH = new QLabel(Datagate::tr("Account"), this);
     accH->setObjectName(QStringLiteral("titleH2"));
+    m_accountHeading = accH;
     accCardLay->addWidget(accH);
     auto* accSub = new QLabel(Datagate::tr("Sign out from the application."), this);
     accSub->setObjectName(QStringLiteral("muted"));
+    m_accountHint = accSub;
     accCardLay->addWidget(accSub);
     m_logoutBtn = new QPushButton(Datagate::tr("Logout"), this);
     m_logoutBtn->setProperty("secondary", true);
@@ -351,6 +453,10 @@ MainWindow::MainWindow(AuthSession* session, QWidget* parent)
         const QString code = m_languageCombo->currentData().toString();
         DatagateTranslator::setLanguageCode(code);
         DatagateTranslator::installForLanguage(code);
+        retranslateUi();
+        if (m_statisticsPanel) {
+            m_statisticsPanel->retranslateUi();
+        }
     });
 
     connect(m_themeDark, &QCheckBox::toggled, this, [this](bool dark) {
@@ -455,6 +561,7 @@ MainWindow::~MainWindow() = default;
 
 void MainWindow::updateConnectButtonUi(bool vpnUp)
 {
+    m_vpnTunnelUp = vpnUp;
     if (!m_connectBtn) {
         return;
     }
@@ -523,6 +630,10 @@ void MainWindow::loadSettings()
     DatagateTranslator::installForLanguage(lang);
 
     updateServerModeUi();
+    retranslateUi();
+    if (m_statisticsPanel) {
+        m_statisticsPanel->retranslateUi();
+    }
 }
 
 void MainWindow::saveSettings()
@@ -705,6 +816,7 @@ void MainWindow::refreshServers(bool showErrorDialogs)
             return;
         }
         m_serverTable->setRowCount(0);
+        m_accessTotalClientsCount = -1;
         if (m_accessTotalClientsLabel) {
             m_accessTotalClientsLabel->setText(Datagate::tr("Total clients: —"));
         }
@@ -743,10 +855,174 @@ void MainWindow::refreshServers(bool showErrorDialogs)
                 new QTableWidgetItem(online ? Datagate::tr("yes") : Datagate::tr("no")));
             m_serverTable->setItem(row, 2, new QTableWidgetItem(QString::number(clients)));
         }
+        m_accessTotalClientsCount = totalClients;
         if (m_accessTotalClientsLabel) {
             m_accessTotalClientsLabel->setText(
                 Datagate::tr("Total clients: %1").arg(totalClients));
         }
         applyWssServerList(raw);
     });
+}
+
+void MainWindow::changeEvent(QEvent* event)
+{
+    if (event->type() == QEvent::LanguageChange) {
+        retranslateUi();
+        if (m_statisticsPanel) {
+            m_statisticsPanel->retranslateUi();
+        }
+    }
+    QMainWindow::changeEvent(event);
+}
+
+void MainWindow::retranslateUi()
+{
+    setWindowTitle(Datagate::tr("DataGate OpenVPN 3"));
+    if (m_appTitleLabel) {
+        m_appTitleLabel->setText(Datagate::tr("DataGate OpenVPN 3"));
+    }
+    if (m_nav && m_nav->count() >= 4) {
+        m_nav->item(0)->setText(Datagate::tr("Home"));
+        m_nav->item(1)->setText(Datagate::tr("Access"));
+        m_nav->item(2)->setText(Datagate::tr("Statistics"));
+        m_nav->item(3)->setText(Datagate::tr("Settings"));
+    }
+    if (m_welcomeLabel) {
+        m_welcomeLabel->setText(Datagate::tr("Welcome to DataGate OpenVPN 3"));
+    }
+    if (m_connTitleLabel) {
+        m_connTitleLabel->setText(Datagate::tr("Connection status"));
+    }
+    if (m_vpnServerLabel) {
+        m_vpnServerLabel->setText(Datagate::tr("VPN server:"));
+    }
+    if (m_manualServerLabel) {
+        m_manualServerLabel->setText(Datagate::tr("Server:"));
+    }
+    if (m_serverModeCombo) {
+        m_serverModeCombo->setItemText(0, Datagate::tr("Automatic (best server)"));
+        m_serverModeCombo->setItemText(1, Datagate::tr("Choose server…"));
+    }
+    if (m_logSectionTitle) {
+        m_logSectionTitle->setText(Datagate::tr("Engine logs"));
+    }
+    if (m_accessPageTitle) {
+        m_accessPageTitle->setText(Datagate::tr("Access"));
+    }
+    if (m_refreshServersBtn) {
+        m_refreshServersBtn->setText(Datagate::tr("Refresh server list"));
+    }
+    if (m_serverTable) {
+        m_serverTable->setHorizontalHeaderLabels({
+            Datagate::tr("Server"),
+            Datagate::tr("Online"),
+            Datagate::tr("Clients"),
+        });
+    }
+    if (m_accessTotalClientsLabel) {
+        if (m_accessTotalClientsCount < 0) {
+            m_accessTotalClientsLabel->setText(Datagate::tr("Total clients: —"));
+        } else {
+            m_accessTotalClientsLabel->setText(
+                Datagate::tr("Total clients: %1").arg(m_accessTotalClientsCount));
+        }
+    }
+    if (m_statPageTitle) {
+        m_statPageTitle->setText(Datagate::tr("Statistics"));
+    }
+    if (m_settingsPageTitle) {
+        m_settingsPageTitle->setText(Datagate::tr("Settings"));
+    }
+    if (m_langHeading) {
+        m_langHeading->setText(Datagate::tr("Language"));
+    }
+    if (m_langHint) {
+        m_langHint->setText(Datagate::tr(
+            "Choosing a language updates the interface immediately; it is saved automatically. "
+            "Use Save settings for VPN path, theme, and server options."));
+    }
+    if (m_appearHeading) {
+        m_appearHeading->setText(Datagate::tr("Appearance"));
+    }
+    if (m_appearHint) {
+        m_appearHint->setText(Datagate::tr("Choose the application theme."));
+    }
+    if (m_themeLabel) {
+        m_themeLabel->setText(Datagate::tr("Theme"));
+    }
+    if (m_themeDark) {
+        m_themeDark->setText(Datagate::tr("Dark mode"));
+    }
+    if (m_downloadHeading) {
+        m_downloadHeading->setText(Datagate::tr("More apps"));
+    }
+    if (m_downloadHint) {
+        m_downloadHint->setText(Datagate::tr(
+            "You can download other DataGate apps for your devices from the website:"));
+    }
+    if (m_downloadPlatformWin) {
+        m_downloadPlatformWin->setText(Datagate::tr("Windows"));
+    }
+    if (m_downloadPlatformLinux) {
+        m_downloadPlatformLinux->setText(Datagate::tr("Linux"));
+    }
+    if (m_downloadPlatformAndroid) {
+        m_downloadPlatformAndroid->setText(Datagate::tr("Android"));
+    }
+    if (m_downloadPlatformIos) {
+        m_downloadPlatformIos->setText(Datagate::tr("iOS"));
+    }
+    if (m_downloadLinkLabel) {
+        m_downloadLinkLabel->setText(
+            QStringLiteral("<a href=\"https://datagateapp.com/download\">https://datagateapp.com/download</a>"));
+    }
+    if (m_openVpnPath) {
+        m_openVpnPath->setPlaceholderText(Datagate::tr("openvpn"));
+    }
+    if (m_settingsVpnForm && m_openVpnPath) {
+        if (QLabel* lb = qobject_cast<QLabel*>(m_settingsVpnForm->labelForField(m_openVpnPath))) {
+            lb->setText(Datagate::tr("OpenVPN command"));
+        }
+    }
+    if (m_tunHintLabel) {
+        m_tunHintLabel->setText(Datagate::tr(
+            "Tunnel (TUN): Linux allows TUN only with CAP_NET_ADMIN on the openvpn binary. "
+            "Use Grant TUN capability or: sudo setcap cap_net_admin+ep $(command -v openvpn). "
+            "Avoid running the whole app as sudo if possible."));
+    }
+    if (m_grantTunCapBtn) {
+        m_grantTunCapBtn->setText(Datagate::tr("Grant TUN capability…"));
+    }
+    if (m_saveSettingsBtn) {
+        m_saveSettingsBtn->setText(Datagate::tr("Save settings"));
+    }
+    if (m_accountHeading) {
+        m_accountHeading->setText(Datagate::tr("Account"));
+    }
+    if (m_accountHint) {
+        m_accountHint->setText(Datagate::tr("Sign out from the application."));
+    }
+    if (m_logoutBtn) {
+        m_logoutBtn->setText(Datagate::tr("Logout"));
+    }
+    if (!m_vpnTunnelUp && m_status) {
+        const QString who = m_session ? m_session->displayName() : QString();
+        if (!who.isEmpty()) {
+            m_status->setText(Datagate::tr("Signed in as %1.").arg(who));
+        } else {
+            m_status->setText(Datagate::tr("Idle"));
+        }
+    }
+    if (m_connectedToLabel) {
+        if (m_vpnTunnelUp && m_vpn) {
+            const QString n = m_vpn->activeServerName();
+            m_connectedToLabel->setText(
+                Datagate::tr("Connected to: %1").arg(n.isEmpty() ? Datagate::tr("—") : n));
+        } else {
+            m_connectedToLabel->setText(Datagate::tr("Connected to: —"));
+        }
+    }
+    if (m_connectBtn && m_connectBtn->isEnabled()) {
+        updateConnectButtonUi(m_vpnTunnelUp);
+    }
 }

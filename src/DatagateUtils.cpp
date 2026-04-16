@@ -1,8 +1,10 @@
 #include "DatagateUtils.h"
 #include "DatagateTr.h"
 
+#include <QCoreApplication>
 #include <QFile>
 #include <QFileInfo>
+#include <QHash>
 #include <QIODevice>
 #include <QAbstractSocket>
 #include <QHostAddress>
@@ -14,6 +16,7 @@
 #include <QNetworkReply>
 #include <QNetworkRequest>
 #include <QProcess>
+#include <QRegularExpression>
 #include <QSet>
 #include <QRandomGenerator>
 #include <QSettings>
@@ -86,6 +89,45 @@ bool lineStartsWithToken(const QString& line, const QString& token)
 }
 
 } // namespace
+
+static QString datagateSanitizeOpenVpnSetenvToken(const QString& raw)
+{
+    QString out;
+    out.reserve(raw.size());
+    for (QChar c : raw) {
+        if (c.isLetterOrNumber() || c == QLatin1Char('.') || c == QLatin1Char('-') || c == QLatin1Char('_')) {
+            out += c;
+        } else {
+            out += QLatin1Char('_');
+        }
+    }
+    return out;
+}
+
+static QString datagateOpenVpnSemverFromExe(const QString& resolvedExe)
+{
+    static QHash<QString, QString> cache;
+    const auto it = cache.constFind(resolvedExe);
+    if (it != cache.cend()) {
+        return *it;
+    }
+    QString result = QStringLiteral("unknown");
+    QProcess p;
+    p.setProgram(resolvedExe);
+    p.setArguments({QStringLiteral("--version")});
+    p.setProcessChannelMode(QProcess::SeparateChannels);
+    p.start();
+    if (p.waitForFinished(6000) && p.exitCode() == 0) {
+        const QString out = QString::fromUtf8(p.readAllStandardOutput());
+        static const QRegularExpression re(QStringLiteral(R"(OpenVPN\s+(\d+\.\d+(?:\.\d+)?))"));
+        const QRegularExpressionMatch m = re.match(out);
+        if (m.hasMatch()) {
+            result = m.captured(1);
+        }
+    }
+    cache.insert(resolvedExe, result);
+    return result;
+}
 
 namespace DatagateUtils {
 
@@ -342,6 +384,16 @@ QString resolvedOpenVpnExecutable(const QString& openVpnCmdOrPath)
         return found;
     }
     return s;
+}
+
+QString datagateLinuxPeerVersionLabel(const QString& resolvedOpenVpnExecutable)
+{
+    const QString ov = datagateOpenVpnSemverFromExe(resolvedOpenVpnExecutable);
+    QString app = QCoreApplication::applicationVersion().trimmed();
+    if (app.isEmpty()) {
+        app = QStringLiteral("unknown");
+    }
+    return datagateSanitizeOpenVpnSetenvToken(QStringLiteral("%1_datagate_linux_%2").arg(ov, app));
 }
 
 namespace {

@@ -18,6 +18,10 @@
 #include <functional>
 #include <memory>
 
+#ifndef DATAGATE_APP_VERSION_STR
+#define DATAGATE_APP_VERSION_STR "0.0.0-dev"
+#endif
+
 int main(int argc, char* argv[])
 {
     initDatagateLogging();
@@ -25,6 +29,7 @@ int main(int argc, char* argv[])
     QApplication app(argc, argv);
     QCoreApplication::setOrganizationName(QStringLiteral("DataGate"));
     QCoreApplication::setApplicationName(QStringLiteral("DataGateLinux"));
+    QCoreApplication::setApplicationVersion(QString::fromLatin1(DATAGATE_APP_VERSION_STR));
 
     DatagateTranslator::installFromSettings();
 

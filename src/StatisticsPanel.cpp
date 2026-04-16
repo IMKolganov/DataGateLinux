@@ -210,14 +210,15 @@ StatisticsPanel::StatisticsPanel(QWidget* parent)
     root->setContentsMargins(0, 0, 0, 0);
     root->setSpacing(12);
 
-    auto* hint = new QLabel(
+    m_hintLabel = new QLabel(
         Datagate::tr("Per-server traffic from the API (GET open-vpn-statistics/get/{id})."), this);
-    hint->setObjectName(QStringLiteral("muted"));
-    hint->setWordWrap(true);
-    root->addWidget(hint);
+    m_hintLabel->setObjectName(QStringLiteral("muted"));
+    m_hintLabel->setWordWrap(true);
+    root->addWidget(m_hintLabel);
 
     auto* row1 = new QHBoxLayout();
-    row1->addWidget(new QLabel(Datagate::tr("Server:"), this));
+    m_serverLabel = new QLabel(Datagate::tr("Server:"), this);
+    row1->addWidget(m_serverLabel);
     m_serverCombo = new QComboBox(this);
     m_serverCombo->setMinimumWidth(220);
     row1->addWidget(m_serverCombo);
@@ -228,9 +229,9 @@ StatisticsPanel::StatisticsPanel(QWidget* parent)
     m_onlyMine->setChecked(false);
     root->addWidget(m_onlyMine);
 
-    auto* loadBtn = new QPushButton(Datagate::tr("Load statistics"), this);
-    loadBtn->setProperty("primary", true);
-    root->addWidget(loadBtn);
+    m_loadBtn = new QPushButton(Datagate::tr("Load statistics"), this);
+    m_loadBtn->setProperty("primary", true);
+    root->addWidget(m_loadBtn);
 
     m_status = new QLabel(QStringLiteral(""), this);
     m_status->setObjectName(QStringLiteral("muted"));
@@ -250,7 +251,28 @@ StatisticsPanel::StatisticsPanel(QWidget* parent)
     scroll->setWidget(host);
     root->addWidget(scroll, 1);
 
-    connect(loadBtn, &QPushButton::clicked, this, &StatisticsPanel::onLoadClicked);
+    connect(m_loadBtn, &QPushButton::clicked, this, &StatisticsPanel::onLoadClicked);
+}
+
+void StatisticsPanel::retranslateUi()
+{
+    if (m_hintLabel) {
+        m_hintLabel->setText(
+            Datagate::tr("Per-server traffic from the API (GET open-vpn-statistics/get/{id})."));
+    }
+    if (m_serverLabel) {
+        m_serverLabel->setText(Datagate::tr("Server:"));
+    }
+    if (m_onlyMine) {
+        m_onlyMine->setText(Datagate::tr("Only my traffic (JWT externalId)"));
+    }
+    if (m_loadBtn) {
+        m_loadBtn->setText(Datagate::tr("Load statistics"));
+    }
+    setServers(m_servers);
+    if (m_trafficChart) {
+        m_trafficChart->update();
+    }
 }
 
 void StatisticsPanel::setServers(const QVector<QPair<int, QString>>& idAndName)

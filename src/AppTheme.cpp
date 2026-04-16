@@ -1,4 +1,5 @@
 #include "AppTheme.h"
+#include "BrandColors.h"
 
 #include <QApplication>
 #include <QColor>
@@ -20,190 +21,231 @@ void apply(bool dark)
 
     QPalette pal;
     if (dark) {
-        pal.setColor(QPalette::Window, QColor(QStringLiteral("#1E1E1E")));
-        pal.setColor(QPalette::WindowText, QColor(QStringLiteral("#E6E6E6")));
-        pal.setColor(QPalette::Base, QColor(QStringLiteral("#2D2D2D")));
-        pal.setColor(QPalette::AlternateBase, QColor(QStringLiteral("#252526")));
-        pal.setColor(QPalette::Text, QColor(QStringLiteral("#E6E6E6")));
-        pal.setColor(QPalette::Button, QColor(QStringLiteral("#3C3C3C")));
-        pal.setColor(QPalette::ButtonText, QColor(QStringLiteral("#E6E6E6")));
-        pal.setColor(QPalette::Highlight, QColor(QStringLiteral("#0078D4")));
-        pal.setColor(QPalette::HighlightedText, QColor(QStringLiteral("#FFFFFF")));
-        pal.setColor(QPalette::Link, QColor(QStringLiteral("#60CDFF")));
-        pal.setColor(QPalette::PlaceholderText, QColor(QStringLiteral("#9E9E9E")));
+        using namespace BrandColors::Dark;
+        pal.setColor(QPalette::Window, QColor(QString::fromUtf8(kBgDefault)));
+        pal.setColor(QPalette::WindowText, QColor(QString::fromUtf8(kTextDefault)));
+        pal.setColor(QPalette::Base, QColor(QString::fromUtf8(kBgSubtle)));
+        pal.setColor(QPalette::AlternateBase, QColor(QString::fromUtf8(kBgMuted)));
+        pal.setColor(QPalette::Text, QColor(QString::fromUtf8(kTextDefault)));
+        pal.setColor(QPalette::Button, QColor(QString::fromUtf8(kBgSubtle)));
+        pal.setColor(QPalette::ButtonText, QColor(QString::fromUtf8(kTextDefault)));
+        pal.setColor(QPalette::Highlight, QColor(QString::fromUtf8(kAccentEmphasis)));
+        pal.setColor(QPalette::HighlightedText, QColor(QString::fromUtf8(kWhite)));
+        pal.setColor(QPalette::Link, QColor(QString::fromUtf8(kAccentFg)));
+        pal.setColor(QPalette::PlaceholderText, QColor(QString::fromUtf8(kTextMuted)));
     } else {
-        pal.setColor(QPalette::Window, QColor(QStringLiteral("#F3F3F3")));
-        pal.setColor(QPalette::WindowText, QColor(QStringLiteral("#1A1A1A")));
-        pal.setColor(QPalette::Base, QColor(QStringLiteral("#FFFFFF")));
-        pal.setColor(QPalette::AlternateBase, QColor(QStringLiteral("#FAFAFA")));
-        pal.setColor(QPalette::Text, QColor(QStringLiteral("#1A1A1A")));
-        pal.setColor(QPalette::Button, QColor(QStringLiteral("#E8E8E8")));
-        pal.setColor(QPalette::ButtonText, QColor(QStringLiteral("#1A1A1A")));
-        pal.setColor(QPalette::Highlight, QColor(QStringLiteral("#0078D4")));
-        pal.setColor(QPalette::HighlightedText, QColor(QStringLiteral("#FFFFFF")));
-        pal.setColor(QPalette::Link, QColor(QStringLiteral("#0067C0")));
-        pal.setColor(QPalette::PlaceholderText, QColor(QStringLiteral("#6E6E6E")));
+        using namespace BrandColors::Light;
+        pal.setColor(QPalette::Window, QColor(QString::fromUtf8(kBgDefault)));
+        pal.setColor(QPalette::WindowText, QColor(QString::fromUtf8(kTextDefault)));
+        pal.setColor(QPalette::Base, QColor(QString::fromUtf8(kBgMuted)));
+        pal.setColor(QPalette::AlternateBase, QColor(QString::fromUtf8(kBgSubtle)));
+        pal.setColor(QPalette::Text, QColor(QString::fromUtf8(kTextDefault)));
+        pal.setColor(QPalette::Button, QColor(QString::fromUtf8(kBgSubtle)));
+        pal.setColor(QPalette::ButtonText, QColor(QString::fromUtf8(kTextDefault)));
+        pal.setColor(QPalette::Highlight, QColor(QString::fromUtf8(kAccentEmphasis)));
+        pal.setColor(QPalette::HighlightedText, QColor(QString::fromUtf8(kWhite)));
+        pal.setColor(QPalette::Link, QColor(QString::fromUtf8(kAccentFg)));
+        pal.setColor(QPalette::PlaceholderText, QColor(QString::fromUtf8(kTextMuted)));
     }
     qApp->setPalette(pal);
 
-    const QString qss = dark ? QStringLiteral(R"(
-QMainWindow, QWidget#centralRoot { background-color: #1E1E1E; }
+    QString qss;
+    if (dark) {
+        using namespace BrandColors::Dark;
+        qss = QStringLiteral(
+                  R"(
+QMainWindow, QWidget#centralRoot { background-color: %1; }
 QFrame#card {
-  background-color: #2D2D2D;
-  border: 1px solid #3F3F3F;
+  background-color: %2;
+  border: 1px solid %3;
   border-radius: 8px;
 }
-QLabel#titleH1 { color: #E6E6E6; font-size: 20px; font-weight: 600; }
-QLabel#titleH2 { color: #E6E6E6; font-size: 14px; font-weight: 600; }
-QLabel#muted { color: #A0A0A0; font-size: 13px; }
+QLabel#titleH1 { color: %4; font-size: 20px; font-weight: 600; }
+QLabel#titleH2 { color: %4; font-size: 14px; font-weight: 600; }
+QLabel#muted { color: %5; font-size: 13px; }
 QListWidget#navPane {
-  background-color: #252526;
+  background-color: %6;
   border: none;
-  border-right: 1px solid #3F3F3F;
+  border-right: 1px solid %3;
   outline: none;
   padding: 8px 0;
   font-size: 14px;
 }
+QListWidget#navPane::viewport {
+  background-color: %6;
+}
 QListWidget#navPane::item {
   padding: 10px 16px;
   margin: 2px 8px;
-  border-radius: 4px;
-  color: #E6E6E6;
+  border-radius: 6px;
+  color: %4;
 }
 QListWidget#navPane::item:selected {
-  background-color: #3E3E42;
+  background-color: %7;
 }
 QListWidget#navPane::item:hover:!selected {
-  background-color: #2D2D30;
+  background-color: %8;
 }
 QPushButton[primary="true"] {
-  background-color: #0078D4;
-  color: #FFFFFF;
+  background-color: %9;
+  color: %10;
   border: none;
-  border-radius: 4px;
+  border-radius: 6px;
   padding: 8px 20px;
   min-width: 140px;
   font-weight: 600;
 }
-QPushButton[primary="true"]:hover { background-color: #1A86D8; }
-QPushButton[primary="true"]:pressed { background-color: #006CBD; }
+QPushButton[primary="true"]:hover { background-color: %11; }
+QPushButton[primary="true"]:pressed { background-color: %9; }
 QPushButton[secondary="true"] {
-  background-color: #3C3C3C;
-  color: #E6E6E6;
-  border: 1px solid #5C5C5C;
-  border-radius: 4px;
+  background-color: %8;
+  color: %4;
+  border: 1px solid %3;
+  border-radius: 6px;
   padding: 8px 20px;
   min-width: 140px;
 }
-QPushButton[secondary="true"]:hover { background-color: #4A4A4A; }
+QPushButton[secondary="true"]:hover { background-color: %7; }
 QLineEdit, QPlainTextEdit, QSpinBox {
-  background-color: #2D2D2D;
-  border: 1px solid #3F3F3F;
-  border-radius: 4px;
+  background-color: %8;
+  border: 1px solid %3;
+  border-radius: 6px;
   padding: 6px 8px;
-  selection-background-color: #0078D4;
+  selection-background-color: %9;
 }
 QPlainTextEdit#engineLog {
-  font-family: "Consolas", "DejaVu Sans Mono", monospace;
+  font-family: "Cascadia Mono", "Consolas", "DejaVu Sans Mono", monospace;
   font-size: 12px;
 }
 QTableWidget#accessServerTable {
-  background-color: #2D2D2D;
-  border: 1px solid #3F3F3F;
-  border-radius: 4px;
-  gridline-color: #3F3F3F;
+  background-color: %8;
+  border: 1px solid %3;
+  border-radius: 6px;
+  gridline-color: %3;
 }
 QTableWidget#accessServerTable QHeaderView::section {
-  background-color: #333333;
-  color: #E6E6E6;
+  background-color: %2;
+  color: %4;
   padding: 6px 8px;
   border: none;
-  border-bottom: 1px solid #3F3F3F;
+  border-bottom: 1px solid %3;
 }
-QScrollBar:vertical { background: #252526; width: 10px; margin: 0; }
-QScrollBar::handle:vertical { background: #5C5C5C; min-height: 24px; border-radius: 4px; }
-QScrollBar:horizontal { background: #252526; height: 10px; margin: 0; }
-QScrollBar::handle:horizontal { background: #5C5C5C; min-width: 24px; border-radius: 4px; }
+QScrollBar:vertical { background: %6; width: 10px; margin: 0; }
+QScrollBar::handle:vertical { background: %12; min-height: 24px; border-radius: 4px; }
+QScrollBar:horizontal { background: %6; height: 10px; margin: 0; }
+QScrollBar::handle:horizontal { background: %12; min-width: 24px; border-radius: 4px; }
 )")
-                             : QStringLiteral(R"(
-QMainWindow, QWidget#centralRoot { background-color: #F3F3F3; }
+                  .arg(QString::fromUtf8(kBgDefault),
+                      QString::fromUtf8(kBgMuted),
+                      QString::fromUtf8(kBorderDefault),
+                      QString::fromUtf8(kTextDefault),
+                      QString::fromUtf8(kTextMuted),
+                      QString::fromUtf8(kBgDefault),
+                      QString::fromUtf8(kBgSubtle),
+                      QString::fromUtf8(kBgSubtle),
+                      QString::fromUtf8(kAccentEmphasis),
+                      QString::fromUtf8(kWhite),
+                      QString::fromUtf8(kAccentHover),
+                      QString::fromUtf8(kTextFaint));
+    } else {
+        using namespace BrandColors::Light;
+        qss = QStringLiteral(
+                  R"(
+QMainWindow, QWidget#centralRoot { background-color: %1; }
 QFrame#card {
-  background-color: #FFFFFF;
-  border: 1px solid #E1E1E1;
+  background-color: %2;
+  border: 1px solid %3;
   border-radius: 8px;
 }
-QLabel#titleH1 { color: #1A1A1A; font-size: 20px; font-weight: 600; }
-QLabel#titleH2 { color: #1A1A1A; font-size: 14px; font-weight: 600; }
-QLabel#muted { color: #5C5C5C; font-size: 13px; }
+QLabel#titleH1 { color: %4; font-size: 20px; font-weight: 600; }
+QLabel#titleH2 { color: %4; font-size: 14px; font-weight: 600; }
+QLabel#muted { color: %5; font-size: 13px; }
 QListWidget#navPane {
-  background-color: #FAFAFA;
+  background-color: %6;
   border: none;
-  border-right: 1px solid #E1E1E1;
+  border-right: 1px solid %3;
   outline: none;
   padding: 8px 0;
   font-size: 14px;
 }
+QListWidget#navPane::viewport {
+  background-color: %6;
+}
 QListWidget#navPane::item {
   padding: 10px 16px;
   margin: 2px 8px;
-  border-radius: 4px;
-  color: #1A1A1A;
+  border-radius: 6px;
+  color: %4;
 }
 QListWidget#navPane::item:selected {
-  background-color: #E5E5E5;
+  background-color: %7;
 }
 QListWidget#navPane::item:hover:!selected {
-  background-color: #F0F0F0;
+  background-color: %8;
 }
 QPushButton[primary="true"] {
-  background-color: #0078D4;
-  color: #FFFFFF;
+  background-color: %9;
+  color: %10;
   border: none;
-  border-radius: 4px;
+  border-radius: 6px;
   padding: 8px 20px;
   min-width: 140px;
   font-weight: 600;
 }
-QPushButton[primary="true"]:hover { background-color: #1A86D8; }
-QPushButton[primary="true"]:pressed { background-color: #006CBD; }
+QPushButton[primary="true"]:hover { background-color: %11; }
+QPushButton[primary="true"]:pressed { background-color: %9; }
 QPushButton[secondary="true"] {
-  background-color: #F0F0F0;
-  color: #1A1A1A;
-  border: 1px solid #C4C4C4;
-  border-radius: 4px;
+  background-color: %8;
+  color: %4;
+  border: 1px solid %3;
+  border-radius: 6px;
   padding: 8px 20px;
   min-width: 140px;
 }
-QPushButton[secondary="true"]:hover { background-color: #E5E5E5; }
+QPushButton[secondary="true"]:hover { background-color: %7; }
 QLineEdit, QPlainTextEdit, QSpinBox {
-  background-color: #FFFFFF;
-  border: 1px solid #C4C4C4;
-  border-radius: 4px;
+  background-color: %2;
+  border: 1px solid %3;
+  border-radius: 6px;
   padding: 6px 8px;
-  selection-background-color: #0078D4;
+  selection-background-color: %9;
 }
 QPlainTextEdit#engineLog {
-  font-family: "Consolas", "DejaVu Sans Mono", monospace;
+  font-family: "Cascadia Mono", "Consolas", "DejaVu Sans Mono", monospace;
   font-size: 12px;
 }
 QTableWidget#accessServerTable {
-  background-color: #FFFFFF;
-  border: 1px solid #C4C4C4;
-  border-radius: 4px;
-  gridline-color: #E1E1E1;
+  background-color: %2;
+  border: 1px solid %3;
+  border-radius: 6px;
+  gridline-color: %12;
 }
 QTableWidget#accessServerTable QHeaderView::section {
-  background-color: #F3F3F3;
-  color: #1A1A1A;
+  background-color: %8;
+  color: %4;
   padding: 6px 8px;
   border: none;
-  border-bottom: 1px solid #C4C4C4;
+  border-bottom: 1px solid %3;
 }
-QScrollBar:vertical { background: #F3F3F3; width: 10px; margin: 0; }
-QScrollBar::handle:vertical { background: #C4C4C4; min-height: 24px; border-radius: 4px; }
-QScrollBar:horizontal { background: #F3F3F3; height: 10px; margin: 0; }
-QScrollBar::handle:horizontal { background: #C4C4C4; min-width: 24px; border-radius: 4px; }
-)");
+QScrollBar:vertical { background: %1; width: 10px; margin: 0; }
+QScrollBar::handle:vertical { background: %13; min-height: 24px; border-radius: 4px; }
+QScrollBar:horizontal { background: %1; height: 10px; margin: 0; }
+QScrollBar::handle:horizontal { background: %13; min-width: 24px; border-radius: 4px; }
+)")
+                  .arg(QString::fromUtf8(kBgDefault),
+                      QString::fromUtf8(kBgMuted),
+                      QString::fromUtf8(kBorderDefault),
+                      QString::fromUtf8(kTextDefault),
+                      QString::fromUtf8(kTextMuted),
+                      QString::fromUtf8(kBgDefault),
+                      QString::fromUtf8(kBorderMuted),
+                      QString::fromUtf8(kBgSubtle),
+                      QString::fromUtf8(kAccentEmphasis),
+                      QString::fromUtf8(kWhite),
+                      QString::fromUtf8(kAccentHover),
+                      QString::fromUtf8(kBorderMuted),
+                      QString::fromUtf8(kTextFaint));
+    }
 
     qApp->setStyleSheet(qss);
 }

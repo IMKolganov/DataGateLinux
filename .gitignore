@@ -36,6 +36,7 @@ build/
 .idea/
 
 *.qm
+!i18n/datagate_*.qm
 *.prl
 
 # Qt unit tests
@@ -61,3 +62,7 @@ compile_commands.json
 
 # Local API / OAuth config (keep appsettings.example.json in repo)
 appsettings.json
+
+# Python tools
+**/__pycache__/
+__pycache__/

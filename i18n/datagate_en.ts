@@ -8,6 +8,30 @@
       <translation>The API is temporarily unavailable. Try again later.</translation>
     </message>
     <message>
+      <source>You're signed in</source>
+      <translation>You're signed in</translation>
+    </message>
+    <message>
+      <source>You can close this tab and return to the DataGate app.</source>
+      <translation>You can close this tab and return to the DataGate app.</translation>
+    </message>
+    <message>
+      <source>Sign-in did not complete</source>
+      <translation>Sign-in did not complete</translation>
+    </message>
+    <message>
+      <source>You can close this tab and try again from DataGate.</source>
+      <translation>You can close this tab and try again from DataGate.</translation>
+    </message>
+    <message>
+      <source>Invalid sign-in request</source>
+      <translation>Invalid sign-in request</translation>
+    </message>
+    <message>
+      <source>Close this tab and start sign-in again from DataGate.</source>
+      <translation>Close this tab and start sign-in again from DataGate.</translation>
+    </message>
+    <message>
       <source>Google Client ID is required.</source>
       <translation>Google Client ID is required.</translation>
     </message>
@@ -176,8 +200,8 @@
       <translation>Language</translation>
     </message>
     <message>
-      <source>Interface language. Save settings to apply; restart the app if some labels stay in the old language.</source>
-      <translation>Interface language. Save settings to apply; restart the app if some labels stay in the old language.</translation>
+      <source>Choosing a language updates the interface immediately; it is saved automatically. Use Save settings for VPN path, theme, and server options.</source>
+      <translation>Choosing a language updates the interface immediately; it is saved automatically. Use Save settings for VPN path, theme, and server options.</translation>
     </message>
     <message>
       <source>Appearance</source>
@@ -194,6 +218,30 @@
     <message>
       <source>Dark mode</source>
       <translation>Dark mode</translation>
+    </message>
+    <message>
+      <source>More apps</source>
+      <translation>More apps</translation>
+    </message>
+    <message>
+      <source>You can download other DataGate apps for your devices from the website:</source>
+      <translation>You can download other DataGate apps for your devices from the website:</translation>
+    </message>
+    <message>
+      <source>Windows</source>
+      <translation>Windows</translation>
+    </message>
+    <message>
+      <source>Linux</source>
+      <translation>Linux</translation>
+    </message>
+    <message>
+      <source>Android</source>
+      <translation>Android</translation>
+    </message>
+    <message>
+      <source>iOS</source>
+      <translation>iOS</translation>
     </message>
     <message>
       <source>openvpn</source>

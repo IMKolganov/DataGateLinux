@@ -72,6 +72,9 @@ int loadLastSelectedServerId();
 /// Resolve OpenVPN executable path (absolute path or lookup in PATH), same rules as VpnSession launch.
 QString resolvedOpenVpnExecutable(const QString& openVpnCmdOrPath);
 
+/// Human-readable client id for OpenVPN 2 peer-info: "<openvpn semver>_datagate_linux_<app semver>" (e.g. 2.6.12_datagate_linux_1.0.0).
+QString datagateLinuxPeerVersionLabel(const QString& resolvedOpenVpnExecutable);
+
 /// User-visible message when the API host is unreachable or returns 5xx. Empty if the caller should show a detailed/server message.
 QString userMessageWhenApiUnavailable(QNetworkReply* rep);
 

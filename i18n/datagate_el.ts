@@ -8,6 +8,30 @@
       <translation>Το API δεν είναι διαθέσιμο προσωρινά. Δοκιμάστε ξανά αργότερα.</translation>
     </message>
     <message>
+      <source>You're signed in</source>
+      <translation>Έχετε συνδεθεί.</translation>
+    </message>
+    <message>
+      <source>You can close this tab and return to the DataGate app.</source>
+      <translation>Μπορείτε να κλείσετε αυτή την καρτέλα και να επιστρέψετε στο DataGate.</translation>
+    </message>
+    <message>
+      <source>Sign-in did not complete</source>
+      <translation>Η σύνδεση δεν ολοκληρώθηκε.</translation>
+    </message>
+    <message>
+      <source>You can close this tab and try again from DataGate.</source>
+      <translation>Κλείστε αυτή την καρτέλα και δοκιμάστε ξανά από το DataGate.</translation>
+    </message>
+    <message>
+      <source>Invalid sign-in request</source>
+      <translation>Μη έγκυρο αίτημα σύνδεσης.</translation>
+    </message>
+    <message>
+      <source>Close this tab and start sign-in again from DataGate.</source>
+      <translation>Κλείστε αυτή την καρτέλα και ξεκινήστε ξανά τη σύνδεση από το DataGate.</translation>
+    </message>
+    <message>
       <source>Google Client ID is required.</source>
       <translation>Απαιτείται Google Client ID.</translation>
     </message>
@@ -176,8 +200,8 @@
       <translation>Γλώσσα</translation>
     </message>
     <message>
-      <source>Interface language. Save settings to apply; restart the app if some labels stay in the old language.</source>
-      <translation>Γλώσσα διεπαφής. Αποθηκεύστε τις ρυθμίσεις· επανεκκινήστε την εφαρμογή αν κάποιες ετικέτες παραμείνουν στην παλιά γλώσσα.</translation>
+      <source>Choosing a language updates the interface immediately; it is saved automatically. Use Save settings for VPN path, theme, and server options.</source>
+      <translation>Η γλώσσα της διεπαφής ενημερώνεται αμέσως και αποθηκεύεται αυτόματα. Για διαδρομή OpenVPN, θέμα και διακομιστή χρησιμοποιήστε Αποθήκευση ρυθμίσεων.</translation>
     </message>
     <message>
       <source>Appearance</source>
@@ -194,6 +218,30 @@
     <message>
       <source>Dark mode</source>
       <translation>Σκοτεινό θέμα</translation>
+    </message>
+    <message>
+      <source>More apps</source>
+      <translation>Περισσότερες εφαρμογές</translation>
+    </message>
+    <message>
+      <source>You can download other DataGate apps for your devices from the website:</source>
+      <translation>Μπορείτε να κατεβάσετε άλλες εφαρμογές DataGate για τις συσκευές σας από τον ιστότοπο:</translation>
+    </message>
+    <message>
+      <source>Windows</source>
+      <translation>Windows</translation>
+    </message>
+    <message>
+      <source>Linux</source>
+      <translation>Linux</translation>
+    </message>
+    <message>
+      <source>Android</source>
+      <translation>Android</translation>
+    </message>
+    <message>
+      <source>iOS</source>
+      <translation>iOS</translation>
     </message>
     <message>
       <source>openvpn</source>
