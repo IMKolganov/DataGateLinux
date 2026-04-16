@@ -1,0 +1,12 @@
+# Called from POST_BUILD: create appsettings.json from the example if it does not exist yet.
+cmake_minimum_required(VERSION 3.16)
+if(NOT DEFINED A_SOURCE OR NOT DEFINED A_DST)
+  message(FATAL_ERROR "CopyAppsettingsIfMissing: set -DA_SOURCE= -DA_DST=")
+endif()
+if(EXISTS "${A_DST}")
+  return()
+endif()
+execute_process(COMMAND "${CMAKE_COMMAND}" -E copy "${A_SOURCE}" "${A_DST}" RESULT_VARIABLE _r)
+if(NOT _r EQUAL 0)
+  message(WARNING "Could not copy ${A_SOURCE} to ${A_DST}")
+endif()

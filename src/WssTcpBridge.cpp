@@ -1,0 +1,262 @@
+#include "WssTcpBridge.h"
+
+#include <QAbstractSocket>
+#include <QElapsedTimer>
+#include <QHostAddress>
+#include <QLoggingCategory>
+#include <QObject>
+#include <QTcpServer>
+#include <QTcpSocket>
+#include <QTimer>
+#include <QWebSocket>
+
+Q_LOGGING_CATEGORY(lcBridge, "datagate.bridge")
+
+namespace {
+
+class BridgeConnection final : public QObject {
+public:
+    BridgeConnection(QTcpSocket* tcp, const QUrl& wssUrl, WssTcpBridge* owner)
+        : QObject(owner)
+        , m_owner(owner)
+        , m_wssUrl(wssUrl)
+        , m_tcp(tcp)
+        , m_ws(new QWebSocket(QString(), QWebSocketProtocol::VersionLatest, this))
+        , m_pingTimer(new QTimer(this))
+    {
+        m_sinceCtor.start();
+        m_tcp->setParent(this);
+        if (m_owner) {
+            m_owner->_bridgeRegisterSession(this);
+        }
+
+        m_pingTimer->setInterval(20000);
+        connect(m_pingTimer, &QTimer::timeout, this, [this]() {
+            if (!m_ws || m_shuttingDown) {
+                return;
+            }
+            if (m_ws->state() == QAbstractSocket::ConnectedState) {
+                m_ws->ping();
+            }
+        });
+
+        connect(m_tcp, &QTcpSocket::readyRead, this, [this]() { onTcpReady(); });
+        connect(m_tcp, &QTcpSocket::disconnected, this, [this]() {
+            qCDebug(lcBridge) << "OpenVPN closed local TCP to bridge";
+            shutdown();
+        });
+#if QT_VERSION >= QT_VERSION_CHECK(6, 5, 0)
+        connect(m_ws, &QWebSocket::errorOccurred, this, [this](QAbstractSocket::SocketError e) {
+            qCWarning(lcBridge) << "WebSocket error" << e << m_ws->errorString() << m_wssUrl;
+            shutdown();
+        });
+#else
+        connect(m_ws, QOverload<QAbstractSocket::SocketError>::of(&QWebSocket::error), this,
+            [this](QAbstractSocket::SocketError e) {
+                qCWarning(lcBridge) << "WebSocket error" << e << m_ws->errorString() << m_wssUrl;
+                shutdown();
+            });
+#endif
+        connect(m_ws, &QWebSocket::binaryMessageReceived, this, [this](const QByteArray& m) { onWsBinary(m); });
+        connect(m_ws, &QWebSocket::disconnected, this, [this]() {
+            if (!m_shuttingDown && m_ws) {
+                qCWarning(lcBridge) << "WebSocket closed by proxy or network"
+                                    << "closeCode=" << m_ws->closeCode() << "reason=" << m_ws->closeReason()
+                                    << "url=" << m_wssUrl;
+            }
+            shutdown();
+        });
+
+        connect(m_ws, &QWebSocket::connected, this, [this]() {
+            qCDebug(lcBridge) << "WebSocket connected for bridge" << m_wssUrl;
+            m_pingTimer->start();
+            // QWebSocket drops sendBinaryMessage until Connected; OpenVPN sends TLS immediately
+            // after TCP connect — buffer until here so the first flight reaches the proxy.
+            flushPendingTcpToWebSocket();
+        });
+
+        m_ws->open(m_wssUrl);
+    }
+
+    void requestShutdown() { shutdown(); }
+
+    /// Both legs up — replacing this session would drop a working OpenVPN transport (NETWORK_EOF_ERROR loop).
+    bool isLinkUp() const
+    {
+        if (m_shuttingDown) {
+            return false;
+        }
+        if (!m_tcp || m_tcp->state() != QAbstractSocket::ConnectedState) {
+            return false;
+        }
+        if (!m_ws || m_ws->state() != QAbstractSocket::ConnectedState) {
+            return false;
+        }
+        return true;
+    }
+
+    /// OpenVPN 3 may open a second local TCP while WSS/TLS is still handshaking. Tearing down the first
+    /// session in that window caused NETWORK_EOF_ERROR on first connect; only replace after a grace period.
+    bool inHandshakeOverlapGracePeriod() const
+    {
+        return m_sinceCtor.elapsed() < 4000;
+    }
+
+private:
+    void flushPendingTcpToWebSocket()
+    {
+        if (!m_ws || m_pendingTcpToWs.isEmpty()) {
+            return;
+        }
+        if (m_ws->state() != QAbstractSocket::ConnectedState) {
+            return;
+        }
+        m_ws->sendBinaryMessage(m_pendingTcpToWs);
+        m_pendingTcpToWs.clear();
+    }
+
+    void onTcpReady()
+    {
+        if (!m_tcp || !m_ws) {
+            return;
+        }
+        const QByteArray chunk = m_tcp->readAll();
+        if (chunk.isEmpty()) {
+            return;
+        }
+        m_pendingTcpToWs.append(chunk);
+        flushPendingTcpToWebSocket();
+    }
+
+    void onWsBinary(const QByteArray& message)
+    {
+        if (!m_tcp || message.isEmpty()) {
+            return;
+        }
+        m_tcp->write(message);
+        m_tcp->flush();
+    }
+
+    void shutdown()
+    {
+        if (m_shuttingDown) {
+            return;
+        }
+        m_shuttingDown = true;
+        m_pingTimer->stop();
+
+        if (m_owner) {
+            m_owner->_bridgeUnregisterSession(this);
+            m_owner = nullptr;
+        }
+
+        if (m_tcp) {
+            QObject::disconnect(m_tcp, nullptr, this, nullptr);
+        }
+        if (m_ws) {
+            QObject::disconnect(m_ws, nullptr, this, nullptr);
+        }
+
+        if (m_ws) {
+            m_ws->abort();
+            m_ws->deleteLater();
+            m_ws = nullptr;
+        }
+        if (m_tcp) {
+            m_tcp->abort();
+            m_tcp->deleteLater();
+            m_tcp = nullptr;
+        }
+        deleteLater();
+    }
+
+    QElapsedTimer m_sinceCtor;
+    WssTcpBridge* m_owner = nullptr;
+    QUrl m_wssUrl;
+    QTcpSocket* m_tcp = nullptr;
+    QWebSocket* m_ws = nullptr;
+    QTimer* m_pingTimer = nullptr;
+    QByteArray m_pendingTcpToWs;
+    bool m_shuttingDown = false;
+};
+
+} // namespace
+
+WssTcpBridge::WssTcpBridge(QObject* parent)
+    : QObject(parent)
+    , m_server(new QTcpServer(this))
+{
+    connect(m_server, &QTcpServer::newConnection, this, &WssTcpBridge::onNewConnection);
+}
+
+WssTcpBridge::~WssTcpBridge()
+{
+    stop();
+}
+
+bool WssTcpBridge::start(quint16 port, const QUrl& wssUrl)
+{
+    stop();
+    m_wssUrl = wssUrl;
+    if (!m_server->listen(QHostAddress::LocalHost, port)) {
+        qCWarning(lcBridge) << "listen failed on" << port << m_server->errorString();
+        return false;
+    }
+    qCDebug(lcBridge) << "TCP bridge listening on 127.0.0.1:" << port << "->" << wssUrl;
+    return true;
+}
+
+void WssTcpBridge::stop()
+{
+    if (m_bridgeSession) {
+        static_cast<BridgeConnection*>(m_bridgeSession)->requestShutdown();
+    }
+    if (m_server->isListening()) {
+        m_server->close();
+    }
+}
+
+void WssTcpBridge::_bridgeRegisterSession(void* bridgeConnection)
+{
+    m_bridgeSession = bridgeConnection;
+}
+
+void WssTcpBridge::_bridgeUnregisterSession(void* bridgeConnection)
+{
+    if (m_bridgeSession == bridgeConnection) {
+        m_bridgeSession = nullptr;
+    }
+}
+
+void WssTcpBridge::onNewConnection()
+{
+    while (m_server->hasPendingConnections()) {
+        QTcpSocket* tcp = m_server->nextPendingConnection();
+        tcp->setSocketOption(QAbstractSocket::LowDelayOption, 1);
+        // OpenVPN 3 may open a second local TCP while WSS/TLS is still handshaking. Replacing the first
+        // session in that window aborted the socket OpenVPN was using → NETWORK_EOF_ERROR (often on first
+        // connect). Ignore the duplicate for a short grace period; replace only if the session is stale.
+        // Once TCP+WSS are both up (isLinkUp), extra connects are always ignored.
+        if (m_bridgeSession) {
+            auto* prev = static_cast<BridgeConnection*>(m_bridgeSession);
+            if (prev->isLinkUp()) {
+                qCInfo(lcBridge) << "Ignoring extra local TCP to bridge (session already up) on port"
+                                 << m_server->serverPort();
+                tcp->abort();
+                tcp->deleteLater();
+                continue;
+            }
+            if (prev->inHandshakeOverlapGracePeriod()) {
+                qCInfo(lcBridge) << "Ignoring extra local TCP to bridge (WSS handshake overlap) on port"
+                                 << m_server->serverPort();
+                tcp->abort();
+                tcp->deleteLater();
+                continue;
+            }
+            qCInfo(lcBridge) << "Replacing TCP bridge session (stale handshake / reconnect) on port"
+                             << m_server->serverPort();
+            prev->requestShutdown();
+        }
+        new BridgeConnection(tcp, m_wssUrl, this);
+    }
+}

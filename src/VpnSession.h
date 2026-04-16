@@ -1,0 +1,108 @@
+#pragma once
+
+#include <atomic>
+#include <memory>
+#include <thread>
+
+#include <QByteArray>
+#include <QObject>
+#include <QPointer>
+#include <QProcess>
+#include <QString>
+
+#include "DatagateUtils.h"
+
+#if defined(DATAGATE_EMBEDDED_OPENVPN3) && !defined(DATAGATE_EMBEDDED_OPENVPN3_USE_EXTERNAL_HELPER)
+namespace Datagate {
+class DatagateOvpn3Client;
+}
+#endif
+
+class QNetworkAccessManager;
+class QNetworkReply;
+class QTemporaryFile;
+class UdpWssBridge;
+class WssTcpBridge;
+
+class VpnSession final : public QObject {
+    Q_OBJECT
+public:
+    explicit VpnSession(QObject* parent = nullptr);
+    ~VpnSession() override;
+
+    void connectVpn(const QString& backendBaseUrl, const QString& bearerAccessToken,
+        const QString& openVpnExecutable, bool autoPickServer = true, int manualServerId = 0);
+
+    /// Last server selected after a successful fetch (for UI labels).
+    QString activeServerName() const { return m_server.name; }
+    /// reason is logged (e.g. why OpenVPN received SIGTERM). Pass nullptr for default.
+    void disconnectVpn(const char* reason = nullptr);
+
+signals:
+    void statusMessage(const QString& text);
+    void errorMessage(const QString& text);
+    /// TUN/CAP_NET_ADMIN setup likely needed (empty OpenVPN log, failed start, or TUNSETIFF denied).
+    void openVpnCapabilitySetupRecommended(const QString& detail);
+    void vpnUp();
+    void vpnDown();
+
+private:
+    void stepFetchServers();
+    void stepTryDownload(bool afterCreate);
+    void stepCreateOnServer();
+    void stepStartBridgeAndOpenVpn(const QString& configText);
+    void stopBridges();
+
+    void onOpenVpnFinished(int exitCode, QProcess::ExitStatus st);
+    void onOpenVpnError(QProcess::ProcessError e);
+
+    void disconnectVpnInternal(bool force, const char* reason);
+    void abortPendingReplies();
+
+#if defined(DATAGATE_EMBEDDED_OPENVPN3)
+    void startEmbeddedOpenVpn3(const QString& patchedConfigUtf8, bool useUdp, quint16 bridgePort);
+#if !defined(DATAGATE_EMBEDDED_OPENVPN3_USE_EXTERNAL_HELPER)
+    void onOvpn3ThreadFinished(const QString& errorMessage);
+#else
+    void ovpn3HelperFlushProtocolLines();
+#endif
+    void deliverOvpn3Event(const QString& name, const QString& info);
+    void maybeEmitEmbeddedTunCapHint(const QString& ovpn3LogLine);
+#endif
+
+    QNetworkAccessManager* m_nam = nullptr;
+    WssTcpBridge* m_tcpBridge = nullptr;
+    UdpWssBridge* m_udpBridge = nullptr;
+    QProcess* m_ovpn = nullptr;
+    QTemporaryFile* m_configFile = nullptr;
+
+#if defined(DATAGATE_EMBEDDED_OPENVPN3)
+#if defined(DATAGATE_EMBEDDED_OPENVPN3_USE_EXTERNAL_HELPER)
+    QProcess* m_ovpn3Helper = nullptr;
+    QByteArray m_ovpn3HelperOutBuf;
+    QByteArray m_ovpn3HelperErrBuf;
+    QTemporaryFile* m_ovpn3HelperProfile = nullptr;
+#else
+    std::unique_ptr<std::thread> m_ovpn3Thread;
+    std::atomic<Datagate::DatagateOvpn3Client*> m_ovpn3Active{nullptr};
+#endif
+    bool m_ovpn3TunCapHintEmitted = false;
+#endif
+
+    QString m_baseUrl;
+    QString m_token;
+    QString m_openVpnExe;
+    bool m_autoPickServer = true;
+    int m_manualServerId = 0;
+    BestServer m_server;
+    QString m_commonName;
+
+    bool m_connecting = false;
+    bool m_disconnecting = false;
+    bool m_userStopVpn = false;
+
+    QPointer<QNetworkReply> m_activeReply;
+
+    /// Accumulated OpenVPN stdout/stderr (MergedChannels); also streamed live via qCDebug(lcVpn).
+    QByteArray m_ovpnLogBuffer;
+};

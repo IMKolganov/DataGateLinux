@@ -1,0 +1,12 @@
+---
+description: Where appsettings.json is loaded from and how to avoid stale template copies
+alwaysApply: true
+---
+
+# DataGateLinux — appsettings.json
+
+- **Load order** (`AppConfig::load`): **current working directory (cwd)** first, then the **executable** directory, then `AppConfigLocation`. When running from an IDE, cwd is often `cmake-build-debug` or `build`, not the repo root.
+- **After the first build**, `appsettings.json` beside the exe may come from `appsettings.example.json` (placeholders: `api.yourdomain.com`, `your_client_id`). Edits only in the **repo root** `appsettings.json` are ignored until the file next to the binary is updated.
+- **Build**: `CMakeLists.txt` POST_BUILD runs `cmake/SyncAppsettingsFromRepo.cmake` — if **`appsettings.json` exists at the repo root**, it is copied next to the exe (`copy_if_different`). Rebuild after changing the root config (or copy the file beside the binary by hand).
+- **Logs**: `AppConfig: loaded <path>` shows **which file was actually read**. `refreshTokenSync: POST …/api/auth/refresh` uses **`Api:BaseUrl` from that same config** — if you see `yourdomain`, the loaded file’s content is wrong, not a hidden URL in code.
+- Do not suggest blind “copy appsettings” without checking the **log path** and the **`cmake-build-debug` / `build`** file beside the exe.
