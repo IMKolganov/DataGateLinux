@@ -1,5 +1,7 @@
 #pragma once
 
+#include <QtGlobal>
+
 #include <QString>
 #include <QStringList>
 #include <QUrl>
@@ -77,5 +79,29 @@ QString datagateLinuxPeerVersionLabel(const QString& resolvedOpenVpnExecutable);
 
 /// User-visible message when the API host is unreachable or returns 5xx. Empty if the caller should show a detailed/server message.
 QString userMessageWhenApiUnavailable(QNetworkReply* rep);
+
+#if defined(__linux__)
+/// Linux: `getcap` output for this path (best-effort).
+QString linuxFileGetcapLine(const QString& canonicalExecutablePath);
+
+/// `/proc/self/status` TracerPid, or -1 if unreadable. Non-zero ⇒ ptrace (debugger attached).
+int linuxProcSelfTracerPid();
+
+/// Multi-line diagnosis: /proc/self/exe vs Qt path, CapEff/CapPrm, TracerPid, getcap on running binary.
+QString linuxEmbeddedVpnTunDiagnosis(const QString& qAppExecutablePath);
+
+/// `DataGateOvpn3Helper` next to the main binary when the split-process helper is built (Linux embedded).
+QString linuxEmbeddedOvpn3HelperPath();
+
+/// setcap target for embedded TUN: helper when present, otherwise the GUI binary.
+QString linuxEmbeddedTunCapabilityTargetExecutablePath();
+
+/// If CAP_NET_ADMIN is permitted but not effective, promote to effective (needs DATAGATE_HAVE_LIBCAP + libcap).
+bool linuxTryRaiseEffectiveCapNetAdmin();
+
+/// Lower 64 capability bits from /proc/self/status (CapPrm / CapEff).
+quint64 linuxProcSelfCapPermittedU64();
+quint64 linuxProcSelfCapEffectiveU64();
+#endif
 
 } // namespace DatagateUtils

@@ -68,6 +68,9 @@ public:
         connect(m_ws, &QWebSocket::connected, this, [this]() {
             qCDebug(lcBridge) << "WebSocket connected for bridge" << m_wssUrl;
             m_pingTimer->start();
+            // QWebSocket drops sendBinaryMessage until Connected; OpenVPN sends TLS immediately
+            // after TCP connect — buffer until here so the first flight reaches the proxy.
+            flushPendingTcpToWebSocket();
         });
 
         m_ws->open(m_wssUrl);
@@ -75,7 +78,34 @@ public:
 
     void requestShutdown() { shutdown(); }
 
+    /// Both legs up — replacing this session would drop a working OpenVPN transport (NETWORK_EOF_ERROR loop).
+    bool isLinkUp() const
+    {
+        if (m_shuttingDown) {
+            return false;
+        }
+        if (!m_tcp || m_tcp->state() != QAbstractSocket::ConnectedState) {
+            return false;
+        }
+        if (!m_ws || m_ws->state() != QAbstractSocket::ConnectedState) {
+            return false;
+        }
+        return true;
+    }
+
 private:
+    void flushPendingTcpToWebSocket()
+    {
+        if (!m_ws || m_pendingTcpToWs.isEmpty()) {
+            return;
+        }
+        if (m_ws->state() != QAbstractSocket::ConnectedState) {
+            return;
+        }
+        m_ws->sendBinaryMessage(m_pendingTcpToWs);
+        m_pendingTcpToWs.clear();
+    }
+
     void onTcpReady()
     {
         if (!m_tcp || !m_ws) {
@@ -85,7 +115,8 @@ private:
         if (chunk.isEmpty()) {
             return;
         }
-        m_ws->sendBinaryMessage(chunk);
+        m_pendingTcpToWs.append(chunk);
+        flushPendingTcpToWebSocket();
     }
 
     void onWsBinary(const QByteArray& message)
@@ -135,6 +166,7 @@ private:
     QTcpSocket* m_tcp = nullptr;
     QWebSocket* m_ws = nullptr;
     QTimer* m_pingTimer = nullptr;
+    QByteArray m_pendingTcpToWs;
     bool m_shuttingDown = false;
 };
 
@@ -191,14 +223,21 @@ void WssTcpBridge::onNewConnection()
     while (m_server->hasPendingConnections()) {
         QTcpSocket* tcp = m_server->nextPendingConnection();
         tcp->setSocketOption(QAbstractSocket::LowDelayOption, 1);
-        // OpenVPN may briefly overlap two local TCP connects on restart; killing the first session
-        // caused live tunnels to reset. Reject the extra socket — the active tunnel stays up.
+        // OpenVPN 3 may open a second local TCP while the first handshake is still in progress (WS not
+        // connected yet). Replacing then is correct. Once both TCP and WSS are up, a duplicate connect
+        // must not tear down the live tunnel — that produced TCP EOF + NETWORK_EOF_ERROR after CONNECTED.
         if (m_bridgeSession) {
-            qCWarning(lcBridge) << "Rejecting extra TCP to bridge port" << m_server->serverPort()
-                                << "(active OpenVPN session already bound)";
-            tcp->abort();
-            tcp->deleteLater();
-            continue;
+            auto* prev = static_cast<BridgeConnection*>(m_bridgeSession);
+            if (prev->isLinkUp()) {
+                qCInfo(lcBridge) << "Ignoring extra local TCP to bridge (session already up) on port"
+                                 << m_server->serverPort();
+                tcp->abort();
+                tcp->deleteLater();
+                continue;
+            }
+            qCInfo(lcBridge) << "Replacing TCP bridge session (handshake overlap / reconnect) on port"
+                             << m_server->serverPort();
+            prev->requestShutdown();
         }
         new BridgeConnection(tcp, m_wssUrl, this);
     }

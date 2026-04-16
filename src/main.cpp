@@ -1,5 +1,6 @@
 #include "AppConfig.h"
 #include "AppLogging.h"
+#include "DatagateUtils.h"
 #include "AuthSession.h"
 #include "DatagateTr.h"
 #include "DatagateTranslator.h"
@@ -40,6 +41,19 @@ int main(int argc, char* argv[])
     }
 
     qCInfo(lcUi, "DataGateLinux starting");
+
+#if defined(__linux__) && defined(DATAGATE_EMBEDDED_OPENVPN3) && !defined(DATAGATE_EMBEDDED_OPENVPN3_USE_EXTERNAL_HELPER)
+    DatagateUtils::linuxTryRaiseEffectiveCapNetAdmin();
+    {
+        const int tracer = DatagateUtils::linuxProcSelfTracerPid();
+        if (tracer > 0) {
+            qCWarning(lcUi,
+                "TracerPid=%lld: ptrace active — setcap on this binary is ignored. Use a system terminal outside the "
+                "IDE, or OpenVpn.UseSystemBinary=true + setcap on openvpn (see appsettings.example.json).",
+                static_cast<long long>(tracer));
+        }
+    }
+#endif
 
     if (!AppConfig::load()) {
         QMessageBox::critical(
