@@ -51,14 +51,11 @@ The app reads **`appsettings.json`** from the **first path that exists**, in ord
 
 On success, the log line **`AppConfig: loaded <path>`** shows which file was used (enable logging as in your build, e.g. `DATAGATE_LOG` / Debug where applicable).
 
-**Template:** copy from **`appsettings.example.json`** and set at least:
-
-- `Api:BaseUrl` — dashboard API base URL  
-- `GoogleAuth:ClientId` — OAuth client ID (Desktop app; redirect `http://127.0.0.1:<RedirectPort>/` in Google Cloud)
+**Template:** start from **`appsettings.example.json`** — it ships **production** defaults (`Api:BaseUrl`, Google Desktop **`ClientId`**, OpenVPN and Update options). For a **self-hosted** dashboard or your own OAuth client, override `Api` / `GoogleAuth` (and any OpenVPN flags you need).
 
 **After editing `appsettings.json` in the repo root:** CMake **POST_BUILD** can copy/sync it next to the binary (`cmake/SyncAppsettingsFromRepo.cmake`). **Rebuild** (or copy the file beside the binary by hand) so the running app picks up changes; otherwise you may still be loading an old file from `build/`.
 
-**Secrets:** `appsettings.json` is **gitignored** — do not commit real Client IDs or tokens; keep `appsettings.example.json` as the public template.
+**Local overrides:** copy the example to **`appsettings.json`** if you need a different config; that file is **gitignored**. The OAuth **client ID** in the example is a public identifier (not the client secret).
 
 ### Optional: update check (GitHub Releases)
 
