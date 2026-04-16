@@ -672,10 +672,9 @@ void VpnSession::maybeEmitEmbeddedTunCapHint(const QString& ovpn3LogLine)
     }
     m_ovpn3TunCapHintEmitted = true;
     const QString exe = QCoreApplication::applicationFilePath();
-    QString getcapTail;
+    QString diagTail;
 #if defined(__linux__)
-    getcapTail = Datagate::tr("\n\ngetcap on this file now:\n%1")
-        .arg(DatagateUtils::linuxFileGetcapLine(exe));
+    diagTail = QStringLiteral("\n\n") + DatagateUtils::linuxEmbeddedVpnTunDiagnosis(exe);
 #endif
     emit openVpnCapabilitySetupRecommended(
         Datagate::tr(
@@ -686,7 +685,7 @@ void VpnSession::maybeEmitEmbeddedTunCapHint(const QString& ovpn3LogLine)
             "If you ran CMake build after Grant: run Grant again — the rebuilt binary is a new file without the old "
             "capability.\n\n"
             "sudo setcap cap_net_admin+ep \"%1\"%2")
-            .arg(exe, getcapTail));
+            .arg(exe, diagTail));
 }
 
 #endif // DATAGATE_EMBEDDED_OPENVPN3

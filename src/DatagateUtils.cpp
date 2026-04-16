@@ -27,6 +27,13 @@
 #include <algorithm>
 #include <cmath>
 
+#if defined(__linux__)
+#include <filesystem>
+#if defined(DATAGATE_HAVE_LIBCAP)
+#include <sys/capability.h>
+#endif
+#endif
+
 Q_LOGGING_CATEGORY(lcUtils, "datagate.utils")
 
 namespace {
@@ -575,6 +582,129 @@ QString linuxFileGetcapLine(const QString& canonicalExecutablePath)
         return Datagate::tr("(no file capabilities — run Grant or sudo setcap)");
     }
     return out.isEmpty() ? err : out;
+}
+
+namespace {
+
+quint64 parseCapStatusField(const QByteArray& line)
+{
+    const int tab = line.indexOf('\t');
+    if (tab < 0) {
+        return 0;
+    }
+    QByteArray hex = line.mid(tab + 1).trimmed();
+    const int sp = hex.indexOf(' ');
+    if (sp > 0) {
+        hex = hex.left(sp);
+    }
+    bool ok = false;
+    const quint64 v = hex.toULongLong(&ok, 16);
+    return ok ? v : 0;
+}
+
+} // namespace
+
+bool linuxTryRaiseEffectiveCapNetAdmin()
+{
+#if !defined(DATAGATE_HAVE_LIBCAP)
+    return false;
+#else
+    cap_t c = cap_get_proc();
+    if (!c) {
+        return false;
+    }
+    cap_flag_value_t fv = CAP_CLEAR;
+    if (cap_get_flag(c, CAP_NET_ADMIN, CAP_PERMITTED, &fv) != 0 || fv != CAP_SET) {
+        cap_free(c);
+        return false;
+    }
+    if (cap_get_flag(c, CAP_NET_ADMIN, CAP_EFFECTIVE, &fv) == 0 && fv == CAP_SET) {
+        cap_free(c);
+        return true;
+    }
+    cap_value_t one = CAP_NET_ADMIN;
+    if (cap_set_flag(c, CAP_EFFECTIVE, 1, &one, CAP_SET) != 0) {
+        cap_free(c);
+        return false;
+    }
+    const int r = cap_set_proc(c);
+    cap_free(c);
+    if (r != 0) {
+        return false;
+    }
+    qCInfo(lcUtils, "CAP_NET_ADMIN was permitted but not effective — raised effective set (libcap)");
+    return true;
+#endif
+}
+
+QString linuxEmbeddedVpnTunDiagnosis(const QString& qAppExecutablePath)
+{
+    QString out;
+    QString procExe;
+    std::error_code ec;
+    const std::filesystem::path sym = std::filesystem::read_symlink("/proc/self/exe", ec);
+    if (!ec) {
+        try {
+            procExe = QString::fromStdString(std::filesystem::canonical(sym).string());
+        } catch (...) {
+            procExe = QString::fromStdString(sym.string());
+        }
+    }
+    const QFileInfo fiQt(qAppExecutablePath);
+    const QString qtCanon = fiQt.exists() ? fiQt.canonicalFilePath() : qAppExecutablePath;
+    out += QStringLiteral("Running binary (/proc/self/exe): %1\n").arg(procExe.isEmpty() ? QStringLiteral("(unknown)") : procExe);
+    out += QStringLiteral("QCoreApplication::applicationFilePath: %1\n").arg(qtCanon);
+    out += QStringLiteral("Paths match: %1\n\n").arg(!procExe.isEmpty() && procExe == qtCanon ? QStringLiteral("yes")
+                                                                                              : QStringLiteral("no"));
+
+    QFile st(QStringLiteral("/proc/self/status"));
+    quint64 capEff = 0;
+    quint64 capPrm = 0;
+    int noNewPrivs = -1;
+    int tracerPid = -1;
+    if (st.open(QIODevice::ReadOnly)) {
+        const QByteArray raw = st.readAll();
+        for (const QByteArray& line : raw.split('\n')) {
+            if (line.startsWith("CapEff:")) {
+                capEff = parseCapStatusField(line);
+            } else if (line.startsWith("CapPrm:")) {
+                capPrm = parseCapStatusField(line);
+            } else if (line.startsWith("NoNewPrivs:")) {
+                noNewPrivs = line.mid(line.indexOf(':') + 1).trimmed().toInt();
+            } else if (line.startsWith("TracerPid:")) {
+                tracerPid = line.mid(line.indexOf(':') + 1).trimmed().toInt();
+            }
+        }
+    } else {
+        out += QStringLiteral("(could not read /proc/self/status)\n\n");
+    }
+
+    constexpr quint64 kNetAdmin = (1ULL << 12);
+    const bool eff = (capEff & kNetAdmin) != 0;
+    const bool prm = (capPrm & kNetAdmin) != 0;
+    out += QStringLiteral("CapEff=0x%1 — CAP_NET_ADMIN effective: %2\n")
+        .arg(capEff, 0, 16)
+        .arg(eff ? QStringLiteral("yes") : QStringLiteral("NO ← TUN needs this"));
+    out += QStringLiteral("CapPrm=0x%1 — CAP_NET_ADMIN permitted: %2\n")
+        .arg(capPrm, 0, 16)
+        .arg(prm ? QStringLiteral("yes") : QStringLiteral("no"));
+    if (noNewPrivs >= 0) {
+        out += QStringLiteral("NoNewPrivs: %1\n").arg(noNewPrivs);
+    }
+    if (tracerPid > 0) {
+        out += QStringLiteral(
+            "TracerPid: %1 — a debugger may block TUN; run the binary from a terminal without attaching a debugger.\n")
+            .arg(tracerPid);
+    }
+    out += QLatin1Char('\n');
+    const QString forGetcap = procExe.isEmpty() ? qtCanon : procExe;
+    out += QStringLiteral("getcap (running exe):\n%1\n").arg(linuxFileGetcapLine(forGetcap));
+#if !defined(DATAGATE_HAVE_LIBCAP)
+    out += QStringLiteral(
+        "\nInstall libcap-dev (or libcap-devel) and rebuild — DataGate can then promote permitted CAP_NET_ADMIN to "
+        "effective when needed.\n");
+#endif
+    return out;
 }
 
 #endif

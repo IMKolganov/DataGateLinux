@@ -72,6 +72,16 @@ if(DATAGATE_USE_EMBEDDED_OPENVPN3)
     target_link_libraries(DataGateLinux PRIVATE datagate_ovpn3_core)
 endif()
 
+# Embedded OpenVPN opens TUN in-process; if permitted has CAP_NET_ADMIN but effective does not, libcap can fix it.
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    find_library(DATAGATE_LIBCAP cap)
+    if(DATAGATE_LIBCAP)
+        target_compile_definitions(DataGateLinux PRIVATE DATAGATE_HAVE_LIBCAP=1)
+        target_link_libraries(DataGateLinux PRIVATE ${DATAGATE_LIBCAP})
+        message(STATUS "libcap found: ${DATAGATE_LIBCAP} (effective CAP_NET_ADMIN for embedded OpenVPN)")
+    endif()
+endif()
+
 # Regenerate sources: python3 tools/build_catalog_jsonl.py && python3 tools/gen_datagate_ts.py
 # lrelease: often NOT on PATH when building from an IDE; search next to this Qt6 and usual distro paths.
 set(DATAGATE_TS_FILES

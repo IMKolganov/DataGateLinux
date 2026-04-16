@@ -1,5 +1,6 @@
 #include "AppConfig.h"
 #include "AppLogging.h"
+#include "DatagateUtils.h"
 #include "AuthSession.h"
 #include "DatagateTr.h"
 #include "DatagateTranslator.h"
@@ -40,6 +41,10 @@ int main(int argc, char* argv[])
     }
 
     qCInfo(lcUi, "DataGateLinux starting");
+
+#if defined(__linux__) && defined(DATAGATE_EMBEDDED_OPENVPN3)
+    DatagateUtils::linuxTryRaiseEffectiveCapNetAdmin();
+#endif
 
     if (!AppConfig::load()) {
         QMessageBox::critical(

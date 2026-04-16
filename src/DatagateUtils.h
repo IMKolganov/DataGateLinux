@@ -81,6 +81,12 @@ QString userMessageWhenApiUnavailable(QNetworkReply* rep);
 #if defined(__linux__)
 /// Linux: `getcap` output for this path (best-effort).
 QString linuxFileGetcapLine(const QString& canonicalExecutablePath);
+
+/// Multi-line diagnosis: /proc/self/exe vs Qt path, CapEff/CapPrm, TracerPid, getcap on running binary.
+QString linuxEmbeddedVpnTunDiagnosis(const QString& qAppExecutablePath);
+
+/// If CAP_NET_ADMIN is permitted but not effective, promote to effective (needs DATAGATE_HAVE_LIBCAP + libcap).
+bool linuxTryRaiseEffectiveCapNetAdmin();
 #endif
 
 } // namespace DatagateUtils
