@@ -1,5 +1,6 @@
 #include "AppConfig.h"
 #include "AppLogging.h"
+#include "GitHubReleaseChecker.h"
 #include "DatagateUtils.h"
 #include "AuthSession.h"
 #include "DatagateTr.h"
@@ -9,11 +10,13 @@
 
 #include <QApplication>
 #include <QCoreApplication>
+#include <QDesktopServices>
 #include <QDialog>
 #include <QLibraryInfo>
 #include <QLocale>
 #include <QMessageBox>
 #include <QNetworkAccessManager>
+#include <QTimer>
 #include <QTranslator>
 
 #include <functional>
@@ -86,6 +89,37 @@ int main(int argc, char* argv[])
             showMain();
         });
         mainWin->show();
+
+        if (AppConfig::updateCheckOnStartup()) {
+            const QString ghOwner = AppConfig::updateGithubOwner();
+            const QString ghRepo = AppConfig::updateGithubRepo();
+            if (!ghOwner.isEmpty() && !ghRepo.isEmpty()) {
+                MainWindow* mw = mainWin.get();
+                QTimer::singleShot(1500, mw, [mw, &nam, ghOwner, ghRepo]() {
+                    auto* checker = new GitHubReleaseChecker(&nam, mw);
+                    QObject::connect(
+                        checker,
+                        &GitHubReleaseChecker::finished,
+                        mw,
+                        [checker, mw](bool newer, const QString& tag, const QUrl& url) {
+                            checker->deleteLater();
+                            if (!newer || !url.isValid()) {
+                                return;
+                            }
+                            const int r = QMessageBox::question(
+                                mw,
+                                Datagate::tr("Update available"),
+                                Datagate::tr("A new version (%1) is available. Open the release page?").arg(tag),
+                                QMessageBox::Yes | QMessageBox::No,
+                                QMessageBox::Yes);
+                            if (r == QMessageBox::Yes) {
+                                QDesktopServices::openUrl(url);
+                            }
+                        });
+                    checker->start(ghOwner, ghRepo);
+                });
+            }
+        }
     };
 
     if (!session.ensureValidAccessToken()) {

@@ -1,6 +1,7 @@
 #include "WssTcpBridge.h"
 
 #include <QAbstractSocket>
+#include <QElapsedTimer>
 #include <QHostAddress>
 #include <QLoggingCategory>
 #include <QObject>
@@ -23,6 +24,7 @@ public:
         , m_ws(new QWebSocket(QString(), QWebSocketProtocol::VersionLatest, this))
         , m_pingTimer(new QTimer(this))
     {
+        m_sinceCtor.start();
         m_tcp->setParent(this);
         if (m_owner) {
             m_owner->_bridgeRegisterSession(this);
@@ -93,6 +95,13 @@ public:
         return true;
     }
 
+    /// OpenVPN 3 may open a second local TCP while WSS/TLS is still handshaking. Tearing down the first
+    /// session in that window caused NETWORK_EOF_ERROR on first connect; only replace after a grace period.
+    bool inHandshakeOverlapGracePeriod() const
+    {
+        return m_sinceCtor.elapsed() < 4000;
+    }
+
 private:
     void flushPendingTcpToWebSocket()
     {
@@ -161,6 +170,7 @@ private:
         deleteLater();
     }
 
+    QElapsedTimer m_sinceCtor;
     WssTcpBridge* m_owner = nullptr;
     QUrl m_wssUrl;
     QTcpSocket* m_tcp = nullptr;
@@ -223,9 +233,10 @@ void WssTcpBridge::onNewConnection()
     while (m_server->hasPendingConnections()) {
         QTcpSocket* tcp = m_server->nextPendingConnection();
         tcp->setSocketOption(QAbstractSocket::LowDelayOption, 1);
-        // OpenVPN 3 may open a second local TCP while the first handshake is still in progress (WS not
-        // connected yet). Replacing then is correct. Once both TCP and WSS are up, a duplicate connect
-        // must not tear down the live tunnel — that produced TCP EOF + NETWORK_EOF_ERROR after CONNECTED.
+        // OpenVPN 3 may open a second local TCP while WSS/TLS is still handshaking. Replacing the first
+        // session in that window aborted the socket OpenVPN was using → NETWORK_EOF_ERROR (often on first
+        // connect). Ignore the duplicate for a short grace period; replace only if the session is stale.
+        // Once TCP+WSS are both up (isLinkUp), extra connects are always ignored.
         if (m_bridgeSession) {
             auto* prev = static_cast<BridgeConnection*>(m_bridgeSession);
             if (prev->isLinkUp()) {
@@ -235,7 +246,14 @@ void WssTcpBridge::onNewConnection()
                 tcp->deleteLater();
                 continue;
             }
-            qCInfo(lcBridge) << "Replacing TCP bridge session (handshake overlap / reconnect) on port"
+            if (prev->inHandshakeOverlapGracePeriod()) {
+                qCInfo(lcBridge) << "Ignoring extra local TCP to bridge (WSS handshake overlap) on port"
+                                 << m_server->serverPort();
+                tcp->abort();
+                tcp->deleteLater();
+                continue;
+            }
+            qCInfo(lcBridge) << "Replacing TCP bridge session (stale handshake / reconnect) on port"
                              << m_server->serverPort();
             prev->requestShutdown();
         }

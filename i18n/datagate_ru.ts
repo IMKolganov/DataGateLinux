@@ -612,5 +612,49 @@ See stderr log line "AppConfig: loaded …" when DATAGATE_LOG=1 or Debug build.<
       <translation>Файл appsettings.json не найден (рабочая каталог, папка с exe или путь AppConfig), либо пусты Api:BaseUrl / GoogleAuth:ClientId.
 См. строку в журнале «AppConfig: loaded …» при DATAGATE_LOG=1 или сборке Debug.</translation>
     </message>
+    <message>
+      <source>Traffic quota</source>
+      <translation>Трафик по квоте</translation>
+    </message>
+    <message>
+      <source>This calendar month</source>
+      <translation>Текущий календарный месяц</translation>
+    </message>
+    <message>
+      <source>Today</source>
+      <translation>Сегодня</translation>
+    </message>
+    <message>
+      <source>Traffic usage needs an OpenVPN client ID (external ID) on your account.</source>
+      <translation>Для учёта трафика в профиле нужен внешний идентификатор клиента OpenVPN (external ID).</translation>
+    </message>
+    <message>
+      <source>No daily or monthly traffic limit on the active quota plan for today, or no plan is active.</source>
+      <translation>Нет дневного или месячного лимита трафика в активном тарифе на сегодня, либо тариф не активен.</translation>
+    </message>
+    <message>
+      <source>Usage data unavailable.</source>
+      <translation>Данные об использовании недоступны.</translation>
+    </message>
+    <message>
+      <source>Used %1 / %2 (%3%)</source>
+      <translation>Использовано %1 из %2 (%3%)</translation>
+    </message>
+    <message>
+      <source>Over by %1</source>
+      <translation>Превышение на %1</translation>
+    </message>
+    <message>
+      <source>Remaining %1</source>
+      <translation>Осталось %1</translation>
+    </message>
+    <message>
+      <source>Update available</source>
+      <translation>Доступно обновление</translation>
+    </message>
+    <message>
+      <source>A new version (%1) is available. Open the release page?</source>
+      <translation>Доступна новая версия (%1). Открыть страницу релиза?</translation>
+    </message>
   </context>
 </TS>

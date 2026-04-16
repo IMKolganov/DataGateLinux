@@ -7,6 +7,7 @@
 #include <QFile>
 #include <QHash>
 #include <QIODevice>
+#include <QLocale>
 #include <QSettings>
 #include <QString>
 #include <QTranslator>
@@ -116,6 +117,16 @@ void setLanguageCode(const QString& code)
 void installForLanguage(const QString& code)
 {
     const QString lang = normalizeLang(code);
+
+    if (lang == QStringLiteral("ru")) {
+        QLocale::setDefault(QLocale(QLocale::Russian, QLocale::AnyCountry));
+    } else if (lang == QStringLiteral("fr")) {
+        QLocale::setDefault(QLocale(QLocale::French, QLocale::AnyCountry));
+    } else if (lang == QStringLiteral("el")) {
+        QLocale::setDefault(QLocale(QLocale::Greek, QLocale::AnyCountry));
+    } else {
+        QLocale::setDefault(QLocale(QLocale::English, QLocale::AnyCountry));
+    }
 
     g_tsFallback.clear();
     g_useTsFallback = false;

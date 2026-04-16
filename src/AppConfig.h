@@ -19,6 +19,12 @@ struct AppConfig {
     /// If embedded OpenVPN 3 is built in: false = embedded core (default), true = external `openvpn` process.
     static bool openVpnUseSystemBinary();
 
+    /// GitHub `owner/repo` for GET …/releases/latest (optional; defaults match DataGateWin-style check).
+    static QString updateGithubOwner();
+    static QString updateGithubRepo();
+    /// When false, skip startup release check even if owner/repo are set.
+    static bool updateCheckOnStartup();
+
 private:
     static QString s_apiBaseUrl;
     static QString s_googleClientId;
@@ -26,4 +32,7 @@ private:
     static bool s_openVpnIgnoreRedirectGateway;
     static bool s_udpBridgeFramed;
     static bool s_openVpnUseSystemBinary;
+    static QString s_updateGithubOwner;
+    static QString s_updateGithubRepo;
+    static bool s_updateCheckOnStartup;
 };

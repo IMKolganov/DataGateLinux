@@ -612,5 +612,13 @@ See stderr log line "AppConfig: loaded …" when DATAGATE_LOG=1 or Debug build.<
       <translation>appsettings.json not found (cwd, folder with exe, or AppConfig path), or Api:BaseUrl / GoogleAuth:ClientId are empty.
 See stderr log line "AppConfig: loaded …" when DATAGATE_LOG=1 or Debug build.</translation>
     </message>
+    <message>
+      <source>Update available</source>
+      <translation>Update available</translation>
+    </message>
+    <message>
+      <source>A new version (%1) is available. Open the release page?</source>
+      <translation>A new version (%1) is available. Open the release page?</translation>
+    </message>
   </context>
 </TS>
