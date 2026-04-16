@@ -1,6 +1,7 @@
 #include "VpnSession.h"
 
 #include "AppConfig.h"
+#include "DatagateTr.h"
 #include "DatagateUtils.h"
 #include "UdpWssBridge.h"
 #include "WssTcpBridge.h"
@@ -91,11 +92,11 @@ void VpnSession::connectVpn(const QString& backendBaseUrl, const QString& bearer
     const QString& openVpnExecutable, bool autoPickServer, int manualServerId)
 {
     if (m_ovpn->state() != QProcess::NotRunning) {
-        emit errorMessage(tr("Disconnect the current OpenVPN session first."));
+        emit errorMessage(Datagate::tr("Disconnect the current OpenVPN session first."));
         return;
     }
     if (m_connecting) {
-        emit errorMessage(tr("Connection already in progress."));
+        emit errorMessage(Datagate::tr("Connection already in progress."));
         return;
     }
     abortPendingReplies();
@@ -111,11 +112,11 @@ void VpnSession::connectVpn(const QString& backendBaseUrl, const QString& bearer
     const QString ext = DatagateUtils::externalIdFromJwt(m_token);
     if (ext.isEmpty()) {
         m_connecting = false;
-        emit errorMessage(tr("Could not read externalId from JWT (need sub, externalId, or nameid)."));
+        emit errorMessage(Datagate::tr("Could not read externalId from JWT (need sub, externalId, or nameid)."));
         return;
     }
 
-    emit statusMessage(tr("Requesting server list…"));
+    emit statusMessage(Datagate::tr("Requesting server list…"));
     stepFetchServers();
 }
 
@@ -145,7 +146,7 @@ void VpnSession::stepFetchServers()
                 detail = QStringLiteral("HTTP %1 — %2").arg(httpCode).arg(detail);
             }
             qCWarning(lcVpn, "get-all-with-status failed: %s", qPrintable(detail));
-            emit errorMessage(tr("Servers: %1").arg(detail));
+            emit errorMessage(Datagate::tr("Servers: %1").arg(detail));
             return;
         }
         const QByteArray body = reply->readAll();
@@ -157,18 +158,18 @@ void VpnSession::stepFetchServers()
             if (!best.has_value()) {
                 m_connecting = false;
                 emit errorMessage(
-                    tr("Server id %1 not found or is not WSS-enabled (refresh the list on Access).")
+                    Datagate::tr("Server id %1 not found or is not WSS-enabled (refresh the list on Access).")
                         .arg(m_manualServerId));
                 return;
             }
         }
         if (!best.has_value()) {
             m_connecting = false;
-            emit errorMessage(tr("No WSS-enabled servers available."));
+            emit errorMessage(Datagate::tr("No WSS-enabled servers available."));
             return;
         }
         m_server = *best;
-        emit statusMessage(tr("Selected server: %1").arg(m_server.name));
+        emit statusMessage(Datagate::tr("Selected server: %1").arg(m_server.name));
 
         const QString installId = DatagateUtils::installationIdFromSettings();
         const QString ext = DatagateUtils::externalIdFromJwt(m_token);
@@ -183,7 +184,7 @@ void VpnSession::stepFetchServers()
 
 void VpnSession::stepTryDownload(bool afterCreate)
 {
-    emit statusMessage(tr("Downloading OpenVPN profile…"));
+    emit statusMessage(Datagate::tr("Downloading OpenVPN profile…"));
 
     QUrl url(joinUrl(m_baseUrl, QStringLiteral("api/open-vpn-files/download-file-by-cn")));
     QNetworkRequest req(url);
@@ -211,7 +212,7 @@ void VpnSession::stepTryDownload(bool afterCreate)
 
         if (reply->error() != QNetworkReply::NoError && code == 0) {
             m_connecting = false;
-            emit errorMessage(tr("Download .ovpn: %1").arg(reply->errorString()));
+            emit errorMessage(Datagate::tr("Download .ovpn: %1").arg(reply->errorString()));
             return;
         }
 
@@ -220,7 +221,7 @@ void VpnSession::stepTryDownload(bool afterCreate)
             const QJsonDocument doc = QJsonDocument::fromJson(raw, &jerr);
             if (jerr.error != QJsonParseError::NoError || !doc.isObject()) {
                 m_connecting = false;
-                emit errorMessage(tr("Invalid JSON while loading profile."));
+                emit errorMessage(Datagate::tr("Invalid JSON while loading profile."));
                 return;
             }
             const QJsonObject root = doc.object();
@@ -228,7 +229,7 @@ void VpnSession::stepTryDownload(bool afterCreate)
             const QString b64 = data.value(QStringLiteral("content")).toString();
             if (b64.isEmpty()) {
                 m_connecting = false;
-                emit errorMessage(tr("Response has no content (base64)."));
+                emit errorMessage(Datagate::tr("Response has no content (base64)."));
                 return;
             }
             const QByteArray ovpnBytes = QByteArray::fromBase64(b64.toUtf8());
@@ -249,13 +250,13 @@ void VpnSession::stepTryDownload(bool afterCreate)
         }
 
         m_connecting = false;
-        emit errorMessage(tr("Profile download failed (HTTP %1). %2").arg(code).arg(QString::fromUtf8(raw)));
+        emit errorMessage(Datagate::tr("Profile download failed (HTTP %1). %2").arg(code).arg(QString::fromUtf8(raw)));
     });
 }
 
 void VpnSession::stepCreateOnServer()
 {
-    emit statusMessage(tr("Creating profile on server…"));
+    emit statusMessage(Datagate::tr("Creating profile on server…"));
 
     QUrl url(joinUrl(m_baseUrl, QStringLiteral("api/open-vpn-files/add-with-token")));
     QNetworkRequest req(url);
@@ -269,8 +270,10 @@ void VpnSession::stepCreateOnServer()
     body.insert(QStringLiteral("vpnServerId"), m_server.serverId);
     body.insert(QStringLiteral("commonName"), m_commonName);
     body.insert(QStringLiteral("externalId"), ext);
+    const QString appVer = QCoreApplication::applicationVersion().trimmed();
     body.insert(QStringLiteral("issuedTo"),
-        QStringLiteral("datagate linux user %1 device %2").arg(ext, installId));
+        QStringLiteral("datagate linux app %1 user %2 device %3")
+            .arg(appVer.isEmpty() ? QStringLiteral("unknown") : appVer, ext, installId));
     const QByteArray payload = QJsonDocument(body).toJson(QJsonDocument::Compact);
 
     QNetworkReply* reply = m_nam->post(req, payload);
@@ -287,7 +290,7 @@ void VpnSession::stepCreateOnServer()
         if (reply->error() != QNetworkReply::NoError || code < 200 || code >= 300) {
             m_connecting = false;
             emit errorMessage(
-                tr("Create profile: HTTP %1 %2").arg(code).arg(QString::fromUtf8(reply->readAll())));
+                Datagate::tr("Create profile: HTTP %1 %2").arg(code).arg(QString::fromUtf8(reply->readAll())));
             return;
         }
         stepTryDownload(/*afterCreate=*/true);
@@ -309,7 +312,7 @@ void VpnSession::stepStartBridgeAndOpenVpn(const QString& configText)
     const QUrl wss = DatagateUtils::wssProxyUrl(m_server.apiUrl, useUdp);
     if (wss.isEmpty() || !wss.isValid()) {
         m_connecting = false;
-        emit errorMessage(tr("Invalid server apiUrl."));
+        emit errorMessage(Datagate::tr("Invalid server apiUrl."));
         return;
     }
 
@@ -327,7 +330,7 @@ void VpnSession::stepStartBridgeAndOpenVpn(const QString& configText)
     if (!bridgeOk) {
         m_connecting = false;
         emit errorMessage(
-            tr("Could not bind local port %1 for the WSS bridge. Another process may still hold it "
+            Datagate::tr("Could not bind local port %1 for the WSS bridge. Another process may still hold it "
                "(e.g. orphan openvpn after killing DataGate). On Linux try: fuser -k %1/udp ; fuser -k %1/tcp")
                 .arg(bridgePort));
         return;
@@ -355,21 +358,34 @@ void VpnSession::stepStartBridgeAndOpenVpn(const QString& configText)
     const QString patched = DatagateUtils::patchOvpnRemoteToLocal(
         configText, QStringLiteral("127.0.0.1"), bridgePort, ignoreRg, routeBypass);
 
+    QString ovpnFileBody = patched;
+    {
+        const QString peerLabel = DatagateUtils::datagateLinuxPeerVersionLabel(m_openVpnExe);
+        if (!ovpnFileBody.contains(QLatin1String("push-peer-info"), Qt::CaseInsensitive)) {
+            ovpnFileBody += QStringLiteral("\npush-peer-info\n");
+        }
+        ovpnFileBody += QStringLiteral("\n# DataGate client version (sent as peer-info UV_DATAGATE_APP)\nsetenv "
+                                         "UV_DATAGATE_APP ");
+        ovpnFileBody += peerLabel;
+        ovpnFileBody += QLatin1Char('\n');
+        qCInfo(lcVpn, "OpenVPN peer-info: UV_DATAGATE_APP=%s", qPrintable(peerLabel));
+    }
+
     delete m_configFile;
     m_configFile = new QTemporaryFile(this);
     m_configFile->setFileTemplate(QStringLiteral("datagate-XXXXXX.ovpn"));
     if (!m_configFile->open()) {
         stopBridges();
         m_connecting = false;
-        emit errorMessage(tr("Could not create temporary config file."));
+        emit errorMessage(Datagate::tr("Could not create temporary config file."));
         return;
     }
-    m_configFile->write(patched.toUtf8());
+    m_configFile->write(ovpnFileBody.toUtf8());
     m_configFile->flush();
 
-    emit statusMessage(useUdp ? tr("UDP↔WSS bridge on port %1…").arg(bridgePort)
-                              : tr("TCP↔WSS bridge on port %1…").arg(bridgePort));
-    emit statusMessage(tr("Starting OpenVPN…"));
+    emit statusMessage(useUdp ? Datagate::tr("UDP↔WSS bridge on port %1…").arg(bridgePort)
+                              : Datagate::tr("TCP↔WSS bridge on port %1…").arg(bridgePort));
+    emit statusMessage(Datagate::tr("Starting OpenVPN…"));
 
     QStringList args;
     args << QStringLiteral("--config") << m_configFile->fileName();
@@ -386,17 +402,17 @@ void VpnSession::stepStartBridgeAndOpenVpn(const QString& configText)
         stopBridges();
         m_connecting = false;
         emit openVpnCapabilitySetupRecommended(
-            tr("OpenVPN did not start within 8s (%1). Grant CAP_NET_ADMIN to the openvpn binary if TUN is blocked.")
+            Datagate::tr("OpenVPN did not start within 8s (%1). Grant CAP_NET_ADMIN to the openvpn binary if TUN is blocked.")
                 .arg(m_ovpn->errorString()));
         return;
     }
 
     m_connecting = false;
     qCInfo(lcVpn, "OpenVPN: process started, pid=%lld", static_cast<long long>(m_ovpn->processId()));
-    emit statusMessage(tr("OpenVPN started."));
+    emit statusMessage(Datagate::tr("OpenVPN started."));
     if (ignoreRg) {
         emit statusMessage(
-            tr("IgnoreRedirectGateway is on: the server default-route push is ignored, so your public IP "
+            Datagate::tr("IgnoreRedirectGateway is on: the server default-route push is ignored, so your public IP "
                "usually stays the same and only VPN-specific routes use the tunnel. Set "
                "OpenVpn.IgnoreRedirectGateway to false in appsettings.json if you need a full tunnel (all "
                "traffic and public IP via VPN)."));
@@ -468,7 +484,7 @@ void VpnSession::onOpenVpnFinished(int exitCode, QProcess::ExitStatus st)
         qCInfo(lcVpn, "OpenVPN: process exited with code %d (no captured output)", exitCode);
     }
 
-    emit statusMessage(tr("OpenVPN exited (code %1).").arg(exitCode));
+    emit statusMessage(Datagate::tr("OpenVPN exited (code %1).").arg(exitCode));
 
     const bool stoppedByUser = m_userStopVpn;
     m_userStopVpn = false;
@@ -480,18 +496,18 @@ void VpnSession::onOpenVpnFinished(int exitCode, QProcess::ExitStatus st)
         }
         if (detail.isEmpty()) {
             emit openVpnCapabilitySetupRecommended(
-                tr("OpenVPN failed (exit %1) with no captured output. On Linux, TUN usually needs "
+                Datagate::tr("OpenVPN failed (exit %1) with no captured output. On Linux, TUN usually needs "
                    "CAP_NET_ADMIN on the openvpn binary (Settings → Grant TUN capability, or "
                    "sudo setcap cap_net_admin+ep /path/to/openvpn).")
                     .arg(exitCode));
         } else if (logLooksLikeTunPermissionDenied(detail)) {
             emit openVpnCapabilitySetupRecommended(
-                tr("TUN creation was denied (CAP_NET_ADMIN required on the openvpn process, not the GUI).\n\n"
+                Datagate::tr("TUN creation was denied (CAP_NET_ADMIN required on the openvpn process, not the GUI).\n\n"
                    "OpenVPN failed (exit %1):\n%2")
                     .arg(exitCode)
                     .arg(detail));
         } else {
-            emit errorMessage(tr("OpenVPN failed (exit %1):\n%2").arg(exitCode).arg(detail));
+            emit errorMessage(Datagate::tr("OpenVPN failed (exit %1):\n%2").arg(exitCode).arg(detail));
         }
     }
 
@@ -503,5 +519,5 @@ void VpnSession::onOpenVpnFinished(int exitCode, QProcess::ExitStatus st)
 
 void VpnSession::onOpenVpnError(QProcess::ProcessError e)
 {
-    emit errorMessage(tr("OpenVPN process error: %1").arg(static_cast<int>(e)));
+    emit errorMessage(Datagate::tr("OpenVPN process error: %1").arg(static_cast<int>(e)));
 }

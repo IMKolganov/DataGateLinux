@@ -1,7 +1,10 @@
 #include "DatagateUtils.h"
+#include "DatagateTr.h"
 
+#include <QCoreApplication>
 #include <QFile>
 #include <QFileInfo>
+#include <QHash>
 #include <QIODevice>
 #include <QAbstractSocket>
 #include <QHostAddress>
@@ -10,7 +13,10 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QLoggingCategory>
+#include <QNetworkReply>
+#include <QNetworkRequest>
 #include <QProcess>
+#include <QRegularExpression>
 #include <QSet>
 #include <QRandomGenerator>
 #include <QSettings>
@@ -83,6 +89,45 @@ bool lineStartsWithToken(const QString& line, const QString& token)
 }
 
 } // namespace
+
+static QString datagateSanitizeOpenVpnSetenvToken(const QString& raw)
+{
+    QString out;
+    out.reserve(raw.size());
+    for (QChar c : raw) {
+        if (c.isLetterOrNumber() || c == QLatin1Char('.') || c == QLatin1Char('-') || c == QLatin1Char('_')) {
+            out += c;
+        } else {
+            out += QLatin1Char('_');
+        }
+    }
+    return out;
+}
+
+static QString datagateOpenVpnSemverFromExe(const QString& resolvedExe)
+{
+    static QHash<QString, QString> cache;
+    const auto it = cache.constFind(resolvedExe);
+    if (it != cache.cend()) {
+        return *it;
+    }
+    QString result = QStringLiteral("unknown");
+    QProcess p;
+    p.setProgram(resolvedExe);
+    p.setArguments({QStringLiteral("--version")});
+    p.setProcessChannelMode(QProcess::SeparateChannels);
+    p.start();
+    if (p.waitForFinished(6000) && p.exitCode() == 0) {
+        const QString out = QString::fromUtf8(p.readAllStandardOutput());
+        static const QRegularExpression re(QStringLiteral(R"(OpenVPN\s+(\d+\.\d+(?:\.\d+)?))"));
+        const QRegularExpressionMatch m = re.match(out);
+        if (m.hasMatch()) {
+            result = m.captured(1);
+        }
+    }
+    cache.insert(resolvedExe, result);
+    return result;
+}
 
 namespace DatagateUtils {
 
@@ -341,6 +386,16 @@ QString resolvedOpenVpnExecutable(const QString& openVpnCmdOrPath)
     return s;
 }
 
+QString datagateLinuxPeerVersionLabel(const QString& resolvedOpenVpnExecutable)
+{
+    const QString ov = datagateOpenVpnSemverFromExe(resolvedOpenVpnExecutable);
+    QString app = QCoreApplication::applicationVersion().trimmed();
+    if (app.isEmpty()) {
+        app = QStringLiteral("unknown");
+    }
+    return datagateSanitizeOpenVpnSetenvToken(QStringLiteral("%1_datagate_linux_%2").arg(ov, app));
+}
+
 namespace {
 
 std::optional<QVector<BestServer>> parseWssServersFromStatusJson(const QByteArray& jsonBody)
@@ -458,6 +513,40 @@ std::optional<BestServer> pickServerByIdFromStatusJson(const QByteArray& jsonBod
         }
     }
     return std::nullopt;
+}
+
+QString userMessageWhenApiUnavailable(QNetworkReply* rep)
+{
+    if (!rep) {
+        return Datagate::tr("The API is temporarily unavailable. Try again later.");
+    }
+    const int http = rep->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
+    if (http >= 500 && http < 600) {
+        return Datagate::tr("The API is temporarily unavailable. Try again later.");
+    }
+    const QNetworkReply::NetworkError err = rep->error();
+    if (err == QNetworkReply::NoError) {
+        return {};
+    }
+    switch (err) {
+    case QNetworkReply::ConnectionRefusedError:
+    case QNetworkReply::RemoteHostClosedError:
+    case QNetworkReply::HostNotFoundError:
+    case QNetworkReply::TimeoutError:
+    case QNetworkReply::NetworkSessionFailedError:
+    case QNetworkReply::TemporaryNetworkFailureError:
+    case QNetworkReply::SslHandshakeFailedError:
+    case QNetworkReply::UnknownNetworkError:
+    case QNetworkReply::ProtocolUnknownError:
+    case QNetworkReply::ProxyConnectionRefusedError:
+    case QNetworkReply::ProxyConnectionClosedError:
+    case QNetworkReply::ProxyNotFoundError:
+    case QNetworkReply::ProxyTimeoutError:
+        return Datagate::tr("The API is temporarily unavailable. Try again later.");
+    default:
+        break;
+    }
+    return {};
 }
 
 } // namespace DatagateUtils

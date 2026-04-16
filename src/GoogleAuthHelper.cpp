@@ -1,6 +1,9 @@
 #include "GoogleAuthHelper.h"
 
 #include "AppLogging.h"
+#include "BrandColors.h"
+#include "DatagateTr.h"
+#include "DatagateUtils.h"
 
 #include <QDesktopServices>
 #include <QFile>
@@ -87,6 +90,156 @@ static QMap<QString, QString> parseQueryParams(const QByteArray& query)
     return out;
 }
 
+/// Ensure full send before the socket is closed (avoids empty/partial responses in the browser).
+bool writeAllToSocket(QTcpSocket* sock, const QByteArray& data)
+{
+    qint64 total = 0;
+    while (total < data.size()) {
+        const qint64 n = sock->write(data.constData() + total, data.size() - total);
+        if (n < 0) {
+            return false;
+        }
+        total += n;
+        if (!sock->waitForBytesWritten(8000)) {
+            return false;
+        }
+    }
+    return true;
+}
+
+/// CSS variables + rules for OAuth loopback page (aligned with design/datagate-brand.css and BrandColors.h).
+QString oauthLoopbackPageCss()
+{
+    using namespace BrandColors;
+    const QString vars = QStringLiteral(
+        ":root{"
+        "--bg-default:%1;--bg-muted:%2;--bg-subtle:%3;"
+        "--text-default:%4;--text-muted:%5;--accent-fg:%6;--accent-emphasis:%7;--border-default:%8;"
+        "--danger-fg:%9;--success-fg:%10;"
+        "}"
+        "@media (prefers-color-scheme:light){:root{"
+        "--bg-default:%11;--bg-muted:%12;--bg-subtle:%13;"
+        "--text-default:%14;--text-muted:%15;--accent-fg:%16;--accent-emphasis:%16;--border-default:%17;"
+        "}}")
+        .arg(QString::fromUtf8(Dark::kBgDefault),
+            QString::fromUtf8(Dark::kBgMuted),
+            QString::fromUtf8(Dark::kBgSubtle),
+            QString::fromUtf8(Dark::kTextDefault),
+            QString::fromUtf8(Dark::kTextMuted),
+            QString::fromUtf8(Dark::kAccentFg),
+            QString::fromUtf8(Dark::kAccentEmphasis),
+            QString::fromUtf8(Dark::kBorderDefault),
+            QString::fromUtf8(Dark::kDanger),
+            QString::fromUtf8(Dark::kSuccess),
+            QString::fromUtf8(Light::kBgDefault),
+            QString::fromUtf8(Light::kBgMuted),
+            QString::fromUtf8(Light::kBgSubtle),
+            QString::fromUtf8(Light::kTextDefault),
+            QString::fromUtf8(Light::kTextMuted),
+            QString::fromUtf8(Light::kAccentFg),
+            QString::fromUtf8(Light::kBorderDefault));
+    return vars
+        + QStringLiteral(
+              "*{box-sizing:border-box;}"
+              "html{font-size:16px;-webkit-font-smoothing:antialiased;}"
+              "body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Noto Sans',Helvetica,Arial,sans-serif;"
+              "background:var(--bg-default);color:var(--text-default);min-height:100vh;margin:0;"
+              "display:flex;align-items:center;justify-content:center;padding:24px;line-height:1.5;}"
+              ".oauth-wrap{width:100%;max-width:480px;}"
+              ".oauth-card{background:var(--bg-muted);border:1px solid var(--border-default);border-radius:8px;"
+              "padding:32px 28px 28px;text-align:center;"
+              "box-shadow:0 8px 24px rgba(1,4,9,.4);}"
+              "@media (prefers-color-scheme:light){.oauth-card{box-shadow:0 8px 24px rgba(31,35,40,.1);}}"
+              ".brand{font-size:1.0625rem;font-weight:600;color:var(--text-default);margin-bottom:20px;}"
+              "h1{font-size:1.25rem;font-weight:600;margin:0 0 12px;line-height:1.35;color:var(--text-default);}"
+              ".oauth-main p{font-size:.95rem;color:var(--text-muted);margin:0;line-height:1.55;}"
+              ".ok{width:64px;height:64px;margin:0 auto 20px;border-radius:50%;background:var(--bg-subtle);"
+              "color:var(--success-fg);display:flex;align-items:center;justify-content:center;font-size:32px;font-weight:600;}"
+              ".bad{width:64px;height:64px;margin:0 auto 20px;border-radius:50%;background:var(--bg-subtle);"
+              "color:var(--danger-fg);display:flex;align-items:center;justify-content:center;font-size:30px;font-weight:600;}"
+              ".oauth-detail{margin-top:16px;font-size:.85rem;color:var(--text-muted);word-break:break-word;}"
+              ".oauth-footer{margin-top:24px;padding-top:20px;border-top:1px solid var(--border-default);text-align:center;}"
+              ".oauth-more-title{font-weight:600;font-size:.9375rem;color:var(--text-default);margin:14px 0 8px;}"
+              ".oauth-muted{font-size:.8125rem;color:var(--text-muted);margin:0 0 8px;line-height:1.45;}"
+              ".oauth-line{margin:6px 0;font-size:.875rem;}"
+              ".oauth-a{color:var(--accent-fg);text-decoration:none;}"
+              ".oauth-a:hover{text-decoration:underline;}");
+}
+
+QString oauthHtmlFooter()
+{
+    const QString more = Datagate::tr("More apps");
+    const QString hint = Datagate::tr("You can download other DataGate apps for your devices from the website:");
+    const QString site = QStringLiteral("https://datagateapp.com/");
+    const QString download = QStringLiteral("https://datagateapp.com/download");
+    return QStringLiteral(
+               "<footer class=\"oauth-footer\" role=\"contentinfo\">"
+               "<p class=\"oauth-line\"><a class=\"oauth-a\" href=\"%1\" rel=\"noopener noreferrer\">%1</a></p>"
+               "<p class=\"oauth-more-title\">%2</p>"
+               "<p class=\"oauth-muted\">%3</p>"
+               "<p class=\"oauth-line\"><a class=\"oauth-a\" href=\"%4\" rel=\"noopener noreferrer\">%4</a></p>"
+               "</footer>")
+        .arg(site, more.toHtmlEscaped(), hint.toHtmlEscaped(), download);
+}
+
+/// Minimal UTF-8 HTML response for the OAuth loopback browser tab.
+QByteArray httpUtf8Html(int statusCode, const QString& statusPhrase, const QString& htmlBody)
+{
+    const QByteArray body = htmlBody.toUtf8();
+    QByteArray r = "HTTP/1.1 " + QByteArray::number(statusCode) + ' ' + statusPhrase.toUtf8() + "\r\n"
+        "Content-Type: text/html; charset=utf-8\r\n"
+        "Content-Length: " + QByteArray::number(body.size()) + "\r\n"
+        "Connection: close\r\n"
+        "\r\n";
+    r += body;
+    return r;
+}
+
+QString oauthCallbackShell(const QString& innerBody)
+{
+    QString html;
+    html += QStringLiteral("<!DOCTYPE html><html lang=\"en\"><head>"
+                           "<meta charset=\"utf-8\">"
+                           "<meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">"
+                           "<meta name=\"color-scheme\" content=\"dark light\">"
+                           "<meta name=\"theme-color\" content=\"#0d1117\">"
+                           "<title>DataGate</title><style>");
+    html += oauthLoopbackPageCss();
+    html += QStringLiteral("</style></head><body><div class=\"oauth-wrap\"><div class=\"oauth-card\">");
+    html += innerBody;
+    html += oauthHtmlFooter();
+    html += QStringLiteral("</div></div></body></html>");
+    return html;
+}
+
+QString oauthSuccessHtml()
+{
+    const QString h = Datagate::tr("You're signed in");
+    const QString p = Datagate::tr("You can close this tab and return to the DataGate app.");
+    return oauthCallbackShell(
+        QStringLiteral("<div class=\"brand\">DataGate</div><div class=\"oauth-main\"><div class=\"ok\">✓</div><h1>%1</h1><p>%2</p></div>")
+            .arg(h.toHtmlEscaped(), p.toHtmlEscaped()));
+}
+
+QString oauthGoogleErrorHtml(const QString& errorCode, const QString& errorDescription)
+{
+    const QString h = Datagate::tr("Sign-in did not complete");
+    const QString hint = Datagate::tr("You can close this tab and try again from DataGate.");
+    const QString detail = QStringLiteral("%1 — %2").arg(errorCode, errorDescription);
+    return oauthCallbackShell(
+        QStringLiteral("<div class=\"brand\">DataGate</div><div class=\"oauth-main\"><div class=\"bad\">✕</div><h1>%1</h1><p>%2</p><p class=\"oauth-detail\">%3</p></div>")
+            .arg(h.toHtmlEscaped(), hint.toHtmlEscaped(), detail.toHtmlEscaped()));
+}
+
+QString oauthBadRequestHtml()
+{
+    const QString h = Datagate::tr("Invalid sign-in request");
+    const QString p = Datagate::tr("Close this tab and start sign-in again from DataGate.");
+    return oauthCallbackShell(
+        QStringLiteral("<div class=\"brand\">DataGate</div><div class=\"oauth-main\"><div class=\"bad\">!</div><h1>%1</h1><p>%2</p></div>")
+            .arg(h.toHtmlEscaped(), p.toHtmlEscaped()));
+}
+
 } // namespace
 
 GoogleAuthHelper::GoogleAuthHelper(QNetworkAccessManager* nam, QObject* parent)
@@ -122,11 +275,11 @@ void GoogleAuthHelper::signInWithGoogle(const QString& clientId, int redirectPor
     qCInfo(lcOAuth, "signInWithGoogle: redirectPort=%d apiBase=%s", redirectPort, qPrintable(apiBaseUrl.trimmed()));
 
     if (!m_nam || clientId.trimmed().isEmpty()) {
-        emit finishedError(QStringLiteral("Google Client ID is required."));
+        emit finishedError(Datagate::tr("Google Client ID is required."));
         return;
     }
     if (redirectPort <= 0 || redirectPort > 65535) {
-        emit finishedError(QStringLiteral("Invalid OAuth redirect port."));
+        emit finishedError(Datagate::tr("Invalid OAuth redirect port."));
         return;
     }
 
@@ -143,9 +296,9 @@ void GoogleAuthHelper::signInWithGoogle(const QString& clientId, int redirectPor
     if (!server->listen(QHostAddress::LocalHost, static_cast<quint16>(redirectPort))) {
         qCWarning(lcOAuth, "listen failed: %s", qPrintable(server->errorString()));
         emit finishedError(
-            QStringLiteral("Could not listen on port %1 for OAuth: %2. "
-                           "Close another DataGate instance or change RedirectPort in appsettings "
-                           "and add http://127.0.0.1:PORT/ in Google Cloud (same as Windows).")
+            Datagate::tr("Could not listen on port %1 for OAuth: %2. "
+                         "Close another DataGate instance or change RedirectPort in appsettings "
+                         "and add http://127.0.0.1:PORT/ in Google Cloud (same as Windows).")
                 .arg(redirectPort)
                 .arg(server->errorString()));
         server->deleteLater();
@@ -161,8 +314,8 @@ void GoogleAuthHelper::signInWithGoogle(const QString& clientId, int redirectPor
             return;
         }
         cancelOAuth();
-        emit finishedError(QStringLiteral(
-            "[silent]Sign-in timed out or the browser tab was closed. Click Sign in with Google again."));
+        emit finishedError(QStringLiteral("[silent]")
+            + Datagate::tr("Sign-in timed out or the browser tab was closed. Click Sign in with Google again."));
     });
     m_oauthTimeout->start();
 
@@ -203,7 +356,7 @@ void GoogleAuthHelper::signInWithGoogle(const QString& clientId, int redirectPor
 
             const int firstLineEnd = accumulated->indexOf("\r\n");
             if (firstLineEnd < 0) {
-                emit finishedError(QStringLiteral("Invalid OAuth HTTP request."));
+                emit finishedError(Datagate::tr("Invalid OAuth HTTP request."));
                 sock->close();
                 server->close();
                 if (m_pendingServer == server) {
@@ -216,7 +369,7 @@ void GoogleAuthHelper::signInWithGoogle(const QString& clientId, int redirectPor
             const int sp1 = firstLineBytes.indexOf(' ');
             const int sp2 = firstLineBytes.indexOf(' ', sp1 + 1);
             if (sp1 < 0 || sp2 < 0 || sp2 <= sp1) {
-                emit finishedError(QStringLiteral("Invalid OAuth HTTP request line."));
+                emit finishedError(Datagate::tr("Invalid OAuth HTTP request line."));
                 sock->close();
                 server->close();
                 if (m_pendingServer == server) {
@@ -232,12 +385,24 @@ void GoogleAuthHelper::signInWithGoogle(const QString& clientId, int redirectPor
                 q = parseQueryParams(pathAndQueryBytes.mid(qm + 1));
             }
 
+            // Browsers often open a second connection for /favicon.ico (no query). Treating that as
+            // OAuth would mismatch `state` and close the server before the real redirect is handled.
+            if (!q.contains(QStringLiteral("code")) && !q.contains(QStringLiteral("error"))) {
+                qCInfo(lcOAuth, "loopback: ignoring non-callback request (e.g. favicon): %s",
+                    pathAndQueryBytes.constData());
+                static const QByteArray noContent = QByteArrayLiteral(
+                    "HTTP/1.1 204 No Content\r\nConnection: close\r\n\r\n");
+                (void)writeAllToSocket(sock, noContent);
+                sock->close();
+                return;
+            }
+
             const QString err = q.value(QStringLiteral("error"));
             if (!err.isEmpty()) {
-                emit finishedError(QStringLiteral("Google OAuth: %1 %2")
+                emit finishedError(Datagate::tr("Google OAuth: %1 %2")
                     .arg(err, q.value(QStringLiteral("error_description"))));
-                sock->write("HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\nConnection: close\r\n\r\n"
-                    "<html><body>Error. You can close this window.</body></html>");
+                (void)writeAllToSocket(sock, httpUtf8Html(200, QStringLiteral("OK"),
+                    oauthGoogleErrorHtml(err, q.value(QStringLiteral("error_description")))));
                 sock->close();
                 server->close();
                 if (m_pendingServer == server) {
@@ -248,8 +413,8 @@ void GoogleAuthHelper::signInWithGoogle(const QString& clientId, int redirectPor
             }
 
             if (q.value(QStringLiteral("state")) != state) {
-                emit finishedError(QStringLiteral("OAuth state mismatch."));
-                sock->write("HTTP/1.1 400 Bad Request\r\nConnection: close\r\n\r\n");
+                emit finishedError(Datagate::tr("OAuth state mismatch."));
+                (void)writeAllToSocket(sock, httpUtf8Html(400, QStringLiteral("Bad Request"), oauthBadRequestHtml()));
                 sock->close();
                 server->close();
                 if (m_pendingServer == server) {
@@ -261,8 +426,8 @@ void GoogleAuthHelper::signInWithGoogle(const QString& clientId, int redirectPor
 
             const QString code = q.value(QStringLiteral("code"));
             if (code.isEmpty()) {
-                emit finishedError(QStringLiteral("Authorization code not received."));
-                sock->write("HTTP/1.1 400 Bad Request\r\nConnection: close\r\n\r\n");
+                emit finishedError(Datagate::tr("Authorization code not received."));
+                (void)writeAllToSocket(sock, httpUtf8Html(400, QStringLiteral("Bad Request"), oauthBadRequestHtml()));
                 sock->close();
                 server->close();
                 if (m_pendingServer == server) {
@@ -272,8 +437,7 @@ void GoogleAuthHelper::signInWithGoogle(const QString& clientId, int redirectPor
                 return;
             }
 
-            sock->write("HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\nConnection: close\r\n\r\n"
-                "<html><body>You can close this window.</body></html>");
+            (void)writeAllToSocket(sock, httpUtf8Html(200, QStringLiteral("OK"), oauthSuccessHtml()));
             sock->close();
             server->close();
             if (m_pendingServer == server) {
@@ -298,14 +462,19 @@ void GoogleAuthHelper::signInWithGoogle(const QString& clientId, int redirectPor
             connect(rep, &QNetworkReply::finished, this, [this, rep]() {
                 rep->deleteLater();
                 const QByteArray raw = rep->readAll();
+                const QString unavailable = DatagateUtils::userMessageWhenApiUnavailable(rep);
+                if (!unavailable.isEmpty()) {
+                    emit finishedError(unavailable);
+                    return;
+                }
                 if (rep->error() != QNetworkReply::NoError) {
-                    emit finishedError(QStringLiteral("API login: %1 %2").arg(rep->errorString(), QString::fromUtf8(raw)));
+                    emit finishedError(Datagate::tr("API login: %1 %2").arg(rep->errorString(), QString::fromUtf8(raw)));
                     return;
                 }
                 QJsonParseError pe{};
                 const QJsonDocument doc = QJsonDocument::fromJson(raw, &pe);
                 if (pe.error != QJsonParseError::NoError || !doc.isObject()) {
-                    emit finishedError(QStringLiteral("Invalid JSON from API."));
+                    emit finishedError(Datagate::tr("Invalid JSON from API."));
                     return;
                 }
                 const QJsonObject root = doc.object();
@@ -316,7 +485,7 @@ void GoogleAuthHelper::signInWithGoogle(const QString& clientId, int redirectPor
                 const QJsonObject data = root.value(QStringLiteral("data")).toObject();
                 const QString token = data.value(QStringLiteral("token")).toString();
                 if (token.isEmpty()) {
-                    emit finishedError(QStringLiteral("No token in API response."));
+                    emit finishedError(Datagate::tr("No token in API response."));
                     return;
                 }
                 qCInfo(lcOAuth, "google-code-login API success");
@@ -332,7 +501,7 @@ void GoogleAuthHelper::signInWithGoogle(const QString& clientId, int redirectPor
             m_pendingServer = nullptr;
         }
         server->deleteLater();
-        emit finishedError(QStringLiteral("Could not open browser."));
+        emit finishedError(Datagate::tr("Could not open browser."));
         return;
     }
 }

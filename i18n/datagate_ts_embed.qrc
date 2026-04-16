@@ -1,0 +1,8 @@
+<!DOCTYPE RCC><RCC version="1.0">
+  <qresource prefix="/ts">
+    <file>datagate_en.ts</file>
+    <file>datagate_ru.ts</file>
+    <file>datagate_fr.ts</file>
+    <file>datagate_el.ts</file>
+  </qresource>
+</RCC>

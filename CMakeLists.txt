@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
-project(DataGateLinux LANGUAGES CXX)
+project(DataGateLinux VERSION 1.0.0 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -35,6 +35,11 @@ qt_add_executable(DataGateLinux
     src/GoogleAuthHelper.h
     src/DatagateUtils.cpp
     src/DatagateUtils.h
+    src/DatagateTr.h
+    src/DatagateTr.cpp
+    src/DatagateTranslator.cpp
+    src/DatagateTranslator.h
+    ${CMAKE_SOURCE_DIR}/i18n/datagate_ts_embed.qrc
 )
 
 target_link_libraries(DataGateLinux PRIVATE
@@ -45,9 +50,81 @@ target_link_libraries(DataGateLinux PRIVATE
     Qt6::WebSockets
 )
 
+# Regenerate sources: python3 tools/build_catalog_jsonl.py && python3 tools/gen_datagate_ts.py
+# lrelease: often NOT on PATH when building from an IDE; search next to this Qt6 and usual distro paths.
+set(DATAGATE_TS_FILES
+    ${CMAKE_SOURCE_DIR}/i18n/datagate_en.ts
+    ${CMAKE_SOURCE_DIR}/i18n/datagate_ru.ts
+    ${CMAKE_SOURCE_DIR}/i18n/datagate_fr.ts
+    ${CMAKE_SOURCE_DIR}/i18n/datagate_el.ts
+)
+
+find_program(DATAGATE_LRELEASE NAMES lrelease-qt6 lrelease
+    HINTS
+        "${Qt6_DIR}/../../../bin"
+        "${Qt6_DIR}/../../../libexec"
+        "${Qt6_DIR}/../../../../bin"
+        /usr/lib/qt6/bin
+        /usr/lib/x86_64-linux-gnu/qt6/bin
+)
+
+set(DATAGATE_QM_FILES "")
+set(DATAGATE_QM_DIR "${CMAKE_BINARY_DIR}/i18n")
+
+if(DATAGATE_LRELEASE)
+    foreach(_ts ${DATAGATE_TS_FILES})
+        get_filename_component(_name_we ${_ts} NAME_WE)
+        set(_qm ${DATAGATE_QM_DIR}/${_name_we}.qm)
+        add_custom_command(
+            OUTPUT ${_qm}
+            COMMAND ${CMAKE_COMMAND} -E make_directory ${DATAGATE_QM_DIR}
+            COMMAND ${DATAGATE_LRELEASE} ${_ts} -qm ${_qm}
+            DEPENDS ${_ts}
+            COMMENT "lrelease ${_name_we}.qm"
+        )
+        list(APPEND DATAGATE_QM_FILES ${_qm})
+    endforeach()
+    add_custom_target(datagate_qm ALL DEPENDS ${DATAGATE_QM_FILES})
+    add_dependencies(DataGateLinux datagate_qm)
+else()
+    file(GLOB DATAGATE_QM_FILES "${CMAKE_SOURCE_DIR}/i18n/datagate_*.qm")
+    if(DATAGATE_QM_FILES)
+        message(STATUS "Using prebuilt i18n/datagate_*.qm (run lrelease after editing .ts when tools are installed).")
+        set(DATAGATE_QM_DIR "${CMAKE_SOURCE_DIR}/i18n")
+    endif()
+endif()
+
+if(DATAGATE_QM_FILES)
+    set(DATAGATE_I18N_EMBED_QRC "${CMAKE_BINARY_DIR}/datagate_i18n_embed.qrc")
+    add_custom_command(
+        OUTPUT "${DATAGATE_I18N_EMBED_QRC}"
+        COMMAND ${CMAKE_COMMAND}
+            -DQMDIR=${DATAGATE_QM_DIR}
+            -DOUT=${DATAGATE_I18N_EMBED_QRC}
+            -P ${CMAKE_SOURCE_DIR}/cmake/WriteDatagateI18nQrc.cmake
+        DEPENDS ${DATAGATE_QM_FILES}
+        COMMENT "Generate datagate_i18n_embed.qrc (embedded .qm)"
+    )
+    target_sources(DataGateLinux PRIVATE "${DATAGATE_I18N_EMBED_QRC}")
+    set_source_files_properties("${DATAGATE_I18N_EMBED_QRC}" PROPERTIES GENERATED ON)
+
+    add_custom_command(TARGET DataGateLinux POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E make_directory $<TARGET_FILE_DIR:DataGateLinux>/i18n
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different ${DATAGATE_QM_FILES} $<TARGET_FILE_DIR:DataGateLinux>/i18n/
+        COMMENT "Copy translation .qm next to executable"
+    )
+else()
+    message(WARNING
+        "No translation .qm: install qt6-l10n-tools (provides lrelease under /usr/lib/qt6/bin), "
+        "then delete CMakeCache and reconfigure, or commit prebuilt i18n/datagate_*.qm.")
+endif()
+
 if(UNIX AND NOT APPLE)
     target_compile_definitions(DataGateLinux PRIVATE DATAGATE_LINUX=1)
 endif()
+
+# Shown in UI / API / OpenVPN peer-info (UV_DATAGATE_APP); bump when releasing.
+target_compile_definitions(DataGateLinux PRIVATE "DATAGATE_APP_VERSION_STR=\"${PROJECT_VERSION}\"")
 
 # Verbose stderr logging for IDE: Debug / RelWithDebInfo, or DATAGATE_LOG=1 at runtime
 target_compile_definitions(DataGateLinux PRIVATE

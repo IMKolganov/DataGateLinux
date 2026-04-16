@@ -3,11 +3,13 @@
 #include <QDialog>
 
 class QCloseEvent;
+class QComboBox;
+class QEvent;
+class QLabel;
 class QShowEvent;
 
 class AuthSession;
 class GoogleAuthHelper;
-class QLabel;
 class QPushButton;
 class QNetworkAccessManager;
 
@@ -20,10 +22,17 @@ public:
 protected:
     void showEvent(QShowEvent* e) override;
     void closeEvent(QCloseEvent* e) override;
+    void changeEvent(QEvent* e) override;
 
 private:
+    void retranslateUi();
+
     AuthSession* m_session = nullptr;
     GoogleAuthHelper* m_google = nullptr;
+    QLabel* m_title = nullptr;
+    QLabel* m_hint = nullptr;
+    QLabel* m_langLabel = nullptr;
+    QComboBox* m_languageCombo = nullptr;
     QLabel* m_status = nullptr;
     QPushButton* m_signIn = nullptr;
     QPushButton* m_cancel = nullptr;
