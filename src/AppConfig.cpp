@@ -14,6 +14,9 @@ int AppConfig::s_googleRedirectPort = 51723;
 bool AppConfig::s_openVpnIgnoreRedirectGateway = false;
 bool AppConfig::s_udpBridgeFramed = true;
 bool AppConfig::s_openVpnUseSystemBinary = false;
+QString AppConfig::s_updateGithubOwner = QStringLiteral("IMKolganov");
+QString AppConfig::s_updateGithubRepo = QStringLiteral("DataGateLinux");
+bool AppConfig::s_updateCheckOnStartup = true;
 
 static bool readJsonFile(const QString& path, QJsonObject* out)
 {
@@ -43,6 +46,9 @@ bool AppConfig::load()
 #else
     s_openVpnUseSystemBinary = true;
 #endif
+    s_updateGithubOwner = QStringLiteral("IMKolganov");
+    s_updateGithubRepo = QStringLiteral("DataGateLinux");
+    s_updateCheckOnStartup = true;
 
     const QString exeDir = QCoreApplication::applicationDirPath();
     // Prefer cwd first (IDEs often set working dir to project root), then the executable directory.
@@ -88,6 +94,23 @@ bool AppConfig::load()
     // Default true (length-prefixed); set false if proxy sends one raw OpenVPN UDP datagram per WS binary frame.
     s_udpBridgeFramed = ovpn.value(QStringLiteral("UdpBridgeFramed")).toBool(true);
     qCInfo(lcUi, "AppConfig: OpenVpn.UdpBridgeFramed=%s", s_udpBridgeFramed ? "true" : "false");
+
+    const QJsonObject update = root.value(QStringLiteral("Update")).toObject();
+    if (!update.isEmpty()) {
+        if (update.contains(QStringLiteral("GitHubOwner"))) {
+            s_updateGithubOwner = update.value(QStringLiteral("GitHubOwner")).toString().trimmed();
+        }
+        if (update.contains(QStringLiteral("GitHubRepo"))) {
+            s_updateGithubRepo = update.value(QStringLiteral("GitHubRepo")).toString().trimmed();
+        }
+        if (update.contains(QStringLiteral("CheckOnStartup"))) {
+            s_updateCheckOnStartup = update.value(QStringLiteral("CheckOnStartup")).toBool(true);
+        }
+    }
+    qCInfo(lcUi, "AppConfig: Update GitHub=%s/%s CheckOnStartup=%s",
+        qPrintable(s_updateGithubOwner), qPrintable(s_updateGithubRepo),
+        s_updateCheckOnStartup ? "true" : "false");
+
 #if defined(DATAGATE_EMBEDDED_OPENVPN3)
     if (ovpn.contains(QStringLiteral("UseSystemBinary"))) {
         s_openVpnUseSystemBinary = ovpn.value(QStringLiteral("UseSystemBinary")).toBool(false);
@@ -130,4 +153,19 @@ bool AppConfig::openVpnUseSystemBinary()
 #else
     return s_openVpnUseSystemBinary;
 #endif
+}
+
+QString AppConfig::updateGithubOwner()
+{
+    return s_updateGithubOwner;
+}
+
+QString AppConfig::updateGithubRepo()
+{
+    return s_updateGithubRepo;
+}
+
+bool AppConfig::updateCheckOnStartup()
+{
+    return s_updateCheckOnStartup;
 }

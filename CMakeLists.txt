@@ -46,6 +46,8 @@ qt_add_executable(DataGateLinux
     src/AppLogging.h
     src/AppConfig.cpp
     src/AppConfig.h
+    src/GitHubReleaseChecker.cpp
+    src/GitHubReleaseChecker.h
     src/AuthSession.cpp
     src/AuthSession.h
     src/LoginDialog.cpp

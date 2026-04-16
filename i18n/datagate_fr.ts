@@ -612,5 +612,13 @@ See stderr log line "AppConfig: loaded …" when DATAGATE_LOG=1 or Debug build.<
       <translation>appsettings.json introuvable (répertoire courant, dossier de l’exe ou chemin AppConfig), ou Api:BaseUrl / GoogleAuth:ClientId vides.
 Voir la ligne « AppConfig: loaded … » sur stderr avec DATAGATE_LOG=1 ou build Debug.</translation>
     </message>
+    <message>
+      <source>Update available</source>
+      <translation>Mise à jour disponible</translation>
+    </message>
+    <message>
+      <source>A new version (%1) is available. Open the release page?</source>
+      <translation>Une nouvelle version (%1) est disponible. Ouvrir la page de publication ?</translation>
+    </message>
   </context>
 </TS>

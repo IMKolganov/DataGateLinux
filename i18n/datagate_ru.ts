@@ -648,5 +648,13 @@ See stderr log line "AppConfig: loaded …" when DATAGATE_LOG=1 or Debug build.<
       <source>Remaining %1</source>
       <translation>Осталось %1</translation>
     </message>
+    <message>
+      <source>Update available</source>
+      <translation>Доступно обновление</translation>
+    </message>
+    <message>
+      <source>A new version (%1) is available. Open the release page?</source>
+      <translation>Доступна новая версия (%1). Открыть страницу релиза?</translation>
+    </message>
   </context>
 </TS>
