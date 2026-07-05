@@ -1,8 +1,11 @@
 #include "DatagateAuthLogin.h"
 #include "AdminTotpSetupDialog.h"
+#include "AuthSession.h"
 #include "FreeTierOnboardingDialog.h"
 #include "DatagateTr.h"
 #include "DatagateUtils.h"
+
+#include <QMessageBox>
 
 #include <QEventLoop>
 #include <QJsonArray>
@@ -414,7 +417,10 @@ bool ensureAdminTotpSetupIfRequired(QNetworkAccessManager* nam,
     QString err;
     const TotpStatus st = fetchTotpStatusSync(nam, apiBaseUrl, token, &err);
     if (!st.ok) {
-        return true;
+        if (parent) {
+            QMessageBox::warning(parent, Datagate::tr("Admin security"), err);
+        }
+        return false;
     }
     if (!st.requiresTotpSetup) {
         return true;
@@ -535,10 +541,13 @@ std::optional<TelegramAccountLinkCode> postRequestTelegramAccountLinkCodeSync(QN
 
 void showFreeTierOnboardingIfRequired(QNetworkAccessManager* nam,
     const QString& apiBaseUrl,
-    const QString& bearerToken,
+    AuthSession* session,
     QWidget* parent)
 {
-    const QString auth = bearerToken.trimmed();
+    if (!session || !session->ensureValidAccessToken()) {
+        return;
+    }
+    const QString auth = session->accessToken().trimmed();
     if (auth.isEmpty()) {
         return;
     }
@@ -546,13 +555,16 @@ void showFreeTierOnboardingIfRequired(QNetworkAccessManager* nam,
     QString err;
     const FreeTierAccessStatus st = fetchFreeTierAccessStatusSync(nam, apiBaseUrl, auth, &err);
     if (!st.ok) {
+        if (parent) {
+            QMessageBox::warning(parent, Datagate::tr("Telegram setup"), err);
+        }
         return;
     }
     if (!st.isApplicable || st.isCompliant) {
         return;
     }
 
-    FreeTierOnboardingDialog dlg(nam, apiBaseUrl, auth, st, parent);
+    FreeTierOnboardingDialog dlg(nam, apiBaseUrl, session, st, parent);
     dlg.exec();
 }
 

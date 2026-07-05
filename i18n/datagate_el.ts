@@ -816,5 +816,41 @@ See stderr log line "AppConfig: loaded …" when DATAGATE_LOG=1 or Debug build.<
       <source>Link code request returned no code.</source>
       <translation>Η αίτηση κωδικού σύνδεσης δεν επέστρεψε κωδικό.</translation>
     </message>
+    <message>
+      <source>Traffic quota</source>
+      <translation>Όριο κίνησης</translation>
+    </message>
+    <message>
+      <source>This calendar month</source>
+      <translation>Τρέχων ημερολογιακός μήνας</translation>
+    </message>
+    <message>
+      <source>Today</source>
+      <translation>Σήμερα</translation>
+    </message>
+    <message>
+      <source>Traffic usage needs an OpenVPN client ID (external ID) on your account.</source>
+      <translation>Η χρήση κίνησης απαιτεί OpenVPN client ID (external ID) στον λογαριασμό σας.</translation>
+    </message>
+    <message>
+      <source>No daily or monthly traffic limit on the active quota plan for today, or no plan is active.</source>
+      <translation>Δεν υπάρχει ημερήσιο ή μηνιαίο όριο κίνησης στο ενεργό πλάνο σήμερα, ή δεν υπάρχει ενεργό πλάνο.</translation>
+    </message>
+    <message>
+      <source>Usage data unavailable.</source>
+      <translation>Τα δεδομένα χρήσης δεν είναι διαθέσιμα.</translation>
+    </message>
+    <message>
+      <source>Used %1 / %2 (%3%)</source>
+      <translation>Χρησιμοποιήθηκαν %1 / %2 (%3%)</translation>
+    </message>
+    <message>
+      <source>Over by %1</source>
+      <translation>Υπέρβαση κατά %1</translation>
+    </message>
+    <message>
+      <source>Remaining %1</source>
+      <translation>Απομένουν %1</translation>
+    </message>
   </context>
 </TS>

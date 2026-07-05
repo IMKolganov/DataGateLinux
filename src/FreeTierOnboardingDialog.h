@@ -5,6 +5,7 @@
 #include <QDialog>
 #include <QString>
 
+class AuthSession;
 class QLabel;
 class QLineEdit;
 class QPushButton;
@@ -17,7 +18,7 @@ class FreeTierOnboardingDialog final : public QDialog {
 public:
     FreeTierOnboardingDialog(QNetworkAccessManager* nam,
         const QString& apiBaseUrl,
-        const QString& bearerToken,
+        AuthSession* session,
         const DatagateAuth::FreeTierAccessStatus& initialStatus,
         QWidget* parent = nullptr);
 
@@ -27,15 +28,17 @@ protected:
 private:
     void retranslateUi();
     void applyStatus(const DatagateAuth::FreeTierAccessStatus& status);
+    void updateLinkHintForStatus(const DatagateAuth::FreeTierAccessStatus& status);
     void refreshStatus();
     void requestLinkCode();
     void clearLinkCodeDisplay();
     void updateLinkCodeExpiryLabel();
+    QString currentBearerToken() const;
     static QUrl channelUrlFromHandle(const QString& requiredChannel);
 
     QNetworkAccessManager* m_nam = nullptr;
+    AuthSession* m_session = nullptr;
     QString m_apiBase;
-    QString m_bearer;
     DatagateAuth::FreeTierAccessStatus m_status;
 
     QLabel* m_title = nullptr;

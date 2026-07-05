@@ -4,6 +4,7 @@
 #include <QString>
 #include <optional>
 
+class AuthSession;
 class QNetworkAccessManager;
 
 namespace DatagateAuth {
@@ -103,7 +104,7 @@ std::optional<TelegramAccountLinkCode> postRequestTelegramAccountLinkCodeSync(QN
 /// Shows onboarding when GET free-tier-access/status reports non-compliance on Free/Default plans.
 void showFreeTierOnboardingIfRequired(QNetworkAccessManager* nam,
     const QString& apiBaseUrl,
-    const QString& bearerToken,
+    AuthSession* session,
     QWidget* parent);
 
 } // namespace DatagateAuth

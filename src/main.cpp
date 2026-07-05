@@ -109,7 +109,7 @@ int main(int argc, char* argv[])
         const QString apiBaseOnShow = AppConfig::apiBaseUrl().trimmed();
         if (session.ensureValidAccessToken()) {
             DatagateAuth::showFreeTierOnboardingIfRequired(
-                &nam, apiBaseOnShow, session.accessToken(), mainWin.get());
+                &nam, apiBaseOnShow, &session, mainWin.get());
         }
 
         if (AppConfig::updateCheckOnStartup()) {

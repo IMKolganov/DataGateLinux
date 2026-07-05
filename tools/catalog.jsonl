@@ -194,3 +194,12 @@
 {"en": "Could not load free-tier status (%1).", "ru": "Не удалось загрузить статус Free-тарифа (%1).", "fr": "Impossible de charger le statut offre gratuite (%1).", "el": "Αποτυχία φόρτωσης κατάστασης free tier (%1)."}
 {"en": "Could not request link code (%1).", "ru": "Не удалось запросить код привязки (%1).", "fr": "Impossible de demander le code de liaison (%1).", "el": "Αποτυχία αίτησης κωδικού σύνδεσης (%1)."}
 {"en": "Link code request returned no code.", "ru": "Запрос кода привязки не вернул код.", "fr": "La demande de code de liaison n’a renvoyé aucun code.", "el": "Η αίτηση κωδικού σύνδεσης δεν επέστρεψε κωδικό."}
+{"en": "Traffic quota", "ru": "Трафик по квоте", "fr": "Quota de trafic", "el": "Όριο κίνησης"}
+{"en": "This calendar month", "ru": "Текущий календарный месяц", "fr": "Ce mois calendaire", "el": "Τρέχων ημερολογιακός μήνας"}
+{"en": "Today", "ru": "Сегодня", "fr": "Aujourd'hui", "el": "Σήμερα"}
+{"en": "Traffic usage needs an OpenVPN client ID (external ID) on your account.", "ru": "Для учёта трафика в профиле нужен внешний идентификатор клиента OpenVPN (external ID).", "fr": "L’usage du trafic nécessite un identifiant client OpenVPN (external ID) sur votre compte.", "el": "Η χρήση κίνησης απαιτεί OpenVPN client ID (external ID) στον λογαριασμό σας."}
+{"en": "No daily or monthly traffic limit on the active quota plan for today, or no plan is active.", "ru": "Нет дневного или месячного лимита трафика в активном тарифе на сегодня, либо тариф не активен.", "fr": "Pas de limite de trafic quotidienne ou mensuelle sur le forfait actif aujourd’hui, ou aucun forfait actif.", "el": "Δεν υπάρχει ημερήσιο ή μηνιαίο όριο κίνησης στο ενεργό πλάνο σήμερα, ή δεν υπάρχει ενεργό πλάνο."}
+{"en": "Usage data unavailable.", "ru": "Данные об использовании недоступны.", "fr": "Données d’utilisation indisponibles.", "el": "Τα δεδομένα χρήσης δεν είναι διαθέσιμα."}
+{"en": "Used %1 / %2 (%3%)", "ru": "Использовано %1 из %2 (%3%)", "fr": "Utilisé %1 / %2 (%3%)", "el": "Χρησιμοποιήθηκαν %1 / %2 (%3%)"}
+{"en": "Over by %1", "ru": "Превышение на %1", "fr": "Dépassement de %1", "el": "Υπέρβαση κατά %1"}
+{"en": "Remaining %1", "ru": "Осталось %1", "fr": "Restant %1", "el": "Απομένουν %1"}

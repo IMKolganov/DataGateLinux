@@ -1,5 +1,6 @@
 #include "FreeTierOnboardingDialog.h"
 #include "AppTheme.h"
+#include "AuthSession.h"
 #include "DatagateTr.h"
 
 #include <QDesktopServices>
@@ -8,7 +9,6 @@
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QLineEdit>
-#include <QMessageBox>
 #include <QPushButton>
 #include <QRegularExpressionValidator>
 #include <QTimer>
@@ -29,13 +29,13 @@ QString normalizeApiBase(QString base)
 
 FreeTierOnboardingDialog::FreeTierOnboardingDialog(QNetworkAccessManager* nam,
     const QString& apiBaseUrl,
-    const QString& bearerToken,
+    AuthSession* session,
     const DatagateAuth::FreeTierAccessStatus& initialStatus,
     QWidget* parent)
     : QDialog(parent)
     , m_nam(nam)
+    , m_session(session)
     , m_apiBase(normalizeApiBase(apiBaseUrl))
-    , m_bearer(bearerToken.trimmed())
     , m_status(initialStatus)
 {
     setModal(true);
@@ -186,11 +186,6 @@ void FreeTierOnboardingDialog::retranslateUi()
     if (m_linkHeading) {
         m_linkHeading->setText(Datagate::tr("Or link your Telegram account"));
     }
-    if (m_linkHint) {
-        m_linkHint->setText(Datagate::tr(
-            "Open the DataGate Telegram bot (/register if needed), enter your numeric Telegram user ID below, "
-            "then enter the link code in the bot with /link_account CODE or by sending the code in private chat."));
-    }
     if (m_openChannelBtn) {
         m_openChannelBtn->setText(Datagate::tr("Open Telegram channel"));
     }
@@ -209,6 +204,23 @@ void FreeTierOnboardingDialog::retranslateUi()
     }
     if (m_closeBtn) {
         m_closeBtn->setText(Datagate::tr("Close"));
+    }
+    updateLinkHintForStatus(m_status);
+}
+
+void FreeTierOnboardingDialog::updateLinkHintForStatus(const DatagateAuth::FreeTierAccessStatus& status)
+{
+    if (!m_linkHint) {
+        return;
+    }
+    if (!status.canRequestAccountLinkCode) {
+        m_linkHint->setText(Datagate::tr(
+            "Account linking is not available for this sign-in. Subscribe to the channel above, or sign in with "
+            "Google or email/password and try again."));
+    } else {
+        m_linkHint->setText(Datagate::tr(
+            "Open the DataGate Telegram bot (/register if needed), enter your numeric Telegram user ID below, "
+            "then enter the link code in the bot with /link_account CODE or by sending the code in private chat."));
     }
 }
 
@@ -234,11 +246,7 @@ void FreeTierOnboardingDialog::applyStatus(const DatagateAuth::FreeTierAccessSta
     const bool canLink = status.canRequestAccountLinkCode;
     m_telegramIdEdit->setEnabled(canLink);
     m_requestCodeBtn->setEnabled(canLink);
-    if (!canLink) {
-        m_linkHint->setText(Datagate::tr(
-            "Account linking is not available for this sign-in. Subscribe to the channel above, or sign in with "
-            "Google or email/password and try again."));
-    }
+    updateLinkHintForStatus(status);
 
     if (status.isGracePeriod) {
         m_statusLabel->setText(Datagate::tr(
@@ -248,12 +256,25 @@ void FreeTierOnboardingDialog::applyStatus(const DatagateAuth::FreeTierAccessSta
     }
 }
 
+QString FreeTierOnboardingDialog::currentBearerToken() const
+{
+    if (!m_session || !m_session->ensureValidAccessToken()) {
+        return {};
+    }
+    return m_session->accessToken().trimmed();
+}
+
 void FreeTierOnboardingDialog::refreshStatus()
 {
     m_statusLabel->clear();
+    const QString auth = currentBearerToken();
+    if (auth.isEmpty()) {
+        m_statusLabel->setText(Datagate::tr("Not signed in."));
+        return;
+    }
     QString err;
     const DatagateAuth::FreeTierAccessStatus st =
-        DatagateAuth::fetchFreeTierAccessStatusSync(m_nam, m_apiBase, m_bearer, &err);
+        DatagateAuth::fetchFreeTierAccessStatusSync(m_nam, m_apiBase, auth, &err);
     if (!st.ok) {
         m_statusLabel->setText(err);
         return;
@@ -268,6 +289,11 @@ void FreeTierOnboardingDialog::refreshStatus()
 void FreeTierOnboardingDialog::requestLinkCode()
 {
     m_statusLabel->clear();
+    const QString auth = currentBearerToken();
+    if (auth.isEmpty()) {
+        m_statusLabel->setText(Datagate::tr("Not signed in."));
+        return;
+    }
     const QString rawId = m_telegramIdEdit->text().trimmed();
     if (rawId.isEmpty()) {
         m_statusLabel->setText(Datagate::tr("Enter your numeric Telegram user ID."));
@@ -282,7 +308,7 @@ void FreeTierOnboardingDialog::requestLinkCode()
 
     QString err;
     const std::optional<DatagateAuth::TelegramAccountLinkCode> link =
-        DatagateAuth::postRequestTelegramAccountLinkCodeSync(m_nam, m_apiBase, m_bearer, telegramId, &err);
+        DatagateAuth::postRequestTelegramAccountLinkCodeSync(m_nam, m_apiBase, auth, telegramId, &err);
     if (!link.has_value()) {
         m_statusLabel->setText(err);
         clearLinkCodeDisplay();

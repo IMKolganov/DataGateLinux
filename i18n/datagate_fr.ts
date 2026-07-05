@@ -816,5 +816,41 @@ Voir la ligne « AppConfig: loaded … » sur stderr avec DATAGATE_LOG=1 ou buil
       <source>Link code request returned no code.</source>
       <translation>La demande de code de liaison n’a renvoyé aucun code.</translation>
     </message>
+    <message>
+      <source>Traffic quota</source>
+      <translation>Quota de trafic</translation>
+    </message>
+    <message>
+      <source>This calendar month</source>
+      <translation>Ce mois calendaire</translation>
+    </message>
+    <message>
+      <source>Today</source>
+      <translation>Aujourd'hui</translation>
+    </message>
+    <message>
+      <source>Traffic usage needs an OpenVPN client ID (external ID) on your account.</source>
+      <translation>L’usage du trafic nécessite un identifiant client OpenVPN (external ID) sur votre compte.</translation>
+    </message>
+    <message>
+      <source>No daily or monthly traffic limit on the active quota plan for today, or no plan is active.</source>
+      <translation>Pas de limite de trafic quotidienne ou mensuelle sur le forfait actif aujourd’hui, ou aucun forfait actif.</translation>
+    </message>
+    <message>
+      <source>Usage data unavailable.</source>
+      <translation>Données d’utilisation indisponibles.</translation>
+    </message>
+    <message>
+      <source>Used %1 / %2 (%3%)</source>
+      <translation>Utilisé %1 / %2 (%3%)</translation>
+    </message>
+    <message>
+      <source>Over by %1</source>
+      <translation>Dépassement de %1</translation>
+    </message>
+    <message>
+      <source>Remaining %1</source>
+      <translation>Restant %1</translation>
+    </message>
   </context>
 </TS>

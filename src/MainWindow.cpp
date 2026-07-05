@@ -480,7 +480,7 @@ MainWindow::MainWindow(AuthSession* session, QWidget* parent)
         if (row >= 0 && row < m_stack->count()) {
             m_stack->setCurrentIndex(row);
         }
-        if (row == 0 || row == 1) {
+        if (m_freeTierNavChecksEnabled && (row == 0 || row == 1)) {
             checkFreeTierOnboarding();
         }
         if (row == 1 || row == 2) {
@@ -488,6 +488,7 @@ MainWindow::MainWindow(AuthSession* session, QWidget* parent)
         }
     });
     m_nav->setCurrentRow(0);
+    m_freeTierNavChecksEnabled = true;
 
     connect(m_serverModeCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this, [this](int) {
         updateServerModeUi();
@@ -1259,5 +1260,5 @@ void MainWindow::checkFreeTierOnboarding()
     if (base.isEmpty()) {
         return;
     }
-    DatagateAuth::showFreeTierOnboardingIfRequired(m_nam, base, m_session->accessToken(), this);
+    DatagateAuth::showFreeTierOnboardingIfRequired(m_nam, base, m_session, this);
 }

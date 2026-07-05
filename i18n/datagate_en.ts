@@ -816,5 +816,41 @@ See stderr log line "AppConfig: loaded …" when DATAGATE_LOG=1 or Debug build.<
       <source>Link code request returned no code.</source>
       <translation>Link code request returned no code.</translation>
     </message>
+    <message>
+      <source>Traffic quota</source>
+      <translation>Traffic quota</translation>
+    </message>
+    <message>
+      <source>This calendar month</source>
+      <translation>This calendar month</translation>
+    </message>
+    <message>
+      <source>Today</source>
+      <translation>Today</translation>
+    </message>
+    <message>
+      <source>Traffic usage needs an OpenVPN client ID (external ID) on your account.</source>
+      <translation>Traffic usage needs an OpenVPN client ID (external ID) on your account.</translation>
+    </message>
+    <message>
+      <source>No daily or monthly traffic limit on the active quota plan for today, or no plan is active.</source>
+      <translation>No daily or monthly traffic limit on the active quota plan for today, or no plan is active.</translation>
+    </message>
+    <message>
+      <source>Usage data unavailable.</source>
+      <translation>Usage data unavailable.</translation>
+    </message>
+    <message>
+      <source>Used %1 / %2 (%3%)</source>
+      <translation>Used %1 / %2 (%3%)</translation>
+    </message>
+    <message>
+      <source>Over by %1</source>
+      <translation>Over by %1</translation>
+    </message>
+    <message>
+      <source>Remaining %1</source>
+      <translation>Remaining %1</translation>
+    </message>
   </context>
 </TS>

@@ -89,6 +89,8 @@ private:
 
     bool m_centerOnFirstShow = true;
     bool m_didSilentServerRefresh = false;
+    /// Skip free-tier check on initial m_nav->setCurrentRow(0) (main.cpp shows onboarding after show).
+    bool m_freeTierNavChecksEnabled = false;
 
     VpnSession* m_vpn = nullptr;
     QNetworkAccessManager* m_nam = nullptr;
