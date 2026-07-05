@@ -613,48 +613,208 @@ See stderr log line "AppConfig: loaded …" when DATAGATE_LOG=1 or Debug build.<
 См. строку в журнале «AppConfig: loaded …» при DATAGATE_LOG=1 или сборке Debug.</translation>
     </message>
     <message>
-      <source>Traffic quota</source>
-      <translation>Трафик по квоте</translation>
-    </message>
-    <message>
-      <source>This calendar month</source>
-      <translation>Текущий календарный месяц</translation>
-    </message>
-    <message>
-      <source>Today</source>
-      <translation>Сегодня</translation>
-    </message>
-    <message>
-      <source>Traffic usage needs an OpenVPN client ID (external ID) on your account.</source>
-      <translation>Для учёта трафика в профиле нужен внешний идентификатор клиента OpenVPN (external ID).</translation>
-    </message>
-    <message>
-      <source>No daily or monthly traffic limit on the active quota plan for today, or no plan is active.</source>
-      <translation>Нет дневного или месячного лимита трафика в активном тарифе на сегодня, либо тариф не активен.</translation>
-    </message>
-    <message>
-      <source>Usage data unavailable.</source>
-      <translation>Данные об использовании недоступны.</translation>
-    </message>
-    <message>
-      <source>Used %1 / %2 (%3%)</source>
-      <translation>Использовано %1 из %2 (%3%)</translation>
-    </message>
-    <message>
-      <source>Over by %1</source>
-      <translation>Превышение на %1</translation>
-    </message>
-    <message>
-      <source>Remaining %1</source>
-      <translation>Осталось %1</translation>
-    </message>
-    <message>
       <source>Update available</source>
       <translation>Доступно обновление</translation>
     </message>
     <message>
       <source>A new version (%1) is available. Open the release page?</source>
       <translation>Доступна новая версия (%1). Открыть страницу релиза?</translation>
+    </message>
+    <message>
+      <source>Last 7 days</source>
+      <translation>Последние 7 дней</translation>
+    </message>
+    <message>
+      <source>Last 30 days</source>
+      <translation>Последние 30 дней</translation>
+    </message>
+    <message>
+      <source>Last 2 months</source>
+      <translation>Последние 2 месяца</translation>
+    </message>
+    <message>
+      <source>Last 3 months</source>
+      <translation>Последние 3 месяца</translation>
+    </message>
+    <message>
+      <source>Last 6 months</source>
+      <translation>Последние 6 месяцев</translation>
+    </message>
+    <message>
+      <source>Last year</source>
+      <translation>Последний год</translation>
+    </message>
+    <message>
+      <source>Last 2 years</source>
+      <translation>Последние 2 года</translation>
+    </message>
+    <message>
+      <source>Signed in as %1. Enter the 6-digit code from your authenticator app to finish signing in.</source>
+      <translation>Вы вошли как %1. Введите 6-значный код из приложения-аутентификатора, чтобы завершить вход.</translation>
+    </message>
+    <message>
+      <source>Enter the 6-digit code from your authenticator app to finish signing in.</source>
+      <translation>Введите 6-значный код из приложения-аутентификатора, чтобы завершить вход.</translation>
+    </message>
+    <message>
+      <source>Back to sign in</source>
+      <translation>Вернуться ко входу</translation>
+    </message>
+    <message>
+      <source>Verify and sign in</source>
+      <translation>Подтвердить и войти</translation>
+    </message>
+    <message>
+      <source>Verifying…</source>
+      <translation>Проверка…</translation>
+    </message>
+    <message>
+      <source>This verification step expired. Sign in again — you are not logged in yet.</source>
+      <translation>Срок проверки истёк. Войдите снова — вы ещё не авторизованы.</translation>
+    </message>
+    <message>
+      <source>Sign in again — the verification step expired.</source>
+      <translation>Войдите снова — срок проверки истёк.</translation>
+    </message>
+    <message>
+      <source>Admin security</source>
+      <translation>Безопасность администратора</translation>
+    </message>
+    <message>
+      <source>Two-factor authentication</source>
+      <translation>Двухфакторная аутентификация</translation>
+    </message>
+    <message>
+      <source>Administrators must use an authenticator app (Google Authenticator, Authy, 1Password, etc.) for sign-in. Set it up now to continue.</source>
+      <translation>Администраторам нужно приложение-аутентификатор (Google Authenticator, Authy, 1Password и т.д.) для входа. Настройте его сейчас, чтобы продолжить.</translation>
+    </message>
+    <message>
+      <source>You must enable two-factor authentication before using DataGate.</source>
+      <translation>Включите двухфакторную аутентификацию перед использованием DataGate.</translation>
+    </message>
+    <message>
+      <source>Begin setup</source>
+      <translation>Начать настройку</translation>
+    </message>
+    <message>
+      <source>Confirm and continue</source>
+      <translation>Подтвердить и продолжить</translation>
+    </message>
+    <message>
+      <source>Setup URI:</source>
+      <translation>URI для настройки:</translation>
+    </message>
+    <message>
+      <source>Manual secret:</source>
+      <translation>Секрет вручную:</translation>
+    </message>
+    <message>
+      <source>Scan the URI or enter the secret in your authenticator app, then enter the 6-digit code.</source>
+      <translation>Отсканируйте URI или введите секрет в приложение-аутентификатор, затем введите 6-значный код.</translation>
+    </message>
+    <message>
+      <source>Enter the 6-digit code from your authenticator app.</source>
+      <translation>Введите 6-значный код из приложения-аутентификатора.</translation>
+    </message>
+    <message>
+      <source>Telegram setup</source>
+      <translation>Настройка Telegram</translation>
+    </message>
+    <message>
+      <source>Complete Telegram setup</source>
+      <translation>Завершите настройку Telegram</translation>
+    </message>
+    <message>
+      <source>On the Free and Default plans, VPN configs from the Telegram bot require either a subscription to the official channel or linking your Telegram account to this sign-in.</source>
+      <translation>На тарифах Free и Default конфиги VPN через Telegram-бот выдаются только при подписке на официальный канал или при привязке Telegram к этой учётной записи.</translation>
+    </message>
+    <message>
+      <source>Or link your Telegram account</source>
+      <translation>Или привяжите аккаунт Telegram</translation>
+    </message>
+    <message>
+      <source>Open the DataGate Telegram bot (/register if needed), enter your numeric Telegram user ID below, then enter the link code in the bot with /link_account CODE or by sending the code in private chat.</source>
+      <translation>Откройте Telegram-бот DataGate (/register при необходимости), введите ниже числовой Telegram ID, затем введите код в боте командой /link_account CODE или отправив код в личные сообщения.</translation>
+    </message>
+    <message>
+      <source>Open Telegram channel</source>
+      <translation>Открыть канал Telegram</translation>
+    </message>
+    <message>
+      <source>Telegram user ID</source>
+      <translation>Telegram user ID</translation>
+    </message>
+    <message>
+      <source>Request link code</source>
+      <translation>Запросить код привязки</translation>
+    </message>
+    <message>
+      <source>Enter this code in the Telegram bot within the time shown. The code works only for the Telegram ID you entered.</source>
+      <translation>Введите этот код в Telegram-боте в указанное время. Код действует только для введённого Telegram ID.</translation>
+    </message>
+    <message>
+      <source>Check again</source>
+      <translation>Проверить снова</translation>
+    </message>
+    <message>
+      <source>Close</source>
+      <translation>Закрыть</translation>
+    </message>
+    <message>
+      <source>Your plan requires Telegram setup before using VPN configs from the bot.</source>
+      <translation>Для вашего тарифа нужна настройка Telegram перед получением VPN-конфигов через бота.</translation>
+    </message>
+    <message>
+      <source>Plan: %1 — complete one of the steps below.</source>
+      <translation>Тариф: %1 — выполните один из шагов ниже.</translation>
+    </message>
+    <message>
+      <source>Subscribe to the required Telegram channel, then tap Check again.</source>
+      <translation>Подпишитесь на обязательный канал Telegram, затем нажмите «Проверить снова».</translation>
+    </message>
+    <message>
+      <source>Required channel: %1</source>
+      <translation>Обязательный канал: %1</translation>
+    </message>
+    <message>
+      <source>Account linking is not available for this sign-in. Subscribe to the channel above, or sign in with Google or email/password and try again.</source>
+      <translation>Привязка аккаунта недоступна для этого входа. Подпишитесь на канал выше или войдите через Google или email/пароль и повторите.</translation>
+    </message>
+    <message>
+      <source>A grace period may be active in the Telegram bot. Channel subscription or account linking is still recommended.</source>
+      <translation>В Telegram-боте может действовать льготный период. Рекомендуется подписка на канал или привязка аккаунта.</translation>
+    </message>
+    <message>
+      <source>Enter your numeric Telegram user ID.</source>
+      <translation>Введите числовой Telegram user ID.</translation>
+    </message>
+    <message>
+      <source>Telegram user ID must be a positive number.</source>
+      <translation>Telegram user ID должен быть положительным числом.</translation>
+    </message>
+    <message>
+      <source>Link code issued. Enter it in the Telegram bot, then tap Check again.</source>
+      <translation>Код привязки выдан. Введите его в Telegram-боте, затем нажмите «Проверить снова».</translation>
+    </message>
+    <message>
+      <source>Link code expired. Request a new code.</source>
+      <translation>Срок действия кода истёк. Запросите новый код.</translation>
+    </message>
+    <message>
+      <source>Expires in %1:%2</source>
+      <translation>Истекает через %1:%2</translation>
+    </message>
+    <message>
+      <source>Could not load free-tier status (%1).</source>
+      <translation>Не удалось загрузить статус Free-тарифа (%1).</translation>
+    </message>
+    <message>
+      <source>Could not request link code (%1).</source>
+      <translation>Не удалось запросить код привязки (%1).</translation>
+    </message>
+    <message>
+      <source>Link code request returned no code.</source>
+      <translation>Запрос кода привязки не вернул код.</translation>
     </message>
   </context>
 </TS>

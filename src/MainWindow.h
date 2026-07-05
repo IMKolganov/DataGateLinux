@@ -54,6 +54,7 @@ private:
     void onOpenVpnCapabilityRecommended(const QString& detail);
     void updateServerModeUi();
     void applyVpnAccessInfoToAccessPage();
+    void checkFreeTierOnboarding();
 
     AuthSession* m_session = nullptr;
 

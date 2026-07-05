@@ -620,5 +620,201 @@ See stderr log line "AppConfig: loaded …" when DATAGATE_LOG=1 or Debug build.<
       <source>A new version (%1) is available. Open the release page?</source>
       <translation>A new version (%1) is available. Open the release page?</translation>
     </message>
+    <message>
+      <source>Last 7 days</source>
+      <translation>Last 7 days</translation>
+    </message>
+    <message>
+      <source>Last 30 days</source>
+      <translation>Last 30 days</translation>
+    </message>
+    <message>
+      <source>Last 2 months</source>
+      <translation>Last 2 months</translation>
+    </message>
+    <message>
+      <source>Last 3 months</source>
+      <translation>Last 3 months</translation>
+    </message>
+    <message>
+      <source>Last 6 months</source>
+      <translation>Last 6 months</translation>
+    </message>
+    <message>
+      <source>Last year</source>
+      <translation>Last year</translation>
+    </message>
+    <message>
+      <source>Last 2 years</source>
+      <translation>Last 2 years</translation>
+    </message>
+    <message>
+      <source>Signed in as %1. Enter the 6-digit code from your authenticator app to finish signing in.</source>
+      <translation>Signed in as %1. Enter the 6-digit code from your authenticator app to finish signing in.</translation>
+    </message>
+    <message>
+      <source>Enter the 6-digit code from your authenticator app to finish signing in.</source>
+      <translation>Enter the 6-digit code from your authenticator app to finish signing in.</translation>
+    </message>
+    <message>
+      <source>Back to sign in</source>
+      <translation>Back to sign in</translation>
+    </message>
+    <message>
+      <source>Verify and sign in</source>
+      <translation>Verify and sign in</translation>
+    </message>
+    <message>
+      <source>Verifying…</source>
+      <translation>Verifying…</translation>
+    </message>
+    <message>
+      <source>This verification step expired. Sign in again — you are not logged in yet.</source>
+      <translation>This verification step expired. Sign in again — you are not logged in yet.</translation>
+    </message>
+    <message>
+      <source>Sign in again — the verification step expired.</source>
+      <translation>Sign in again — the verification step expired.</translation>
+    </message>
+    <message>
+      <source>Admin security</source>
+      <translation>Admin security</translation>
+    </message>
+    <message>
+      <source>Two-factor authentication</source>
+      <translation>Two-factor authentication</translation>
+    </message>
+    <message>
+      <source>Administrators must use an authenticator app (Google Authenticator, Authy, 1Password, etc.) for sign-in. Set it up now to continue.</source>
+      <translation>Administrators must use an authenticator app (Google Authenticator, Authy, 1Password, etc.) for sign-in. Set it up now to continue.</translation>
+    </message>
+    <message>
+      <source>You must enable two-factor authentication before using DataGate.</source>
+      <translation>You must enable two-factor authentication before using DataGate.</translation>
+    </message>
+    <message>
+      <source>Begin setup</source>
+      <translation>Begin setup</translation>
+    </message>
+    <message>
+      <source>Confirm and continue</source>
+      <translation>Confirm and continue</translation>
+    </message>
+    <message>
+      <source>Setup URI:</source>
+      <translation>Setup URI:</translation>
+    </message>
+    <message>
+      <source>Manual secret:</source>
+      <translation>Manual secret:</translation>
+    </message>
+    <message>
+      <source>Scan the URI or enter the secret in your authenticator app, then enter the 6-digit code.</source>
+      <translation>Scan the URI or enter the secret in your authenticator app, then enter the 6-digit code.</translation>
+    </message>
+    <message>
+      <source>Enter the 6-digit code from your authenticator app.</source>
+      <translation>Enter the 6-digit code from your authenticator app.</translation>
+    </message>
+    <message>
+      <source>Telegram setup</source>
+      <translation>Telegram setup</translation>
+    </message>
+    <message>
+      <source>Complete Telegram setup</source>
+      <translation>Complete Telegram setup</translation>
+    </message>
+    <message>
+      <source>On the Free and Default plans, VPN configs from the Telegram bot require either a subscription to the official channel or linking your Telegram account to this sign-in.</source>
+      <translation>On the Free and Default plans, VPN configs from the Telegram bot require either a subscription to the official channel or linking your Telegram account to this sign-in.</translation>
+    </message>
+    <message>
+      <source>Or link your Telegram account</source>
+      <translation>Or link your Telegram account</translation>
+    </message>
+    <message>
+      <source>Open the DataGate Telegram bot (/register if needed), enter your numeric Telegram user ID below, then enter the link code in the bot with /link_account CODE or by sending the code in private chat.</source>
+      <translation>Open the DataGate Telegram bot (/register if needed), enter your numeric Telegram user ID below, then enter the link code in the bot with /link_account CODE or by sending the code in private chat.</translation>
+    </message>
+    <message>
+      <source>Open Telegram channel</source>
+      <translation>Open Telegram channel</translation>
+    </message>
+    <message>
+      <source>Telegram user ID</source>
+      <translation>Telegram user ID</translation>
+    </message>
+    <message>
+      <source>Request link code</source>
+      <translation>Request link code</translation>
+    </message>
+    <message>
+      <source>Enter this code in the Telegram bot within the time shown. The code works only for the Telegram ID you entered.</source>
+      <translation>Enter this code in the Telegram bot within the time shown. The code works only for the Telegram ID you entered.</translation>
+    </message>
+    <message>
+      <source>Check again</source>
+      <translation>Check again</translation>
+    </message>
+    <message>
+      <source>Close</source>
+      <translation>Close</translation>
+    </message>
+    <message>
+      <source>Your plan requires Telegram setup before using VPN configs from the bot.</source>
+      <translation>Your plan requires Telegram setup before using VPN configs from the bot.</translation>
+    </message>
+    <message>
+      <source>Plan: %1 — complete one of the steps below.</source>
+      <translation>Plan: %1 — complete one of the steps below.</translation>
+    </message>
+    <message>
+      <source>Subscribe to the required Telegram channel, then tap Check again.</source>
+      <translation>Subscribe to the required Telegram channel, then tap Check again.</translation>
+    </message>
+    <message>
+      <source>Required channel: %1</source>
+      <translation>Required channel: %1</translation>
+    </message>
+    <message>
+      <source>Account linking is not available for this sign-in. Subscribe to the channel above, or sign in with Google or email/password and try again.</source>
+      <translation>Account linking is not available for this sign-in. Subscribe to the channel above, or sign in with Google or email/password and try again.</translation>
+    </message>
+    <message>
+      <source>A grace period may be active in the Telegram bot. Channel subscription or account linking is still recommended.</source>
+      <translation>A grace period may be active in the Telegram bot. Channel subscription or account linking is still recommended.</translation>
+    </message>
+    <message>
+      <source>Enter your numeric Telegram user ID.</source>
+      <translation>Enter your numeric Telegram user ID.</translation>
+    </message>
+    <message>
+      <source>Telegram user ID must be a positive number.</source>
+      <translation>Telegram user ID must be a positive number.</translation>
+    </message>
+    <message>
+      <source>Link code issued. Enter it in the Telegram bot, then tap Check again.</source>
+      <translation>Link code issued. Enter it in the Telegram bot, then tap Check again.</translation>
+    </message>
+    <message>
+      <source>Link code expired. Request a new code.</source>
+      <translation>Link code expired. Request a new code.</translation>
+    </message>
+    <message>
+      <source>Expires in %1:%2</source>
+      <translation>Expires in %1:%2</translation>
+    </message>
+    <message>
+      <source>Could not load free-tier status (%1).</source>
+      <translation>Could not load free-tier status (%1).</translation>
+    </message>
+    <message>
+      <source>Could not request link code (%1).</source>
+      <translation>Could not request link code (%1).</translation>
+    </message>
+    <message>
+      <source>Link code request returned no code.</source>
+      <translation>Link code request returned no code.</translation>
+    </message>
   </context>
 </TS>

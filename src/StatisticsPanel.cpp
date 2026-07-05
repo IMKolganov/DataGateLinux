@@ -5,7 +5,6 @@
 
 #include <QVector>
 
-#include <QButtonGroup>
 #include <QComboBox>
 #include <QHBoxLayout>
 #include <QLabel>
@@ -171,6 +170,9 @@ QString joinApi(QString base, const QString& path)
     return base + QLatin1Char('/') + p;
 }
 
+constexpr int kRangeMonthBase = 10000;
+constexpr int kRangeYearBase = 20000;
+
 /// Same range as Android [StatsViewModel.rangeForLastCalendarDays]: local midnight boundaries → UTC ISO.
 QPair<QDateTime, QDateTime> rangeLastCalendarDaysUtc(int days)
 {
@@ -181,6 +183,64 @@ QPair<QDateTime, QDateTime> rangeLastCalendarDaysUtc(int days)
     const QDateTime tomorrowStart = todayStart.addDays(1);
     const QDateTime toLocal = tomorrowStart.addMSecs(-1);
     return {fromLocal.toUTC(), toLocal.toUTC()};
+}
+
+QPair<QDateTime, QDateTime> rangeLastCalendarMonthsUtc(int months)
+{
+    const QTimeZone tz = QTimeZone::systemTimeZone();
+    const QDate today = QDate::currentDate();
+    const QDateTime todayStart = QDateTime(today, QTime(0, 0, 0), tz);
+    const QDateTime fromLocal = todayStart.addMonths(-months);
+    const QDateTime tomorrowStart = todayStart.addDays(1);
+    const QDateTime toLocal = tomorrowStart.addMSecs(-1);
+    return {fromLocal.toUTC(), toLocal.toUTC()};
+}
+
+QPair<QDateTime, QDateTime> rangeLastCalendarYearsUtc(int years)
+{
+    const QTimeZone tz = QTimeZone::systemTimeZone();
+    const QDate today = QDate::currentDate();
+    const QDateTime todayStart = QDateTime(today, QTime(0, 0, 0), tz);
+    const QDateTime fromLocal = todayStart.addYears(-years);
+    const QDateTime tomorrowStart = todayStart.addDays(1);
+    const QDateTime toLocal = tomorrowStart.addMSecs(-1);
+    return {fromLocal.toUTC(), toLocal.toUTC()};
+}
+
+QPair<QDateTime, QDateTime> rangeForPresetId(int presetId)
+{
+    if (presetId >= kRangeYearBase) {
+        return rangeLastCalendarYearsUtc(presetId - kRangeYearBase);
+    }
+    if (presetId >= kRangeMonthBase) {
+        return rangeLastCalendarMonthsUtc(presetId - kRangeMonthBase);
+    }
+    return rangeLastCalendarDaysUtc(presetId > 0 ? presetId : 7);
+}
+
+void fillRangeCombo(QComboBox* combo, int selectPresetId)
+{
+    if (!combo) {
+        return;
+    }
+    combo->blockSignals(true);
+    combo->clear();
+    combo->addItem(Datagate::tr("Last 7 days"), 7);
+    combo->addItem(Datagate::tr("Last 30 days"), 30);
+    combo->addItem(Datagate::tr("Last 2 months"), kRangeMonthBase + 2);
+    combo->addItem(Datagate::tr("Last 3 months"), kRangeMonthBase + 3);
+    combo->addItem(Datagate::tr("Last 6 months"), kRangeMonthBase + 6);
+    combo->addItem(Datagate::tr("Last year"), kRangeYearBase + 1);
+    combo->addItem(Datagate::tr("Last 2 years"), kRangeYearBase + 2);
+    int idx = 0;
+    for (int i = 0; i < combo->count(); ++i) {
+        if (combo->itemData(i).toInt() == selectPresetId) {
+            idx = i;
+            break;
+        }
+    }
+    combo->setCurrentIndex(idx);
+    combo->blockSignals(false);
 }
 
 QString shortLabelForTs(const QString& ts)
@@ -212,20 +272,9 @@ StatisticsPanel::StatisticsPanel(QWidget* parent)
     root->addWidget(m_hintLabel);
 
     auto* presetRow = new QHBoxLayout();
-    m_range7Btn = new QPushButton(Datagate::tr("Last 7 days"), this);
-    m_range30Btn = new QPushButton(Datagate::tr("Last 30 days"), this);
-    m_range7Btn->setCheckable(true);
-    m_range30Btn->setCheckable(true);
-    m_range7Btn->setProperty("secondary", true);
-    m_range30Btn->setProperty("secondary", true);
-    m_rangeGroup = new QButtonGroup(this);
-    m_rangeGroup->setExclusive(true);
-    m_rangeGroup->addButton(m_range7Btn, 7);
-    m_rangeGroup->addButton(m_range30Btn, 30);
-    m_range7Btn->setChecked(true);
-    presetRow->addWidget(m_range7Btn);
-    presetRow->addWidget(m_range30Btn);
-    presetRow->addStretch();
+    m_rangeCombo = new QComboBox(this);
+    m_rangeCombo->setMinimumWidth(220);
+    presetRow->addWidget(m_rangeCombo, 1);
     root->addLayout(presetRow);
 
     auto* filterRow = new QHBoxLayout();
@@ -254,10 +303,7 @@ StatisticsPanel::StatisticsPanel(QWidget* parent)
     m_trafficChart = new StatsLineChartWidget(this);
     root->addWidget(m_trafficChart, 1);
 
-    connect(m_rangeGroup, &QButtonGroup::idClicked, this, [this](int id) {
-        m_presetDays = id;
-        reload();
-    });
+    connect(m_rangeCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this, [this](int) { reload(); });
     connect(m_groupingCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this, [this](int) { reload(); });
     connect(m_metricCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this, [this](int) {
         if (!m_lastOverviewBody.isEmpty()) {
@@ -275,11 +321,16 @@ void StatisticsPanel::retranslateUi()
         m_hintLabel->setText(
             Datagate::tr("Your OpenVPN traffic for the selected period (same series as the Android app)."));
     }
-    if (m_range7Btn) {
-        m_range7Btn->setText(Datagate::tr("Last 7 days"));
-    }
-    if (m_range30Btn) {
-        m_range30Btn->setText(Datagate::tr("Last 30 days"));
+    if (m_rangeCombo) {
+        int prevPreset = 7;
+        if (m_rangeCombo->count() > 0) {
+            bool ok = false;
+            const int v = m_rangeCombo->currentData().toInt(&ok);
+            if (ok) {
+                prevPreset = v;
+            }
+        }
+        fillRangeCombo(m_rangeCombo, prevPreset);
     }
     if (m_refreshBtn) {
         m_refreshBtn->setText(Datagate::tr("Refresh"));
@@ -465,7 +516,8 @@ void StatisticsPanel::reload()
         return;
     }
 
-    const auto range = rangeLastCalendarDaysUtc(m_presetDays);
+    const int presetId = m_rangeCombo ? m_rangeCombo->currentData().toInt() : 7;
+    const auto range = rangeForPresetId(presetId);
     const int grouping = m_groupingCombo ? m_groupingCombo->currentData().toInt() : 0;
 
     QUrl url(joinApi(m_apiBase, QStringLiteral("api/open-vpn-clients/overview/series")));

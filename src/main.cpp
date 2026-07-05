@@ -1,6 +1,7 @@
 #include "AppConfig.h"
 #include "AppLogging.h"
 #include "GitHubReleaseChecker.h"
+#include "DatagateAuthLogin.h"
 #include "DatagateUtils.h"
 #include "AuthSession.h"
 #include "DatagateTr.h"
@@ -76,6 +77,21 @@ int main(int argc, char* argv[])
 
     std::function<void()> showMain;
     showMain = [&]() {
+        const QString apiBase = AppConfig::apiBaseUrl().trimmed();
+        if (!DatagateAuth::ensureAdminTotpSetupIfRequired(&nam, apiBase, session.accessToken(), nullptr)) {
+            session.logout();
+            LoginDialog dlg(&session, &nam);
+            if (dlg.exec() != QDialog::Accepted) {
+                QCoreApplication::quit();
+                return;
+            }
+            if (!session.ensureValidAccessToken()
+                || !DatagateAuth::ensureAdminTotpSetupIfRequired(&nam, apiBase, session.accessToken(), nullptr)) {
+                QCoreApplication::quit();
+                return;
+            }
+        }
+
         mainWin = std::make_unique<MainWindow>(&session);
         QObject::connect(mainWin.get(), &MainWindow::logoutRequested, [&]() {
             session.logout();
@@ -89,6 +105,12 @@ int main(int argc, char* argv[])
             showMain();
         });
         mainWin->show();
+
+        const QString apiBaseOnShow = AppConfig::apiBaseUrl().trimmed();
+        if (session.ensureValidAccessToken()) {
+            DatagateAuth::showFreeTierOnboardingIfRequired(
+                &nam, apiBaseOnShow, session.accessToken(), mainWin.get());
+        }
 
         if (AppConfig::updateCheckOnStartup()) {
             const QString ghOwner = AppConfig::updateGithubOwner();

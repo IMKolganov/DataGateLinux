@@ -50,6 +50,12 @@ qt_add_executable(DataGateLinux
     src/GitHubReleaseChecker.h
     src/AuthSession.cpp
     src/AuthSession.h
+    src/DatagateAuthLogin.cpp
+    src/DatagateAuthLogin.h
+    src/AdminTotpSetupDialog.cpp
+    src/AdminTotpSetupDialog.h
+    src/FreeTierOnboardingDialog.cpp
+    src/FreeTierOnboardingDialog.h
     src/LoginDialog.cpp
     src/LoginDialog.h
     src/AppTheme.cpp

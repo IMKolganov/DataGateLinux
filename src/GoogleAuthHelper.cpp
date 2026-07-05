@@ -483,7 +483,18 @@ void GoogleAuthHelper::signInWithGoogle(const QString& clientId, int redirectPor
                     return;
                 }
                 const QJsonObject data = root.value(QStringLiteral("data")).toObject();
+                const bool requiresTotp = data.value(QStringLiteral("requiresTotp")).toBool(false)
+                    || data.value(QStringLiteral("RequiresTotp")).toBool(false);
+                QString challengeId = data.value(QStringLiteral("loginChallengeId")).toString().trimmed();
+                if (challengeId.isEmpty()) {
+                    challengeId = data.value(QStringLiteral("LoginChallengeId")).toString().trimmed();
+                }
                 const QString token = data.value(QStringLiteral("token")).toString();
+                if (requiresTotp && !challengeId.isEmpty()) {
+                    qCInfo(lcOAuth, "google-code-login: admin TOTP challenge");
+                    emit finishedSuccess(data);
+                    return;
+                }
                 if (token.isEmpty()) {
                     emit finishedError(Datagate::tr("No token in API response."));
                     return;

@@ -9,7 +9,6 @@ class QComboBox;
 class QPushButton;
 class QLabel;
 class QVBoxLayout;
-class QButtonGroup;
 class QNetworkAccessManager;
 
 /// User traffic time series (GET api/open-vpn-clients/overview/series) — parity with DataGateAndroid StatsScreen.
@@ -37,10 +36,7 @@ private:
     QString m_bearer;
 
     QLabel* m_hintLabel = nullptr;
-    QPushButton* m_range7Btn = nullptr;
-    QPushButton* m_range30Btn = nullptr;
-    QButtonGroup* m_rangeGroup = nullptr;
-    int m_presetDays = 7;
+    QComboBox* m_rangeCombo = nullptr;
 
     QComboBox* m_groupingCombo = nullptr;
     QComboBox* m_metricCombo = nullptr;

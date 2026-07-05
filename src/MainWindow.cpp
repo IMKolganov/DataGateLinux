@@ -4,6 +4,7 @@
 #include "AppLogging.h"
 #include "AppTheme.h"
 #include "AuthSession.h"
+#include "DatagateAuthLogin.h"
 #include "DatagateTr.h"
 #include "DatagateTranslator.h"
 #include "DatagateUtils.h"
@@ -478,6 +479,9 @@ MainWindow::MainWindow(AuthSession* session, QWidget* parent)
     connect(m_nav, &QListWidget::currentRowChanged, this, [this](int row) {
         if (row >= 0 && row < m_stack->count()) {
             m_stack->setCurrentIndex(row);
+        }
+        if (row == 0 || row == 1) {
+            checkFreeTierOnboarding();
         }
         if (row == 1 || row == 2) {
             refreshServers(true);
@@ -1244,4 +1248,16 @@ void MainWindow::retranslateUi()
     if (m_connectBtn && m_connectBtn->isEnabled()) {
         updateConnectButtonUi(m_vpnTunnelUp);
     }
+}
+
+void MainWindow::checkFreeTierOnboarding()
+{
+    if (!m_session || !m_session->ensureValidAccessToken()) {
+        return;
+    }
+    const QString base = AppConfig::apiBaseUrl().trimmed();
+    if (base.isEmpty()) {
+        return;
+    }
+    DatagateAuth::showFreeTierOnboardingIfRequired(m_nam, base, m_session->accessToken(), this);
 }

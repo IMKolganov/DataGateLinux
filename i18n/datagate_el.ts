@@ -620,5 +620,201 @@ See stderr log line "AppConfig: loaded …" when DATAGATE_LOG=1 or Debug build.<
       <source>A new version (%1) is available. Open the release page?</source>
       <translation>Υπάρχει νέα έκδοση (%1). Να ανοίξει η σελίδα έκδοσης;</translation>
     </message>
+    <message>
+      <source>Last 7 days</source>
+      <translation>Τελευταίες 7 ημέρες</translation>
+    </message>
+    <message>
+      <source>Last 30 days</source>
+      <translation>Τελευταίες 30 ημέρες</translation>
+    </message>
+    <message>
+      <source>Last 2 months</source>
+      <translation>Τελευταίοι 2 μήνες</translation>
+    </message>
+    <message>
+      <source>Last 3 months</source>
+      <translation>Τελευταίοι 3 μήνες</translation>
+    </message>
+    <message>
+      <source>Last 6 months</source>
+      <translation>Τελευταίοι 6 μήνες</translation>
+    </message>
+    <message>
+      <source>Last year</source>
+      <translation>Τελευταίος χρόνος</translation>
+    </message>
+    <message>
+      <source>Last 2 years</source>
+      <translation>Τελευταία 2 χρόνια</translation>
+    </message>
+    <message>
+      <source>Signed in as %1. Enter the 6-digit code from your authenticator app to finish signing in.</source>
+      <translation>Συνδεθήκατε ως %1. Εισαγάγετε τον 6ψήφιο κωδικό από την εφαρμογή authenticator για να ολοκληρώσετε τη σύνδεση.</translation>
+    </message>
+    <message>
+      <source>Enter the 6-digit code from your authenticator app to finish signing in.</source>
+      <translation>Εισαγάγετε τον 6ψήφιο κωδικό από την εφαρμογή authenticator για να ολοκληρώσετε τη σύνδεση.</translation>
+    </message>
+    <message>
+      <source>Back to sign in</source>
+      <translation>Επιστροφή στη σύνδεση</translation>
+    </message>
+    <message>
+      <source>Verify and sign in</source>
+      <translation>Επαλήθευση και σύνδεση</translation>
+    </message>
+    <message>
+      <source>Verifying…</source>
+      <translation>Επαλήθευση…</translation>
+    </message>
+    <message>
+      <source>This verification step expired. Sign in again — you are not logged in yet.</source>
+      <translation>Η επαλήθευση έληξε. Συνδεθείτε ξανά — δεν έχετε ακόμη συνδεθεί.</translation>
+    </message>
+    <message>
+      <source>Sign in again — the verification step expired.</source>
+      <translation>Συνδεθείτε ξανά — η επαλήθευση έληξε.</translation>
+    </message>
+    <message>
+      <source>Admin security</source>
+      <translation>Ασφάλεια διαχειριστή</translation>
+    </message>
+    <message>
+      <source>Two-factor authentication</source>
+      <translation>Έλεγχος ταυτότητας δύο παραγόντων</translation>
+    </message>
+    <message>
+      <source>Administrators must use an authenticator app (Google Authenticator, Authy, 1Password, etc.) for sign-in. Set it up now to continue.</source>
+      <translation>Οι διαχειριστές χρειάζονται εφαρμογή authenticator (Google Authenticator, Authy, 1Password κ.λπ.) για σύνδεση. Ρυθμίστε την τώρα για να συνεχίσετε.</translation>
+    </message>
+    <message>
+      <source>You must enable two-factor authentication before using DataGate.</source>
+      <translation>Πρέπει να ενεργοποιήσετε τον έλεγχο ταυτότητας δύο παραγόντων πριν χρησιμοποιήσετε το DataGate.</translation>
+    </message>
+    <message>
+      <source>Begin setup</source>
+      <translation>Έναρξη ρύθμισης</translation>
+    </message>
+    <message>
+      <source>Confirm and continue</source>
+      <translation>Επιβεβαίωση και συνέχεια</translation>
+    </message>
+    <message>
+      <source>Setup URI:</source>
+      <translation>URI ρύθμισης:</translation>
+    </message>
+    <message>
+      <source>Manual secret:</source>
+      <translation>Μυστικό χειροκίνητα:</translation>
+    </message>
+    <message>
+      <source>Scan the URI or enter the secret in your authenticator app, then enter the 6-digit code.</source>
+      <translation>Σαρώστε το URI ή εισαγάγετε το μυστικό στην εφαρμογή authenticator, μετά τον 6ψήφιο κωδικό.</translation>
+    </message>
+    <message>
+      <source>Enter the 6-digit code from your authenticator app.</source>
+      <translation>Εισαγάγετε τον 6ψήφιο κωδικό από την εφαρμογή authenticator.</translation>
+    </message>
+    <message>
+      <source>Telegram setup</source>
+      <translation>Ρύθμιση Telegram</translation>
+    </message>
+    <message>
+      <source>Complete Telegram setup</source>
+      <translation>Ολοκληρώστε τη ρύθμιση Telegram</translation>
+    </message>
+    <message>
+      <source>On the Free and Default plans, VPN configs from the Telegram bot require either a subscription to the official channel or linking your Telegram account to this sign-in.</source>
+      <translation>Στα πλάνα Free και Default, τα VPN config από το bot Telegram απαιτούν εγγραφή στο επίσημο κανάλι ή σύνδεση του λογαριασμού Telegram με αυτή τη σύνδεση.</translation>
+    </message>
+    <message>
+      <source>Or link your Telegram account</source>
+      <translation>Ή συνδέστε τον λογαριασμό Telegram</translation>
+    </message>
+    <message>
+      <source>Open the DataGate Telegram bot (/register if needed), enter your numeric Telegram user ID below, then enter the link code in the bot with /link_account CODE or by sending the code in private chat.</source>
+      <translation>Ανοίξτε το bot Telegram DataGate (/register αν χρειάζεται), εισαγάγετε παρακάτω το αριθμητικό Telegram ID, μετά τον κωδικό στο bot με /link_account CODE ή στέλνοντάς τον σε ιδιωτική συνομιλία.</translation>
+    </message>
+    <message>
+      <source>Open Telegram channel</source>
+      <translation>Άνοιγμα καναλιού Telegram</translation>
+    </message>
+    <message>
+      <source>Telegram user ID</source>
+      <translation>Telegram user ID</translation>
+    </message>
+    <message>
+      <source>Request link code</source>
+      <translation>Αίτηση κωδικού σύνδεσης</translation>
+    </message>
+    <message>
+      <source>Enter this code in the Telegram bot within the time shown. The code works only for the Telegram ID you entered.</source>
+      <translation>Εισαγάγετε αυτόν τον κωδικό στο bot Telegram εντός του χρόνου που εμφανίζεται. Ισχύει μόνο για το Telegram ID που εισαγάγατε.</translation>
+    </message>
+    <message>
+      <source>Check again</source>
+      <translation>Έλεγχος ξανά</translation>
+    </message>
+    <message>
+      <source>Close</source>
+      <translation>Κλείσιμο</translation>
+    </message>
+    <message>
+      <source>Your plan requires Telegram setup before using VPN configs from the bot.</source>
+      <translation>Το πλάνο σας απαιτεί ρύθμιση Telegram πριν από configs VPN μέσω bot.</translation>
+    </message>
+    <message>
+      <source>Plan: %1 — complete one of the steps below.</source>
+      <translation>Πλάνο: %1 — ολοκληρώστε ένα από τα παρακάτω βήματα.</translation>
+    </message>
+    <message>
+      <source>Subscribe to the required Telegram channel, then tap Check again.</source>
+      <translation>Εγγραφείτε στο απαιτούμενο κανάλι Telegram, μετά πατήστε Έλεγχος ξανά.</translation>
+    </message>
+    <message>
+      <source>Required channel: %1</source>
+      <translation>Απαιτούμενο κανάλι: %1</translation>
+    </message>
+    <message>
+      <source>Account linking is not available for this sign-in. Subscribe to the channel above, or sign in with Google or email/password and try again.</source>
+      <translation>Η σύνδεση λογαριασμού δεν είναι διαθέσιμη για αυτή τη σύνδεση. Εγγραφείτε στο κανάλι ή συνδεθείτε με Google ή email/κωδικό.</translation>
+    </message>
+    <message>
+      <source>A grace period may be active in the Telegram bot. Channel subscription or account linking is still recommended.</source>
+      <translation>Μπορεί να ισχύει περίοδος χάριτος στο bot Telegram. Συνιστάται εγγραφή στο κανάλι ή σύνδεση λογαριασμού.</translation>
+    </message>
+    <message>
+      <source>Enter your numeric Telegram user ID.</source>
+      <translation>Εισαγάγετε το αριθμητικό Telegram user ID.</translation>
+    </message>
+    <message>
+      <source>Telegram user ID must be a positive number.</source>
+      <translation>Το Telegram user ID πρέπει να είναι θετικός αριθμός.</translation>
+    </message>
+    <message>
+      <source>Link code issued. Enter it in the Telegram bot, then tap Check again.</source>
+      <translation>Εκδόθηκε κωδικός σύνδεσης. Εισαγάγετέ τον στο bot Telegram, μετά πατήστε Έλεγχος ξανά.</translation>
+    </message>
+    <message>
+      <source>Link code expired. Request a new code.</source>
+      <translation>Ο κωδικός σύνδεσης έληξε. Ζητήστε νέο κωδικό.</translation>
+    </message>
+    <message>
+      <source>Expires in %1:%2</source>
+      <translation>Λήγει σε %1:%2</translation>
+    </message>
+    <message>
+      <source>Could not load free-tier status (%1).</source>
+      <translation>Αποτυχία φόρτωσης κατάστασης free tier (%1).</translation>
+    </message>
+    <message>
+      <source>Could not request link code (%1).</source>
+      <translation>Αποτυχία αίτησης κωδικού σύνδεσης (%1).</translation>
+    </message>
+    <message>
+      <source>Link code request returned no code.</source>
+      <translation>Η αίτηση κωδικού σύνδεσης δεν επέστρεψε κωδικό.</translation>
+    </message>
   </context>
 </TS>
