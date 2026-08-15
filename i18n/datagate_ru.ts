@@ -852,5 +852,405 @@ See stderr log line "AppConfig: loaded …" when DATAGATE_LOG=1 or Debug build.<
       <source>Remaining %1</source>
       <translation>Осталось %1</translation>
     </message>
+    <message>
+      <source>Profiles</source>
+      <translation>Профили</translation>
+    </message>
+    <message>
+      <source>Local profile…</source>
+      <translation>Локальный профиль…</translation>
+    </message>
+    <message>
+      <source>Profile:</source>
+      <translation>Профиль:</translation>
+    </message>
+    <message>
+      <source>Import your own .ovpn files and connect directly (without the DataGate WSS bridge).</source>
+      <translation>Импортируйте свои .ovpn и подключайтесь напрямую (без WSS-моста DataGate).</translation>
+    </message>
+    <message>
+      <source>Import .ovpn…</source>
+      <translation>Импорт .ovpn…</translation>
+    </message>
+    <message>
+      <source>Rename</source>
+      <translation>Переименовать</translation>
+    </message>
+    <message>
+      <source>Delete</source>
+      <translation>Удалить</translation>
+    </message>
+    <message>
+      <source>Xray profiles: Coming soon.</source>
+      <translation>Профили Xray: скоро.</translation>
+    </message>
+    <message>
+      <source>Choose a local profile or import an .ovpn file.</source>
+      <translation>Выберите локальный профиль или импортируйте .ovpn.</translation>
+    </message>
+    <message>
+      <source>Local profile</source>
+      <translation>Локальный профиль</translation>
+    </message>
+    <message>
+      <source>OpenVPN profile is empty.</source>
+      <translation>Профиль OpenVPN пуст.</translation>
+    </message>
+    <message>
+      <source>No valid remote line found in the .ovpn file.</source>
+      <translation>В .ovpn не найдена корректная строка remote.</translation>
+    </message>
+    <message>
+      <source>Connecting to local profile: %1</source>
+      <translation>Подключение к локальному профилю: %1</translation>
+    </message>
+    <message>
+      <source>Direct OpenVPN (no WSS bridge)…</source>
+      <translation>Прямой OpenVPN (без WSS)…</translation>
+    </message>
+    <message>
+      <source>Import OpenVPN profile</source>
+      <translation>Импорт профиля OpenVPN</translation>
+    </message>
+    <message>
+      <source>OpenVPN configs (*.ovpn *.conf);;All files (*)</source>
+      <translation>Конфиги OpenVPN (*.ovpn *.conf);;Все файлы (*)</translation>
+    </message>
+    <message>
+      <source>Profile name</source>
+      <translation>Имя профиля</translation>
+    </message>
+    <message>
+      <source>Display name:</source>
+      <translation>Отображаемое имя:</translation>
+    </message>
+    <message>
+      <source>Imported local profile: %1</source>
+      <translation>Импортирован локальный профиль: %1</translation>
+    </message>
+    <message>
+      <source>Select a profile first.</source>
+      <translation>Сначала выберите профиль.</translation>
+    </message>
+    <message>
+      <source>Rename profile</source>
+      <translation>Переименовать профиль</translation>
+    </message>
+    <message>
+      <source>Disconnect from this profile before deleting it.</source>
+      <translation>Отключитесь от этого профиля перед удалением.</translation>
+    </message>
+    <message>
+      <source>Delete profile "%1"?</source>
+      <translation>Удалить профиль «%1»?</translation>
+    </message>
+    <message>
+      <source>Deleted local profile: %1</source>
+      <translation>Удалён локальный профиль: %1</translation>
+    </message>
+    <message>
+      <source>App local data path is unavailable.</source>
+      <translation>Путь к локальным данным приложения недоступен.</translation>
+    </message>
+    <message>
+      <source>Could not create profiles directory.</source>
+      <translation>Не удалось создать каталог профилей.</translation>
+    </message>
+    <message>
+      <source>Could not write profiles index.</source>
+      <translation>Не удалось записать индекс профилей.</translation>
+    </message>
+    <message>
+      <source>Could not create profile folder.</source>
+      <translation>Не удалось создать папку профиля.</translation>
+    </message>
+    <message>
+      <source>Could not write profile.json.</source>
+      <translation>Не удалось записать profile.json.</translation>
+    </message>
+    <message>
+      <source>Could not read the selected file.</source>
+      <translation>Не удалось прочитать выбранный файл.</translation>
+    </message>
+    <message>
+      <source>The OpenVPN file is empty.</source>
+      <translation>Файл OpenVPN пуст.</translation>
+    </message>
+    <message>
+      <source>OpenVPN profile</source>
+      <translation>Профиль OpenVPN</translation>
+    </message>
+    <message>
+      <source>Could not write config.ovpn.</source>
+      <translation>Не удалось записать config.ovpn.</translation>
+    </message>
+    <message>
+      <source>Invalid profile name.</source>
+      <translation>Некорректное имя профиля.</translation>
+    </message>
+    <message>
+      <source>Profile not found.</source>
+      <translation>Профиль не найден.</translation>
+    </message>
+    <message>
+      <source>Invalid profile id.</source>
+      <translation>Некорректный id профиля.</translation>
+    </message>
+    <message>
+      <source>Profile is not an OpenVPN config.</source>
+      <translation>Профиль не является конфигом OpenVPN.</translation>
+    </message>
+    <message>
+      <source>Could not read config.ovpn.</source>
+      <translation>Не удалось прочитать config.ovpn.</translation>
+    </message>
+    <message>
+      <source>Import VLESS / JSON…</source>
+      <translation>Импорт VLESS / JSON…</translation>
+    </message>
+    <message>
+      <source>Import OpenVPN (.ovpn) or Xray (vless:// / JSON) profiles and connect without the DataGate WSS bridge.</source>
+      <translation>Импортируйте OpenVPN (.ovpn) или Xray (vless:// / JSON) и подключайтесь без WSS-моста DataGate.</translation>
+    </message>
+    <message>
+      <source>Connect VLESS (Xray)…</source>
+      <translation>Подключить VLESS (Xray)…</translation>
+    </message>
+    <message>
+      <source> (Xray)</source>
+      <translation> (Xray)</translation>
+    </message>
+    <message>
+      <source> (OpenVPN)</source>
+      <translation> (OpenVPN)</translation>
+    </message>
+    <message>
+      <source>Import Xray</source>
+      <translation>Импорт Xray</translation>
+    </message>
+    <message>
+      <source>Import a vless:// link or an Xray JSON config file.</source>
+      <translation>Импортируйте ссылку vless:// или JSON-конфиг Xray.</translation>
+    </message>
+    <message>
+      <source>Paste vless://…</source>
+      <translation>Вставить vless://…</translation>
+    </message>
+    <message>
+      <source>Choose JSON file…</source>
+      <translation>Выбрать JSON…</translation>
+    </message>
+    <message>
+      <source>Import VLESS</source>
+      <translation>Импорт VLESS</translation>
+    </message>
+    <message>
+      <source>vless:// link:</source>
+      <translation>Ссылка vless://:</translation>
+    </message>
+    <message>
+      <source>Imported Xray profile: %1</source>
+      <translation>Импортирован профиль Xray: %1</translation>
+    </message>
+    <message>
+      <source>Import Xray JSON</source>
+      <translation>Импорт JSON Xray</translation>
+    </message>
+    <message>
+      <source>JSON configs (*.json);;All files (*)</source>
+      <translation>JSON-конфиги (*.json);;Все файлы (*)</translation>
+    </message>
+    <message>
+      <source>Select a server row first.</source>
+      <translation>Сначала выберите строку сервера.</translation>
+    </message>
+    <message>
+      <source>Invalid server id.</source>
+      <translation>Некорректный id сервера.</translation>
+    </message>
+    <message>
+      <source>Requesting Xray VLESS link for %1…</source>
+      <translation>Запрос VLESS-ссылки Xray для %1…</translation>
+    </message>
+    <message>
+      <source>Expected a vless:// link.</source>
+      <translation>Ожидалась ссылка vless://.</translation>
+    </message>
+    <message>
+      <source>Invalid vless:// URI (need uuid@host:port).</source>
+      <translation>Некорректный vless:// URI (нужен uuid@host:port).</translation>
+    </message>
+    <message>
+      <source>Invalid Xray JSON: %1</source>
+      <translation>Некорректный JSON Xray: %1</translation>
+    </message>
+    <message>
+      <source>JSON must be a full Xray config or a VLESS outbound object.</source>
+      <translation>JSON должен быть полным конфигом Xray или outbound VLESS.</translation>
+    </message>
+    <message>
+      <source>Xray profile</source>
+      <translation>Профиль Xray</translation>
+    </message>
+    <message>
+      <source>Could not write config.json.</source>
+      <translation>Не удалось записать config.json.</translation>
+    </message>
+    <message>
+      <source>Profile is not an Xray config.</source>
+      <translation>Профиль не является конфигом Xray.</translation>
+    </message>
+    <message>
+      <source>Could not read config.json.</source>
+      <translation>Не удалось прочитать config.json.</translation>
+    </message>
+    <message>
+      <source>Disconnect the current Xray session first.</source>
+      <translation>Сначала отключите текущую сессию Xray.</translation>
+    </message>
+    <message>
+      <source>Xray config is empty.</source>
+      <translation>Конфиг Xray пуст.</translation>
+    </message>
+    <message>
+      <source>Could not create temporary Xray config file.</source>
+      <translation>Не удалось создать временный конфиг Xray.</translation>
+    </message>
+    <message>
+      <source>Xray config file not found.</source>
+      <translation>Файл конфига Xray не найден.</translation>
+    </message>
+    <message>
+      <source>DataGateXray was not found next to this program (and no xray on PATH). Build with Go + third_party/xray-core, or install Xray-core.</source>
+      <translation>DataGateXray не найден рядом с программой (и нет xray в PATH). Соберите с Go + third_party/xray-core или установите Xray-core.</translation>
+    </message>
+    <message>
+      <source>Starting Xray: %1</source>
+      <translation>Запуск Xray: %1</translation>
+    </message>
+    <message>
+      <source>Xray did not start within 8s (%1).</source>
+      <translation>Xray не запустился за 8 с (%1).</translation>
+    </message>
+    <message>
+      <source>Xray started (local SOCKS proxy).</source>
+      <translation>Xray запущен (локальный SOCKS-прокси).</translation>
+    </message>
+    <message>
+      <source>Xray exited (code %1).</source>
+      <translation>Xray завершился (код %1).</translation>
+    </message>
+    <message>
+      <source>Xray failed (exit %1).</source>
+      <translation>Ошибка Xray (код %1).</translation>
+    </message>
+    <message>
+      <source>Xray failed (exit %1):
+%2</source>
+      <translation>Ошибка Xray (код %1):
+%2</translation>
+    </message>
+    <message>
+      <source>Xray process error: %1</source>
+      <translation>Ошибка процесса Xray: %1</translation>
+    </message>
+    <message>
+      <source>Invalid JSON while loading Xray link.</source>
+      <translation>Некорректный JSON при загрузке Xray-ссылки.</translation>
+    </message>
+    <message>
+      <source>Xray link response has no content (base64).</source>
+      <translation>В ответе Xray-ссылки нет content (base64).</translation>
+    </message>
+    <message>
+      <source>Not signed in or missing server id.</source>
+      <translation>Нет входа или не указан id сервера.</translation>
+    </message>
+    <message>
+      <source>Create Xray link failed (HTTP %1).</source>
+      <translation>Не удалось создать Xray-ссылку (HTTP %1).</translation>
+    </message>
+    <message>
+      <source>Xray link download failed (HTTP %1).</source>
+      <translation>Не удалось скачать Xray-ссылку (HTTP %1).</translation>
+    </message>
+    <message>
+      <source>Xray TUN requires CAP_NET_ADMIN on DataGateXray. Use Settings → Grant TUN capability (also applies to DataGateXray), then fully restart DataGate.</source>
+      <translation>TUN в Xray требует CAP_NET_ADMIN на DataGateXray. Settings → Grant TUN (также для DataGateXray), затем полностью перезапустите DataGate.</translation>
+    </message>
+    <message>
+      <source>Xray started (TUN + SOCKS :%1). Grant TUN on DataGateXray if the tunnel fails.</source>
+      <translation>Xray запущен (TUN + SOCKS :%1). Выдайте Grant TUN на DataGateXray, если туннель не поднимается.</translation>
+    </message>
+    <message>
+      <source>Xray started (local SOCKS :%1).</source>
+      <translation>Xray запущен (локальный SOCKS :%1).</translation>
+    </message>
+    <message>
+      <source>Could not find a vless:// link or a valid Xray JSON config in the response.</source>
+      <translation>В ответе нет ссылки vless:// и нет корректного JSON-конфига Xray.</translation>
+    </message>
+    <message>
+      <source>Import OpenVPN (.ovpn) or Xray (vless:// / JSON). Xray uses TUN (+ local SOCKS). Grant TUN capability on DataGateXray after each rebuild.</source>
+      <translation>Импортируйте OpenVPN (.ovpn) или Xray (vless:// / JSON). Xray использует TUN (+ локальный SOCKS). После каждой пересборки выдайте Grant TUN на DataGateXray.</translation>
+    </message>
+    <message>
+      <source>setcap finished for OpenVPN/helper and DataGateXray (when present).%1
+
+You must quit DataGate completely and start it again — only a new process picks up file capabilities.
+
+After each CMake rebuild, run Grant again.</source>
+      <translation>setcap выполнен для OpenVPN/helper и DataGateXray (если есть).%1
+
+Полностью закройте DataGate и запустите снова — capability подхватывает только новый процесс.
+
+После каждой пересборки CMake снова нажмите Grant.</translation>
+    </message>
+    <message>
+      <source>Some setcap calls failed.%1
+
+Manual example:
+sudo setcap cap_net_admin+ep %2</source>
+      <translation>Часть вызовов setcap не удалась.%1
+
+Вручную:
+sudo setcap cap_net_admin+ep %2</translation>
+    </message>
+    <message>
+      <source>
+— %1 —
+</source>
+      <translation>
+— %1 —
+</translation>
+    </message>
+    <message>
+      <source>setcap OK.
+getcap: %1
+</source>
+      <translation>setcap OK.
+getcap: %1
+</translation>
+    </message>
+    <message>
+      <source>pkexec/setcap failed (exit %1).
+%2
+</source>
+      <translation>pkexec/setcap не удался (код %1).
+%2
+</translation>
+    </message>
+    <message>
+      <source> (TUN + SOCKS :%1)</source>
+      <translation> (TUN + SOCKS :%1)</translation>
+    </message>
+    <message>
+      <source> (SOCKS :%1)</source>
+      <translation> (SOCKS :%1)</translation>
+    </message>
+    <message>
+      <source>(empty)</source>
+      <translation>(пусто)</translation>
+    </message>
   </context>
 </TS>

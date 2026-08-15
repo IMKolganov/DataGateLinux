@@ -17,6 +17,9 @@ bool AppConfig::s_openVpnUseSystemBinary = false;
 QString AppConfig::s_updateGithubOwner = QStringLiteral("IMKolganov");
 QString AppConfig::s_updateGithubRepo = QStringLiteral("DataGateLinux");
 bool AppConfig::s_updateCheckOnStartup = true;
+QString AppConfig::s_xrayExecutablePath;
+quint16 AppConfig::s_xraySocksPort = 10808;
+bool AppConfig::s_xrayUseTun = true;
 
 static bool readJsonFile(const QString& path, QJsonObject* out)
 {
@@ -49,6 +52,9 @@ bool AppConfig::load()
     s_updateGithubOwner = QStringLiteral("IMKolganov");
     s_updateGithubRepo = QStringLiteral("DataGateLinux");
     s_updateCheckOnStartup = true;
+    s_xrayExecutablePath.clear();
+    s_xraySocksPort = 10808;
+    s_xrayUseTun = true;
 
     const QString exeDir = QCoreApplication::applicationDirPath();
     // Prefer cwd first (IDEs often set working dir to project root), then the executable directory.
@@ -111,6 +117,26 @@ bool AppConfig::load()
         qPrintable(s_updateGithubOwner), qPrintable(s_updateGithubRepo),
         s_updateCheckOnStartup ? "true" : "false");
 
+    const QJsonObject xray = root.value(QStringLiteral("Xray")).toObject();
+    if (!xray.isEmpty()) {
+        if (xray.contains(QStringLiteral("ExecutablePath"))) {
+            s_xrayExecutablePath = xray.value(QStringLiteral("ExecutablePath")).toString().trimmed();
+        }
+        if (xray.contains(QStringLiteral("SocksPort"))) {
+            const int p = xray.value(QStringLiteral("SocksPort")).toInt(10808);
+            if (p > 0 && p <= 65535) {
+                s_xraySocksPort = static_cast<quint16>(p);
+            }
+        }
+        if (xray.contains(QStringLiteral("UseTun"))) {
+            s_xrayUseTun = xray.value(QStringLiteral("UseTun")).toBool(true);
+        }
+    }
+    qCInfo(lcUi, "AppConfig: Xray SocksPort=%u UseTun=%s ExecutablePath=%s",
+        static_cast<unsigned>(s_xraySocksPort),
+        s_xrayUseTun ? "true" : "false",
+        s_xrayExecutablePath.isEmpty() ? "(auto)" : qPrintable(s_xrayExecutablePath));
+
 #if defined(DATAGATE_EMBEDDED_OPENVPN3)
     if (ovpn.contains(QStringLiteral("UseSystemBinary"))) {
         s_openVpnUseSystemBinary = ovpn.value(QStringLiteral("UseSystemBinary")).toBool(false);
@@ -168,4 +194,19 @@ QString AppConfig::updateGithubRepo()
 bool AppConfig::updateCheckOnStartup()
 {
     return s_updateCheckOnStartup;
+}
+
+QString AppConfig::xrayExecutablePath()
+{
+    return s_xrayExecutablePath;
+}
+
+quint16 AppConfig::xraySocksPort()
+{
+    return s_xraySocksPort;
+}
+
+bool AppConfig::xrayUseTun()
+{
+    return s_xrayUseTun;
 }

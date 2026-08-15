@@ -58,4 +58,5 @@ private:
     QString m_loginChallengeId;
 
     bool m_centerOnFirstShow = true;
+    bool m_oauthInProgress = false;
 };

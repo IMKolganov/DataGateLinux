@@ -8,13 +8,20 @@
 #include "DatagateTr.h"
 #include "DatagateTranslator.h"
 #include "DatagateUtils.h"
+#include "LocalProfileStore.h"
 #include "StatisticsPanel.h"
 #include "VpnSession.h"
+#include "XrayClientLinksApi.h"
+#include "XrayConfigBuilder.h"
+#include "XraySession.h"
 
 #include <QFileInfo>
+#include <QFileDialog>
+#include <QInputDialog>
 #include <QCheckBox>
 #include <QComboBox>
 #include <QCoreApplication>
+#include <QDir>
 #include <QFormLayout>
 #include <QFrame>
 #include <QHBoxLayout>
@@ -24,6 +31,7 @@
 #include <QHeaderView>
 #include <QListWidget>
 #include <QMessageBox>
+#include <QPair>
 #include <QTableWidget>
 #include <QTableWidgetItem>
 #include <QNetworkAccessManager>
@@ -96,6 +104,7 @@ MainWindow::MainWindow(AuthSession* session, QWidget* parent)
     , m_session(session)
     , m_nam(new QNetworkAccessManager(this))
     , m_vpn(new VpnSession(this))
+    , m_xray(new XraySession(this))
 {
     setWindowTitle(Datagate::tr("DataGate OpenVPN 3"));
     resize(1000, 720);
@@ -140,6 +149,10 @@ MainWindow::MainWindow(AuthSession* session, QWidget* parent)
                             QStringLiteral("applications-internet")},
             st, QStyle::SP_DriveNetIcon),
         Datagate::tr("Access")));
+    m_nav->addItem(new QListWidgetItem(
+        iconFromThemeOr({QStringLiteral("document-open"), QStringLiteral("folder"), QStringLiteral("text-x-generic")},
+            st, QStyle::SP_FileIcon),
+        Datagate::tr("Profiles")));
     m_nav->addItem(new QListWidgetItem(
         iconFromThemeOr({QStringLiteral("office-chart-line"), QStringLiteral("view-statistics"),
                             QStringLiteral("insert-chart"), QStringLiteral("x-office-chart")},
@@ -189,6 +202,7 @@ MainWindow::MainWindow(AuthSession* session, QWidget* parent)
     m_serverModeCombo = new QComboBox(this);
     m_serverModeCombo->addItem(Datagate::tr("Automatic (best server)"), 0);
     m_serverModeCombo->addItem(Datagate::tr("Choose server…"), 1);
+    m_serverModeCombo->addItem(Datagate::tr("Local profile…"), 2);
     modeRow->addWidget(m_serverModeCombo, 1);
     connLay->addLayout(modeRow);
 
@@ -203,9 +217,20 @@ MainWindow::MainWindow(AuthSession* session, QWidget* parent)
     manRow->addWidget(m_manualServerCombo, 1);
     connLay->addWidget(m_manualServerWrap);
 
+    m_localProfileWrap = new QWidget(this);
+    auto* locRow = new QHBoxLayout(m_localProfileWrap);
+    locRow->setContentsMargins(0, 0, 0, 0);
+    m_localProfileLabel = new QLabel(Datagate::tr("Profile:"), this);
+    locRow->addWidget(m_localProfileLabel);
+    m_localProfileCombo = new QComboBox(this);
+    m_localProfileCombo->setMinimumWidth(200);
+    locRow->addWidget(m_localProfileCombo, 1);
+    connLay->addWidget(m_localProfileWrap);
+
     auto* btnRow = new QHBoxLayout();
     m_connectBtn = new QPushButton(Datagate::tr("Connect"), this);
     m_connectBtn->setProperty("primary", true);
+    m_connectBtn->setSizePolicy(QSizePolicy::Maximum, QSizePolicy::Fixed);
     btnRow->addWidget(m_connectBtn);
     btnRow->addStretch();
     connLay->addLayout(btnRow);
@@ -277,14 +302,20 @@ MainWindow::MainWindow(AuthSession* session, QWidget* parent)
     auto* accRow = new QHBoxLayout();
     m_refreshServersBtn = new QPushButton(Datagate::tr("Refresh server list"), this);
     m_refreshServersBtn->setProperty("primary", true);
+    m_refreshServersBtn->setSizePolicy(QSizePolicy::Maximum, QSizePolicy::Fixed);
     accRow->addWidget(m_refreshServersBtn);
+    m_connectAccessXrayBtn = new QPushButton(Datagate::tr("Connect VLESS (Xray)…"), this);
+    m_connectAccessXrayBtn->setProperty("secondary", true);
+    m_connectAccessXrayBtn->setSizePolicy(QSizePolicy::Maximum, QSizePolicy::Fixed);
+    accRow->addWidget(m_connectAccessXrayBtn);
     accRow->addStretch();
     accLay->addLayout(accRow);
     m_serverTable = new QTableWidget(this);
     m_serverTable->setObjectName(QStringLiteral("accessServerTable"));
-    m_serverTable->setColumnCount(4);
+    m_serverTable->setColumnCount(5);
     m_serverTable->setHorizontalHeaderLabels({
         Datagate::tr("Server"),
+        Datagate::tr("Type"),
         Datagate::tr("Online"),
         Datagate::tr("Clients"),
         Datagate::tr("Plan access"),
@@ -303,6 +334,68 @@ MainWindow::MainWindow(AuthSession* session, QWidget* parent)
     m_accessTotalClientsLabel->setObjectName(QStringLiteral("muted"));
     accLay->addWidget(m_accessTotalClientsLabel);
     m_stack->addWidget(accessPage);
+
+    // ----- Page: Profiles
+    auto* profilesPage = new QWidget(this);
+    auto* profLay = new QVBoxLayout(profilesPage);
+    profLay->setContentsMargins(20, 20, 20, 20);
+    profLay->setSpacing(12);
+    m_profilesPageTitle = new QLabel(Datagate::tr("Profiles"), this);
+    m_profilesPageTitle->setObjectName(QStringLiteral("titleH1"));
+    profLay->addWidget(m_profilesPageTitle);
+    m_profilesHint = new QLabel(
+        Datagate::tr(
+            "Import OpenVPN (.ovpn) or Xray (vless:// / JSON). Xray uses TUN (+ local SOCKS). "
+            "After connect, approve pkexec once to install TUN routes. "
+            "Grant TUN capability on DataGateXray after each rebuild."),
+        this);
+    m_profilesHint->setObjectName(QStringLiteral("muted"));
+    m_profilesHint->setWordWrap(true);
+    profLay->addWidget(m_profilesHint);
+
+    auto* profCard = new QFrame(this);
+    profCard->setObjectName(QStringLiteral("card"));
+    auto* profCardLay = new QVBoxLayout(profCard);
+    profCardLay->setContentsMargins(18, 18, 18, 18);
+    m_profilesList = new QListWidget(this);
+    m_profilesList->setSelectionMode(QAbstractItemView::SingleSelection);
+    profCardLay->addWidget(m_profilesList, 1);
+
+    auto shrinkBtn = [](QPushButton* b) {
+        b->setSizePolicy(QSizePolicy::Maximum, QSizePolicy::Fixed);
+    };
+    auto* profBtns = new QVBoxLayout();
+    profBtns->setSpacing(8);
+    auto* profImportRow = new QHBoxLayout();
+    m_importOvpnBtn = new QPushButton(Datagate::tr("Import .ovpn…"), this);
+    m_importOvpnBtn->setProperty("primary", true);
+    shrinkBtn(m_importOvpnBtn);
+    m_importXrayBtn = new QPushButton(Datagate::tr("Import VLESS / JSON…"), this);
+    m_importXrayBtn->setProperty("secondary", true);
+    shrinkBtn(m_importXrayBtn);
+    profImportRow->addWidget(m_importOvpnBtn);
+    profImportRow->addWidget(m_importXrayBtn);
+    profImportRow->addStretch();
+    auto* profActionRow = new QHBoxLayout();
+    m_renameProfileBtn = new QPushButton(Datagate::tr("Rename"), this);
+    m_renameProfileBtn->setProperty("secondary", true);
+    shrinkBtn(m_renameProfileBtn);
+    m_deleteProfileBtn = new QPushButton(Datagate::tr("Delete"), this);
+    m_deleteProfileBtn->setProperty("secondary", true);
+    shrinkBtn(m_deleteProfileBtn);
+    m_connectProfileBtn = new QPushButton(Datagate::tr("Connect"), this);
+    m_connectProfileBtn->setProperty("primary", true);
+    shrinkBtn(m_connectProfileBtn);
+    profActionRow->addWidget(m_renameProfileBtn);
+    profActionRow->addWidget(m_deleteProfileBtn);
+    profActionRow->addStretch();
+    profActionRow->addWidget(m_connectProfileBtn);
+    profBtns->addLayout(profImportRow);
+    profBtns->addLayout(profActionRow);
+    profCardLay->addLayout(profBtns);
+    profLay->addWidget(profCard, 1);
+
+    m_stack->addWidget(profilesPage);
 
     // ----- Page: Statistics
     auto* statPage = new QWidget(this);
@@ -445,9 +538,11 @@ MainWindow::MainWindow(AuthSession* session, QWidget* parent)
     vpnLay->addRow(tunHint);
     m_grantTunCapBtn = new QPushButton(Datagate::tr("Grant TUN capability…"), this);
     m_grantTunCapBtn->setProperty("secondary", true);
+    m_grantTunCapBtn->setSizePolicy(QSizePolicy::Maximum, QSizePolicy::Fixed);
     vpnLay->addRow(m_grantTunCapBtn);
     m_saveSettingsBtn = new QPushButton(Datagate::tr("Save settings"), this);
     m_saveSettingsBtn->setProperty("secondary", true);
+    m_saveSettingsBtn->setSizePolicy(QSizePolicy::Maximum, QSizePolicy::Fixed);
     vpnLay->addRow(m_saveSettingsBtn);
     m_settingsVpnForm = vpnLay;
     setOuter->addWidget(vpnCard);
@@ -466,7 +561,11 @@ MainWindow::MainWindow(AuthSession* session, QWidget* parent)
     accCardLay->addWidget(accSub);
     m_logoutBtn = new QPushButton(Datagate::tr("Logout"), this);
     m_logoutBtn->setProperty("secondary", true);
-    accCardLay->addWidget(m_logoutBtn);
+    m_logoutBtn->setSizePolicy(QSizePolicy::Maximum, QSizePolicy::Fixed);
+    auto* logoutRow = new QHBoxLayout();
+    logoutRow->addWidget(m_logoutBtn);
+    logoutRow->addStretch();
+    accCardLay->addLayout(logoutRow);
     setOuter->addWidget(accountCard);
 
     setOuter->addStretch();
@@ -483,7 +582,10 @@ MainWindow::MainWindow(AuthSession* session, QWidget* parent)
         if (m_freeTierNavChecksEnabled && (row == 0 || row == 1)) {
             checkFreeTierOnboarding();
         }
-        if (row == 1 || row == 2) {
+        if (row == 2) {
+            refreshLocalProfilesUi();
+        }
+        if (row == 1) {
             refreshServers(true);
         }
     });
@@ -493,6 +595,11 @@ MainWindow::MainWindow(AuthSession* session, QWidget* parent)
     connect(m_serverModeCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this, [this](int) {
         updateServerModeUi();
     });
+    if (m_profilesList) {
+        connect(m_profilesList, &QListWidget::currentItemChanged, this, [this](QListWidgetItem*, QListWidgetItem*) {
+            updateLocalProfileActionsEnabled();
+        });
+    }
 
     connect(m_languageCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this, [this](int) {
         const QString code = m_languageCombo->currentData().toString();
@@ -515,6 +622,12 @@ MainWindow::MainWindow(AuthSession* session, QWidget* parent)
         appendLog(Datagate::tr("Settings saved."));
     });
     connect(m_grantTunCapBtn, &QPushButton::clicked, this, &MainWindow::grantOpenVpnCapNetAdmin);
+    connect(m_importOvpnBtn, &QPushButton::clicked, this, &MainWindow::importLocalOvpnProfile);
+    connect(m_importXrayBtn, &QPushButton::clicked, this, &MainWindow::importLocalXrayProfile);
+    connect(m_renameProfileBtn, &QPushButton::clicked, this, &MainWindow::renameSelectedLocalProfile);
+    connect(m_deleteProfileBtn, &QPushButton::clicked, this, &MainWindow::deleteSelectedLocalProfile);
+    connect(m_connectProfileBtn, &QPushButton::clicked, this, &MainWindow::connectSelectedLocalProfile);
+    connect(m_connectAccessXrayBtn, &QPushButton::clicked, this, &MainWindow::connectAccessXrayVless);
     connect(m_connectBtn, &QPushButton::clicked, this, [this]() {
         saveSettings();
         if (!m_connectBtn->isEnabled()) {
@@ -524,13 +637,52 @@ MainWindow::MainWindow(AuthSession* session, QWidget* parent)
         if (btnText == Datagate::tr("Connecting…") || btnText == Datagate::tr("Disconnecting…")) {
             return;
         }
-        if (m_vpn && btnText == Datagate::tr("Disconnect")) {
+        if (btnText == Datagate::tr("Disconnect")) {
             m_connectBtn->setEnabled(false);
             m_connectBtn->setText(Datagate::tr("Disconnecting…"));
             appendLog(Datagate::tr("Disconnecting…"));
-            m_vpn->disconnectVpn("Disconnect button");
+            disconnectAllTunnels("Disconnect button");
             return;
         }
+
+        const int mode = m_serverModeCombo->currentData().toInt();
+        if (mode == 2) {
+            const QString profileId = m_localProfileCombo ? m_localProfileCombo->currentData().toString() : QString();
+            if (profileId.isEmpty()) {
+                QMessageBox::warning(this, Datagate::tr("DataGate"),
+                    Datagate::tr("Choose a local profile or import an .ovpn / VLESS config."));
+                return;
+            }
+            const auto meta = LocalProfileStore::find(profileId);
+            if (!meta.has_value()) {
+                QMessageBox::warning(this, Datagate::tr("DataGate"), Datagate::tr("Profile not found."));
+                return;
+            }
+            disconnectAllTunnels("switch profile");
+            if (meta->type == LocalProfileStore::Type::Xray) {
+                QString err;
+                const QString json = LocalProfileStore::readXrayConfigText(profileId, &err);
+                if (json.isEmpty()) {
+                    QMessageBox::warning(this, Datagate::tr("DataGate"), err);
+                    return;
+                }
+                m_connectBtn->setEnabled(false);
+                m_connectBtn->setText(Datagate::tr("Connecting…"));
+                m_xray->connectFromConfigText(json, meta->name, profileId);
+                return;
+            }
+            QString err;
+            const QString ovpn = LocalProfileStore::readOvpnText(profileId, &err);
+            if (ovpn.isEmpty()) {
+                QMessageBox::warning(this, Datagate::tr("DataGate"), err);
+                return;
+            }
+            m_connectBtn->setEnabled(false);
+            m_connectBtn->setText(Datagate::tr("Connecting…"));
+            m_vpn->connectLocalOvpn(ovpn, meta->name, m_openVpnPath->text(), profileId);
+            return;
+        }
+
         const QString url = AppConfig::apiBaseUrl().trimmed();
         if (url.isEmpty()) {
             QMessageBox::warning(this, Datagate::tr("DataGate"), Datagate::tr("Api:BaseUrl is missing in appsettings.json."));
@@ -539,11 +691,13 @@ MainWindow::MainWindow(AuthSession* session, QWidget* parent)
         qCInfo(lcUi, "Connect: ensureValidAccessToken");
         if (!m_session->ensureValidAccessToken()) {
             qCWarning(lcUi, "Connect: ensureValidAccessToken failed");
+            const QString hint = m_session->lastEnsureFailure();
             QMessageBox::warning(
                 this,
                 Datagate::tr("DataGate"),
-                Datagate::tr("Could not obtain an access token. The API may be unavailable — try again later, "
-                             "or the session expired — sign out (Settings) and sign in again."));
+                hint.isEmpty()
+                    ? Datagate::tr("Could not obtain an access token. Sign in again from Settings → Logout.")
+                    : hint);
             return;
         }
         const QString tok = m_session->accessToken();
@@ -553,16 +707,32 @@ MainWindow::MainWindow(AuthSession* session, QWidget* parent)
         } else {
             applyVpnAccessInfoToAccessPage();
         }
-        const bool autoPick = m_serverModeCombo->currentData().toInt() == 0;
+        const bool autoPick = mode == 0;
         int manualId = 0;
+        int manualType = 0;
         if (!autoPick) {
             manualId = m_manualServerCombo->currentData().toInt();
+            manualType = m_manualServerCombo->currentData(Qt::UserRole + 1).toInt();
             if (manualId <= 0) {
                 QMessageBox::warning(
                     this, Datagate::tr("DataGate"), Datagate::tr("Choose a VPN server or refresh the list."));
                 return;
             }
         }
+        if (!autoPick && manualType == 1) {
+            const QString serverName = m_manualServerCombo->currentText();
+            QString cleanName = serverName;
+            const QString xraySuffix = Datagate::tr(" (Xray)");
+            const QString ovpnSuffix = Datagate::tr(" (OpenVPN)");
+            if (cleanName.endsWith(xraySuffix)) {
+                cleanName.chop(xraySuffix.size());
+            } else if (cleanName.endsWith(ovpnSuffix)) {
+                cleanName.chop(ovpnSuffix.size());
+            }
+            connectXrayForServer(manualId, cleanName);
+            return;
+        }
+        disconnectAllTunnels("switch to cloud OpenVPN");
         m_connectBtn->setEnabled(false);
         m_connectBtn->setText(Datagate::tr("Connecting…"));
         m_vpn->connectVpn(url, tok, m_openVpnPath->text(), autoPick, manualId);
@@ -573,31 +743,7 @@ MainWindow::MainWindow(AuthSession* session, QWidget* parent)
         emit logoutRequested();
     });
 
-    connect(m_vpn, &VpnSession::statusMessage, this, [this](const QString& t) {
-        m_status->setText(t);
-        appendLog(t);
-    });
-    connect(m_vpn, &VpnSession::errorMessage, this, [this](const QString& t) {
-        m_status->setText(t);
-        appendLog(Datagate::tr("Error: ") + t);
-        QMessageBox::warning(this, Datagate::tr("DataGate"), t);
-        updateConnectButtonUi(false);
-    });
-    connect(m_vpn, &VpnSession::openVpnCapabilitySetupRecommended, this,
-        &MainWindow::onOpenVpnCapabilityRecommended);
-    connect(m_vpn, &VpnSession::vpnUp, this, [this]() {
-        updateConnectButtonUi(true);
-        if (m_connectedToLabel) {
-            const QString n = m_vpn->activeServerName();
-            m_connectedToLabel->setText(Datagate::tr("Connected to: %1").arg(n.isEmpty() ? Datagate::tr("—") : n));
-        }
-    });
-    connect(m_vpn, &VpnSession::vpnDown, this, [this]() {
-        updateConnectButtonUi(false);
-        if (m_connectedToLabel) {
-            m_connectedToLabel->setText(Datagate::tr("Connected to: —"));
-        }
-    });
+    wireSessionSignals();
 
     loadSettings();
     updateServerModeUi();
@@ -627,9 +773,93 @@ void MainWindow::updateConnectButtonUi(bool vpnUp)
 
 void MainWindow::shutdownVpn()
 {
+    disconnectAllTunnels("application quit");
+}
+
+bool MainWindow::anyTunnelUp() const
+{
+    return m_vpnTunnelUp;
+}
+
+void MainWindow::disconnectAllTunnels(const char* reason)
+{
     if (m_vpn) {
-        m_vpn->disconnectVpn("application quit");
+        m_vpn->disconnectVpn(reason);
     }
+    if (m_xray) {
+        m_xray->disconnectXray(reason);
+    }
+}
+
+void MainWindow::wireSessionSignals()
+{
+    const auto onUp = [this](const QString& name) {
+        updateConnectButtonUi(true);
+        if (m_connectedToLabel) {
+            m_connectedToLabel->setText(Datagate::tr("Connected to: %1").arg(name.isEmpty() ? Datagate::tr("—") : name));
+        }
+    };
+    const auto onDown = [this]() {
+        // Another engine may still be up (should not happen, but keep UI honest).
+        if (m_xray && m_xray->isRunning()) {
+            updateConnectButtonUi(true);
+            if (m_connectedToLabel) {
+                m_connectedToLabel->setText(
+                    Datagate::tr("Connected to: %1").arg(m_xray->activeDisplayName()));
+            }
+            return;
+        }
+        if (m_vpn && !m_vpn->activeServerName().isEmpty()) {
+            updateConnectButtonUi(true);
+            if (m_connectedToLabel) {
+                m_connectedToLabel->setText(
+                    Datagate::tr("Connected to: %1").arg(m_vpn->activeServerName()));
+            }
+            return;
+        }
+        updateConnectButtonUi(false);
+        if (m_connectedToLabel) {
+            m_connectedToLabel->setText(Datagate::tr("Connected to: —"));
+        }
+    };
+
+    connect(m_vpn, &VpnSession::statusMessage, this, [this](const QString& t) {
+        m_status->setText(t);
+        appendLog(t);
+    });
+    connect(m_vpn, &VpnSession::errorMessage, this, [this](const QString& t) {
+        m_status->setText(t);
+        appendLog(Datagate::tr("Error: ") + t);
+        QMessageBox::warning(this, Datagate::tr("DataGate"), t);
+        updateConnectButtonUi(false);
+    });
+    connect(m_vpn, &VpnSession::openVpnCapabilitySetupRecommended, this,
+        &MainWindow::onOpenVpnCapabilityRecommended);
+    connect(m_vpn, &VpnSession::vpnUp, this, [this, onUp]() { onUp(m_vpn->activeServerName()); });
+    connect(m_vpn, &VpnSession::vpnDown, this, onDown);
+
+    connect(m_xray, &XraySession::statusMessage, this, [this](const QString& t) {
+        m_status->setText(t);
+        appendLog(t);
+    });
+    connect(m_xray, &XraySession::errorMessage, this, [this](const QString& t) {
+        m_status->setText(t);
+        appendLog(Datagate::tr("Error: ") + t);
+        QMessageBox::warning(this, Datagate::tr("DataGate"), t);
+        updateConnectButtonUi(false);
+    });
+    connect(m_xray, &XraySession::openVpnCapabilitySetupRecommended, this,
+        &MainWindow::onOpenVpnCapabilityRecommended);
+    connect(m_xray, &XraySession::vpnUp, this, [this, onUp]() {
+        QString label = m_xray->activeDisplayName();
+        if (AppConfig::xrayUseTun()) {
+            label += Datagate::tr(" (TUN + SOCKS :%1)").arg(AppConfig::xraySocksPort());
+        } else {
+            label += Datagate::tr(" (SOCKS :%1)").arg(AppConfig::xraySocksPort());
+        }
+        onUp(label);
+    });
+    connect(m_xray, &XraySession::vpnDown, this, onDown);
 }
 
 void MainWindow::showEvent(QShowEvent* e)
@@ -656,9 +886,19 @@ void MainWindow::loadSettings()
     m_themeDark->blockSignals(false);
     AppTheme::apply(dark);
 
-    const bool autoMode = s.value(QStringLiteral("connectServerModeAuto"), true).toBool();
+    const int savedMode = s.value(QStringLiteral("connectServerMode"), -1).toInt();
+    int modeIndex = 0;
+    if (savedMode == 0 || savedMode == 1 || savedMode == 2) {
+        modeIndex = m_serverModeCombo->findData(savedMode);
+    } else {
+        const bool autoMode = s.value(QStringLiteral("connectServerModeAuto"), true).toBool();
+        modeIndex = autoMode ? 0 : 1;
+    }
+    if (modeIndex < 0) {
+        modeIndex = 0;
+    }
     m_serverModeCombo->blockSignals(true);
-    m_serverModeCombo->setCurrentIndex(autoMode ? 0 : 1);
+    m_serverModeCombo->setCurrentIndex(modeIndex);
     m_serverModeCombo->blockSignals(false);
 
     const int savedId = s.value(QStringLiteral("manualVpnServerId"), 0).toInt();
@@ -666,6 +906,15 @@ void MainWindow::loadSettings()
         const int ix = m_manualServerCombo->findData(savedId);
         if (ix >= 0) {
             m_manualServerCombo->setCurrentIndex(ix);
+        }
+    }
+
+    refreshLocalProfilesUi();
+    const QString savedProfileId = s.value(QStringLiteral("localVpnProfileId")).toString();
+    if (!savedProfileId.isEmpty() && m_localProfileCombo) {
+        const int pix = m_localProfileCombo->findData(savedProfileId);
+        if (pix >= 0) {
+            m_localProfileCombo->setCurrentIndex(pix);
         }
     }
 
@@ -699,10 +948,18 @@ void MainWindow::saveSettings()
     QSettings s;
     s.setValue(QStringLiteral("openVpnCmd"), m_openVpnPath->text().trimmed());
     s.setValue(QStringLiteral("themeDark"), m_themeDark->isChecked());
-    s.setValue(QStringLiteral("connectServerModeAuto"), m_serverModeCombo->currentData().toInt() == 0);
+    const int mode = m_serverModeCombo->currentData().toInt();
+    s.setValue(QStringLiteral("connectServerMode"), mode);
+    s.setValue(QStringLiteral("connectServerModeAuto"), mode == 0);
     const int mid = m_manualServerCombo->currentData().toInt();
     if (mid > 0) {
         s.setValue(QStringLiteral("manualVpnServerId"), mid);
+    }
+    if (m_localProfileCombo) {
+        const QString pid = m_localProfileCombo->currentData().toString();
+        if (!pid.isEmpty()) {
+            s.setValue(QStringLiteral("localVpnProfileId"), pid);
+        }
     }
     s.setValue(QStringLiteral("General/language"), m_languageCombo->currentData().toString());
 }
@@ -722,12 +979,23 @@ void MainWindow::appendLog(const QString& line)
 
 void MainWindow::updateServerModeUi()
 {
-    const bool manual = m_serverModeCombo && m_serverModeCombo->currentData().toInt() != 0;
+    const int mode = m_serverModeCombo ? m_serverModeCombo->currentData().toInt() : 0;
+    const bool manual = mode == 1;
+    const bool local = mode == 2;
     if (m_manualServerWrap) {
         m_manualServerWrap->setVisible(manual);
     }
     if (m_manualServerCombo) {
         m_manualServerCombo->setEnabled(manual);
+    }
+    if (m_localProfileWrap) {
+        m_localProfileWrap->setVisible(local);
+    }
+    if (m_localProfileCombo) {
+        m_localProfileCombo->setEnabled(local);
+    }
+    if (local) {
+        refreshLocalProfilesUi();
     }
 }
 
@@ -762,36 +1030,60 @@ void MainWindow::grantOpenVpnCapNetAdmin()
         return;
     }
 #if defined(__linux__)
-    QProcess p;
-    p.start(QStringLiteral("pkexec"),
-        QStringList{QStringLiteral("setcap"), QStringLiteral("cap_net_admin+ep"), fi.canonicalFilePath()});
-    p.waitForFinished(-1);
-    const QString errOut = QString::fromUtf8(p.readAllStandardError()).trimmed();
-    const QString stdOut = QString::fromUtf8(p.readAllStandardOutput()).trimmed();
-    const QString combined = stdOut.isEmpty() ? errOut : (stdOut + Datagate::tr("\n") + errOut);
-    if (p.exitCode() == 0) {
-        const QString capVerify = DatagateUtils::linuxFileGetcapLine(fi.canonicalFilePath());
+    const auto runSetcap = [this](const QString& path) -> QPair<int, QString> {
+        QProcess p;
+        p.start(QStringLiteral("pkexec"),
+            QStringList{QStringLiteral("setcap"), QStringLiteral("cap_net_admin+ep"), path});
+        p.waitForFinished(-1);
+        const QString errOut = QString::fromUtf8(p.readAllStandardError()).trimmed();
+        const QString stdOut = QString::fromUtf8(p.readAllStandardOutput()).trimmed();
+        const QString combined = stdOut.isEmpty() ? errOut : (stdOut + Datagate::tr("\n") + errOut);
+        return {p.exitCode(), combined};
+    };
+
+    QStringList targets;
+    targets << fi.canonicalFilePath();
+    const QString xrayBeside =
+        QDir(QCoreApplication::applicationDirPath()).filePath(QStringLiteral("DataGateXray"));
+    const QFileInfo xrayFi(xrayBeside);
+    if (xrayFi.exists() && xrayFi.isExecutable()) {
+        const QString xrayCanon = xrayFi.canonicalFilePath();
+        if (!targets.contains(xrayCanon)) {
+            targets << xrayCanon;
+        }
+    }
+
+    QString report;
+    int failCount = 0;
+    for (const QString& target : targets) {
+        const auto [code, combined] = runSetcap(target);
+        const QString capVerify = DatagateUtils::linuxFileGetcapLine(target);
+        report += Datagate::tr("\n— %1 —\n").arg(target);
+        if (code == 0) {
+            appendLog(Datagate::tr("setcap cap_net_admin+ep on ") + target);
+            report += Datagate::tr("setcap OK.\ngetcap: %1\n")
+                          .arg(capVerify.isEmpty() ? Datagate::tr("(empty)") : capVerify);
+        } else {
+            ++failCount;
+            report += Datagate::tr("pkexec/setcap failed (exit %1).\n%2\n")
+                          .arg(code)
+                          .arg(combined.isEmpty() ? Datagate::tr("(no output)") : combined);
+        }
+    }
+
+    if (failCount == 0) {
         QMessageBox::information(this, Datagate::tr("DataGate"),
             Datagate::tr(
-                "setcap finished.\n%1\n\ngetcap:\n%2\n\n"
-                "You must quit DataGate completely and start it again — only a new process picks up file capabilities.\n\n"
-                "After each CMake rebuild, run Grant again (the new executable loses the previous capability).")
-                .arg(combined.isEmpty() ? Datagate::tr("(no pkexec output)") : combined,
-                    capVerify.isEmpty() ? Datagate::tr("(empty — run: getcap \"%1\")").arg(fi.canonicalFilePath())
-                                        : capVerify));
-        appendLog(Datagate::tr("setcap cap_net_admin+ep on ") + fi.canonicalFilePath());
-        if (capDataGateBinary) {
-            appendLog(Datagate::tr("Restart DataGate (exit app, then launch again) for TUN to work."));
-        }
+                "setcap finished for OpenVPN/helper and DataGateXray (when present).%1\n\n"
+                "You must quit DataGate completely and start it again — only a new process picks up file "
+                "capabilities.\n\n"
+                "After each CMake rebuild, run Grant again.")
+                .arg(report));
+        appendLog(Datagate::tr("Restart DataGate (exit app, then launch again) for TUN to work."));
     } else {
-        QMessageBox::warning(
-            this,
-            Datagate::tr("DataGate"),
-            Datagate::tr("pkexec/setcap failed (exit %1).\n\n%2\n\nManual:\n"
-                           "sudo setcap cap_net_admin+ep %3\ngetcap %3")
-                .arg(p.exitCode())
-                .arg(combined.isEmpty() ? Datagate::tr("(no output)") : combined)
-                .arg(fi.canonicalFilePath()));
+        QMessageBox::warning(this, Datagate::tr("DataGate"),
+            Datagate::tr("Some setcap calls failed.%1\n\nManual example:\nsudo setcap cap_net_admin+ep %2")
+                .arg(report, fi.canonicalFilePath()));
     }
 #else
     Q_UNUSED(exe);
@@ -827,16 +1119,24 @@ void MainWindow::onOpenVpnCapabilityRecommended(const QString& detail)
     if (box.clickedButton() == grantBtn) {
         grantOpenVpnCapNetAdmin();
     } else if (box.clickedButton() == settingsBtn) {
-        navigateTo(3);
+        navigateTo(4);
     }
 }
 
 void MainWindow::applyWssServerList(const QByteArray& statusJsonBody)
 {
-    const QVector<QPair<int, QString>> wss = DatagateUtils::listWssServersFromStatusJson(statusJsonBody);
+    const QVector<BestServer> servers = DatagateUtils::listManualConnectServersFromStatusJson(statusJsonBody);
     m_manualServerCombo->clear();
-    for (const auto& p : wss) {
-        m_manualServerCombo->addItem(p.second, p.first);
+    for (const BestServer& s : servers) {
+        QString label = s.name;
+        if (s.isXray()) {
+            label += Datagate::tr(" (Xray)");
+        } else {
+            label += Datagate::tr(" (OpenVPN)");
+        }
+        m_manualServerCombo->addItem(label, s.serverId);
+        const int ix = m_manualServerCombo->count() - 1;
+        m_manualServerCombo->setItemData(ix, s.serverType, Qt::UserRole + 1);
     }
     if (m_statisticsPanel) {
         const QString base = AppConfig::apiBaseUrl().trimmed();
@@ -865,16 +1165,19 @@ void MainWindow::refreshServers(bool showErrorDialogs)
                 this,
                 Datagate::tr("DataGate"),
                 Datagate::tr("Configure Api:BaseUrl in appsettings.json."));
-            navigateTo(3);
+            navigateTo(4);
         }
         return;
     }
     if (!m_session->ensureValidAccessToken()) {
         if (showErrorDialogs) {
+            const QString hint = m_session->lastEnsureFailure();
             QMessageBox::warning(
                 this,
                 Datagate::tr("DataGate"),
-                Datagate::tr("The API is unavailable — try again later. If your network is fine, sign out (Settings) and sign in again."));
+                hint.isEmpty()
+                    ? Datagate::tr("Could not refresh the session. Sign in again.")
+                    : hint);
         }
         return;
     }
@@ -887,9 +1190,16 @@ void MainWindow::refreshServers(bool showErrorDialogs)
     req.setRawHeader("Accept", "application/json");
     req.setRawHeader("Authorization", (QStringLiteral("Bearer ") + tok).toUtf8());
 
+    int keepServerId = 0;
+    if (m_serverTable && m_serverTable->currentRow() >= 0) {
+        if (QTableWidgetItem* it = m_serverTable->item(m_serverTable->currentRow(), 0)) {
+            keepServerId = it->data(Qt::UserRole).toInt();
+        }
+    }
+
     m_refreshServersBtn->setEnabled(false);
     QNetworkReply* reply = m_nam->get(req);
-    connect(reply, &QNetworkReply::finished, this, [this, reply, showErrorDialogs, base, tok]() {
+    connect(reply, &QNetworkReply::finished, this, [this, reply, showErrorDialogs, base, tok, keepServerId]() {
         m_refreshServersBtn->setEnabled(true);
         if (reply->error() != QNetworkReply::NoError) {
             const QString err = reply->errorString();
@@ -929,6 +1239,11 @@ void MainWindow::refreshServers(bool showErrorDialogs)
                 .value(QStringLiteral("openVpnServer"))
                 .toObject();
             const QString name = serverObj.value(QStringLiteral("serverName")).toString();
+            const int serverId = serverObj.value(QStringLiteral("id")).toInt(
+                serverObj.value(QStringLiteral("Id")).toInt(0));
+            const int serverType = serverObj.contains(QStringLiteral("serverType"))
+                ? serverObj.value(QStringLiteral("serverType")).toInt(0)
+                : serverObj.value(QStringLiteral("ServerType")).toInt(0);
             const bool online = serverObj.value(QStringLiteral("isOnline")).toBool();
             const int clients = item.value(QStringLiteral("countConnectedClients")).toInt();
             const QJsonValue acc1 = serverObj.value(QStringLiteral("isAccessibleForUserQuotaPlan"));
@@ -943,12 +1258,16 @@ void MainWindow::refreshServers(bool showErrorDialogs)
 
             const int row = m_serverTable->rowCount();
             m_serverTable->insertRow(row);
-            m_serverTable->setItem(row, 0,
-                new QTableWidgetItem(name.isEmpty() ? Datagate::tr("—") : name));
+            auto* nameCell = new QTableWidgetItem(name.isEmpty() ? Datagate::tr("—") : name);
+            nameCell->setData(Qt::UserRole, serverId);
+            nameCell->setData(Qt::UserRole + 1, serverType);
+            m_serverTable->setItem(row, 0, nameCell);
             m_serverTable->setItem(row, 1,
+                new QTableWidgetItem(serverType == 1 ? Datagate::tr("Xray") : Datagate::tr("OpenVPN")));
+            m_serverTable->setItem(row, 2,
                 new QTableWidgetItem(online ? Datagate::tr("yes") : Datagate::tr("no")));
-            m_serverTable->setItem(row, 2, new QTableWidgetItem(QString::number(clients)));
-            m_serverTable->setItem(row, 3,
+            m_serverTable->setItem(row, 3, new QTableWidgetItem(QString::number(clients)));
+            m_serverTable->setItem(row, 4,
                 new QTableWidgetItem(inPlan ? Datagate::tr("yes") : Datagate::tr("no")));
         }
         m_accessTotalClientsCount = totalClients;
@@ -957,6 +1276,25 @@ void MainWindow::refreshServers(bool showErrorDialogs)
                 Datagate::tr("Total clients: %1").arg(totalClients));
         }
         applyWssServerList(raw);
+
+        int restoreRow = -1;
+        if (keepServerId > 0) {
+            for (int r = 0; r < m_serverTable->rowCount(); ++r) {
+                if (QTableWidgetItem* it = m_serverTable->item(r, 0)) {
+                    if (it->data(Qt::UserRole).toInt() == keepServerId) {
+                        restoreRow = r;
+                        break;
+                    }
+                }
+            }
+        }
+        if (restoreRow < 0 && m_serverTable->rowCount() > 0) {
+            restoreRow = 0;
+        }
+        if (restoreRow >= 0) {
+            m_serverTable->setCurrentCell(restoreRow, 0);
+            m_serverTable->selectRow(restoreRow);
+        }
 
         QString accErr;
         if (DatagateUtils::fetchUserVpnAccessInfoSync(m_nam, base, tok, &m_lastVpnAccessInfo, &accErr)) {
@@ -1081,11 +1419,12 @@ void MainWindow::retranslateUi()
     if (m_appTitleLabel) {
         m_appTitleLabel->setText(Datagate::tr("DataGate OpenVPN 3"));
     }
-    if (m_nav && m_nav->count() >= 4) {
+    if (m_nav && m_nav->count() >= 5) {
         m_nav->item(0)->setText(Datagate::tr("Home"));
         m_nav->item(1)->setText(Datagate::tr("Access"));
-        m_nav->item(2)->setText(Datagate::tr("Statistics"));
-        m_nav->item(3)->setText(Datagate::tr("Settings"));
+        m_nav->item(2)->setText(Datagate::tr("Profiles"));
+        m_nav->item(3)->setText(Datagate::tr("Statistics"));
+        m_nav->item(4)->setText(Datagate::tr("Settings"));
     }
     if (m_welcomeLabel) {
         m_welcomeLabel->setText(Datagate::tr("Welcome to DataGate OpenVPN 3"));
@@ -1099,9 +1438,40 @@ void MainWindow::retranslateUi()
     if (m_manualServerLabel) {
         m_manualServerLabel->setText(Datagate::tr("Server:"));
     }
-    if (m_serverModeCombo) {
+    if (m_localProfileLabel) {
+        m_localProfileLabel->setText(Datagate::tr("Profile:"));
+    }
+    if (m_serverModeCombo && m_serverModeCombo->count() >= 3) {
         m_serverModeCombo->setItemText(0, Datagate::tr("Automatic (best server)"));
         m_serverModeCombo->setItemText(1, Datagate::tr("Choose server…"));
+        m_serverModeCombo->setItemText(2, Datagate::tr("Local profile…"));
+    }
+    if (m_profilesPageTitle) {
+        m_profilesPageTitle->setText(Datagate::tr("Profiles"));
+    }
+    if (m_profilesHint) {
+        m_profilesHint->setText(Datagate::tr(
+            "Import OpenVPN (.ovpn) or Xray (vless:// / JSON). Xray uses TUN (+ local SOCKS). "
+            "After connect, approve pkexec once to install TUN routes. "
+            "Grant TUN capability on DataGateXray after each rebuild."));
+    }
+    if (m_importOvpnBtn) {
+        m_importOvpnBtn->setText(Datagate::tr("Import .ovpn…"));
+    }
+    if (m_importXrayBtn) {
+        m_importXrayBtn->setText(Datagate::tr("Import VLESS / JSON…"));
+    }
+    if (m_renameProfileBtn) {
+        m_renameProfileBtn->setText(Datagate::tr("Rename"));
+    }
+    if (m_deleteProfileBtn) {
+        m_deleteProfileBtn->setText(Datagate::tr("Delete"));
+    }
+    if (m_connectProfileBtn) {
+        m_connectProfileBtn->setText(Datagate::tr("Connect"));
+    }
+    if (m_connectAccessXrayBtn) {
+        m_connectAccessXrayBtn->setText(Datagate::tr("Connect VLESS (Xray)…"));
     }
     if (m_logSectionTitle) {
         m_logSectionTitle->setText(Datagate::tr("Engine logs"));
@@ -1122,6 +1492,7 @@ void MainWindow::retranslateUi()
     if (m_serverTable) {
         m_serverTable->setHorizontalHeaderLabels({
             Datagate::tr("Server"),
+            Datagate::tr("Type"),
             Datagate::tr("Online"),
             Datagate::tr("Clients"),
             Datagate::tr("Plan access"),
@@ -1238,8 +1609,13 @@ void MainWindow::retranslateUi()
         }
     }
     if (m_connectedToLabel) {
-        if (m_vpnTunnelUp && m_vpn) {
-            const QString n = m_vpn->activeServerName();
+        if (m_vpnTunnelUp) {
+            QString n;
+            if (m_xray && m_xray->isRunning()) {
+                n = m_xray->activeDisplayName();
+            } else if (m_vpn) {
+                n = m_vpn->activeServerName();
+            }
             m_connectedToLabel->setText(
                 Datagate::tr("Connected to: %1").arg(n.isEmpty() ? Datagate::tr("—") : n));
         } else {
@@ -1249,6 +1625,393 @@ void MainWindow::retranslateUi()
     if (m_connectBtn && m_connectBtn->isEnabled()) {
         updateConnectButtonUi(m_vpnTunnelUp);
     }
+}
+
+QString MainWindow::selectedLocalProfileId() const
+{
+    if (!m_profilesList) {
+        return {};
+    }
+    QListWidgetItem* item = m_profilesList->currentItem();
+    if (!item) {
+        return {};
+    }
+    return item->data(Qt::UserRole).toString();
+}
+
+void MainWindow::updateLocalProfileActionsEnabled()
+{
+    const bool has = !selectedLocalProfileId().isEmpty();
+    if (m_renameProfileBtn) {
+        m_renameProfileBtn->setEnabled(has);
+    }
+    if (m_deleteProfileBtn) {
+        m_deleteProfileBtn->setEnabled(has);
+    }
+    if (m_connectProfileBtn) {
+        m_connectProfileBtn->setEnabled(has);
+    }
+}
+
+void MainWindow::selectLocalProfileInUi(const QString& profileId)
+{
+    if (profileId.isEmpty()) {
+        return;
+    }
+    if (m_localProfileCombo) {
+        const int ix = m_localProfileCombo->findData(profileId);
+        if (ix >= 0) {
+            m_localProfileCombo->setCurrentIndex(ix);
+        }
+    }
+    if (m_profilesList) {
+        for (int i = 0; i < m_profilesList->count(); ++i) {
+            if (m_profilesList->item(i)->data(Qt::UserRole).toString() == profileId) {
+                m_profilesList->setCurrentRow(i);
+                break;
+            }
+        }
+    }
+    updateLocalProfileActionsEnabled();
+}
+
+void MainWindow::refreshLocalProfilesUi()
+{
+    const QString keepHome = m_localProfileCombo ? m_localProfileCombo->currentData().toString() : QString();
+    const QString keepList = selectedLocalProfileId();
+
+    if (m_localProfileCombo) {
+        m_localProfileCombo->blockSignals(true);
+        m_localProfileCombo->clear();
+    }
+    if (m_profilesList) {
+        m_profilesList->clear();
+    }
+
+    const auto profiles = LocalProfileStore::list();
+    for (const LocalProfileStore::Profile& p : profiles) {
+        QString label = p.name;
+        if (p.type == LocalProfileStore::Type::Xray) {
+            label += Datagate::tr(" (Xray)");
+        } else {
+            label += Datagate::tr(" (OpenVPN)");
+        }
+        if (m_localProfileCombo) {
+            m_localProfileCombo->addItem(label, p.id);
+        }
+        if (m_profilesList) {
+            auto* item = new QListWidgetItem(label, m_profilesList);
+            item->setData(Qt::UserRole, p.id);
+        }
+    }
+
+    if (m_localProfileCombo) {
+        if (!keepHome.isEmpty()) {
+            const int ix = m_localProfileCombo->findData(keepHome);
+            if (ix >= 0) {
+                m_localProfileCombo->setCurrentIndex(ix);
+            }
+        }
+        m_localProfileCombo->blockSignals(false);
+    }
+    if (m_profilesList && !keepList.isEmpty()) {
+        for (int i = 0; i < m_profilesList->count(); ++i) {
+            if (m_profilesList->item(i)->data(Qt::UserRole).toString() == keepList) {
+                m_profilesList->setCurrentRow(i);
+                break;
+            }
+        }
+    }
+    updateLocalProfileActionsEnabled();
+}
+
+void MainWindow::importLocalOvpnProfile()
+{
+    const QString path = QFileDialog::getOpenFileName(
+        this,
+        Datagate::tr("Import OpenVPN profile"),
+        QString(),
+        Datagate::tr("OpenVPN configs (*.ovpn *.conf);;All files (*)"));
+    if (path.isEmpty()) {
+        return;
+    }
+    bool ok = false;
+    const QString suggested = QFileInfo(path).completeBaseName();
+    const QString name = QInputDialog::getText(
+        this,
+        Datagate::tr("Profile name"),
+        Datagate::tr("Display name:"),
+        QLineEdit::Normal,
+        suggested,
+        &ok)
+                             .trimmed();
+    if (!ok) {
+        return;
+    }
+    QString err;
+    const auto created = LocalProfileStore::importOvpn(path, name, &err);
+    if (!created.has_value()) {
+        QMessageBox::warning(this, Datagate::tr("Profiles"), err);
+        return;
+    }
+    refreshLocalProfilesUi();
+    selectLocalProfileInUi(created->id);
+    appendLog(Datagate::tr("Imported local profile: %1").arg(created->name));
+}
+
+void MainWindow::importLocalXrayProfile()
+{
+    QMessageBox box(this);
+    box.setWindowTitle(Datagate::tr("Import Xray"));
+    box.setText(Datagate::tr("Import a vless:// link or an Xray JSON config file."));
+    auto* uriBtn = box.addButton(Datagate::tr("Paste vless://…"), QMessageBox::AcceptRole);
+    auto* fileBtn = box.addButton(Datagate::tr("Choose JSON file…"), QMessageBox::AcceptRole);
+    box.addButton(QMessageBox::Cancel);
+    box.exec();
+    if (box.clickedButton() == uriBtn) {
+        bool ok = false;
+        const QString uri = QInputDialog::getMultiLineText(
+            this, Datagate::tr("Import VLESS"), Datagate::tr("vless:// link:"), QString(), &ok)
+                                .trimmed();
+        if (!ok || uri.isEmpty()) {
+            return;
+        }
+        bool nameOk = false;
+        const QString name = QInputDialog::getText(
+            this, Datagate::tr("Profile name"), Datagate::tr("Display name:"), QLineEdit::Normal, QString(), &nameOk)
+                                 .trimmed();
+        if (!nameOk) {
+            return;
+        }
+        QString err;
+        const auto created = LocalProfileStore::importXrayUri(uri, name, &err);
+        if (!created.has_value()) {
+            QMessageBox::warning(this, Datagate::tr("Profiles"), err);
+            return;
+        }
+        refreshLocalProfilesUi();
+        selectLocalProfileInUi(created->id);
+        appendLog(Datagate::tr("Imported Xray profile: %1").arg(created->name));
+        return;
+    }
+    if (box.clickedButton() != fileBtn) {
+        return;
+    }
+    const QString path = QFileDialog::getOpenFileName(
+        this,
+        Datagate::tr("Import Xray JSON"),
+        QString(),
+        Datagate::tr("JSON configs (*.json);;All files (*)"));
+    if (path.isEmpty()) {
+        return;
+    }
+    bool ok = false;
+    const QString suggested = QFileInfo(path).completeBaseName();
+    const QString name = QInputDialog::getText(
+        this, Datagate::tr("Profile name"), Datagate::tr("Display name:"), QLineEdit::Normal, suggested, &ok)
+                             .trimmed();
+    if (!ok) {
+        return;
+    }
+    QString err;
+    const auto created = LocalProfileStore::importXrayJsonFile(path, name, &err);
+    if (!created.has_value()) {
+        QMessageBox::warning(this, Datagate::tr("Profiles"), err);
+        return;
+    }
+    refreshLocalProfilesUi();
+    selectLocalProfileInUi(created->id);
+    appendLog(Datagate::tr("Imported Xray profile: %1").arg(created->name));
+}
+
+void MainWindow::renameSelectedLocalProfile()
+{
+    const QString id = selectedLocalProfileId();
+    if (id.isEmpty()) {
+        QMessageBox::information(this, Datagate::tr("Profiles"), Datagate::tr("Select a profile first."));
+        return;
+    }
+    const auto meta = LocalProfileStore::find(id);
+    bool ok = false;
+    const QString name = QInputDialog::getText(
+        this,
+        Datagate::tr("Rename profile"),
+        Datagate::tr("Display name:"),
+        QLineEdit::Normal,
+        meta.has_value() ? meta->name : QString(),
+        &ok)
+                             .trimmed();
+    if (!ok || name.isEmpty()) {
+        return;
+    }
+    QString err;
+    if (!LocalProfileStore::rename(id, name, &err)) {
+        QMessageBox::warning(this, Datagate::tr("Profiles"), err);
+        return;
+    }
+    refreshLocalProfilesUi();
+}
+
+void MainWindow::deleteSelectedLocalProfile()
+{
+    const QString id = selectedLocalProfileId();
+    if (id.isEmpty()) {
+        QMessageBox::information(this, Datagate::tr("Profiles"), Datagate::tr("Select a profile first."));
+        return;
+    }
+    if ((m_vpn && !m_vpn->activeLocalProfileId().isEmpty() && m_vpn->activeLocalProfileId() == id && m_vpnTunnelUp)
+        || (m_xray && !m_xray->activeLocalProfileId().isEmpty() && m_xray->activeLocalProfileId() == id
+            && m_xray->isRunning())) {
+        QMessageBox::warning(
+            this,
+            Datagate::tr("Profiles"),
+            Datagate::tr("Disconnect from this profile before deleting it."));
+        return;
+    }
+    const auto meta = LocalProfileStore::find(id);
+    const QString label = meta.has_value() ? meta->name : id;
+    const auto answer = QMessageBox::question(
+        this,
+        Datagate::tr("Profiles"),
+        Datagate::tr("Delete profile \"%1\"?").arg(label));
+    if (answer != QMessageBox::Yes) {
+        return;
+    }
+    QString err;
+    if (!LocalProfileStore::remove(id, &err)) {
+        QMessageBox::warning(this, Datagate::tr("Profiles"), err);
+        return;
+    }
+    refreshLocalProfilesUi();
+    appendLog(Datagate::tr("Deleted local profile: %1").arg(label));
+}
+
+void MainWindow::connectSelectedLocalProfile()
+{
+    const QString id = selectedLocalProfileId();
+    if (id.isEmpty()) {
+        QMessageBox::information(this, Datagate::tr("Profiles"), Datagate::tr("Select a profile first."));
+        return;
+    }
+    if (m_serverModeCombo) {
+        const int ix = m_serverModeCombo->findData(2);
+        if (ix >= 0) {
+            m_serverModeCombo->setCurrentIndex(ix);
+        }
+    }
+    if (m_localProfileCombo) {
+        const int ix = m_localProfileCombo->findData(id);
+        if (ix >= 0) {
+            m_localProfileCombo->setCurrentIndex(ix);
+        }
+    }
+    updateServerModeUi();
+    navigateTo(0);
+    if (m_connectBtn) {
+        m_connectBtn->click();
+    }
+}
+
+void MainWindow::connectAccessXrayVless()
+{
+    if (!m_serverTable || m_serverTable->currentRow() < 0) {
+        QMessageBox::information(
+            this, Datagate::tr("Access"), Datagate::tr("Select a server row first."));
+        return;
+    }
+    const int row = m_serverTable->currentRow();
+    QTableWidgetItem* nameItem = m_serverTable->item(row, 0);
+    if (!nameItem) {
+        return;
+    }
+    const int serverId = nameItem->data(Qt::UserRole).toInt();
+    const int serverType = nameItem->data(Qt::UserRole + 1).toInt();
+    if (serverId <= 0) {
+        QMessageBox::warning(this, Datagate::tr("Access"), Datagate::tr("Invalid server id."));
+        return;
+    }
+    if (serverType != 1) {
+        QMessageBox::information(
+            this,
+            Datagate::tr("Access"),
+            Datagate::tr("Selected server is OpenVPN. Pick a row with Type = Xray, or use Home → Connect for OpenVPN."));
+        return;
+    }
+    connectXrayForServer(serverId, nameItem->text());
+}
+
+void MainWindow::connectXrayForServer(int serverId, const QString& serverName)
+{
+    const QString url = AppConfig::apiBaseUrl().trimmed();
+    if (url.isEmpty()) {
+        QMessageBox::warning(this, Datagate::tr("DataGate"), Datagate::tr("Api:BaseUrl is missing in appsettings.json."));
+        return;
+    }
+    if (!m_session->ensureValidAccessToken()) {
+        const QString hint = m_session->lastEnsureFailure();
+        QMessageBox::warning(
+            this,
+            Datagate::tr("DataGate"),
+            hint.isEmpty()
+                ? Datagate::tr("Could not obtain an access token. Sign in again.")
+                : hint);
+        return;
+    }
+    const QString tok = m_session->accessToken();
+    DatagateUtils::ensureInstallationId();
+    const QString ext = DatagateUtils::externalIdFromJwt(tok);
+    if (ext.isEmpty()) {
+        QMessageBox::warning(this, Datagate::tr("Access"),
+            Datagate::tr("Could not read externalId from JWT (need sub, externalId, or nameid)."));
+        return;
+    }
+    const QString installId = DatagateUtils::installationIdFromSettings();
+    // Stable CN (one link per user+server). Also try legacy device-scoped CN for older links.
+    const QString stableCn = QStringLiteral("ldg-xray-%1-%2").arg(serverId).arg(ext);
+    const QString legacyCn = QStringLiteral("ldg-xray-%1-%2-%3").arg(serverId).arg(ext).arg(installId);
+    const QString appVer = QCoreApplication::applicationVersion().trimmed();
+    const QString issuedTo = QStringLiteral("datagate linux app %1 user %2 device %3")
+                                 .arg(appVer.isEmpty() ? QStringLiteral("unknown") : appVer, ext, installId);
+
+    appendLog(Datagate::tr("Requesting Xray VLESS link for %1…").arg(serverName));
+    QString err;
+    const auto link = XrayClientLinksApi::ensureAndDownloadByCn(
+        m_nam, url, tok, serverId, QStringList{stableCn, legacyCn}, ext, issuedTo, &err);
+    if (!link.has_value()) {
+        QMessageBox::warning(this, Datagate::tr("Access"), err);
+        return;
+    }
+
+    QString buildErr;
+    const QString configJson = XrayConfigBuilder::clientConfigFromOpaqueText(
+        link->contentUtf8, AppConfig::xraySocksPort(), AppConfig::xrayUseTun(), &buildErr);
+    if (configJson.isEmpty()) {
+        QMessageBox::warning(this, Datagate::tr("Access"), buildErr);
+        return;
+    }
+
+    const QString profileName = serverName + Datagate::tr(" (Xray)");
+    QString importErr;
+    const auto saved = LocalProfileStore::upsertXrayJsonText(configJson, profileName, &importErr);
+    if (!saved.has_value()) {
+        QMessageBox::warning(this, Datagate::tr("Access"), importErr);
+        return;
+    }
+    refreshLocalProfilesUi();
+    selectLocalProfileInUi(saved->id);
+    if (m_serverModeCombo) {
+        const int ix = m_serverModeCombo->findData(2);
+        if (ix >= 0) {
+            m_serverModeCombo->setCurrentIndex(ix);
+        }
+    }
+    updateServerModeUi();
+
+    disconnectAllTunnels("Access Xray connect");
+    navigateTo(0);
+    m_connectBtn->setEnabled(false);
+    m_connectBtn->setText(Datagate::tr("Connecting…"));
+    m_xray->connectFromConfigText(configJson, profileName, saved->id);
 }
 
 void MainWindow::checkFreeTierOnboarding()

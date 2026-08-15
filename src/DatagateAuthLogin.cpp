@@ -551,6 +551,10 @@ void showFreeTierOnboardingIfRequired(QNetworkAccessManager* nam,
     if (auth.isEmpty()) {
         return;
     }
+    // Admins are not gated by Free/Default Telegram bot compliance.
+    if (jwtIsAdmin(auth)) {
+        return;
+    }
 
     QString err;
     const FreeTierAccessStatus st = fetchFreeTierAccessStatusSync(nam, apiBaseUrl, auth, &err);

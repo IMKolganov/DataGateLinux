@@ -33,11 +33,17 @@ public:
     void connectVpn(const QString& backendBaseUrl, const QString& bearerAccessToken,
         const QString& openVpnExecutable, bool autoPickServer = true, int manualServerId = 0);
 
-    /// Last server selected after a successful fetch (for UI labels).
+    /// Direct OpenVPN (imported .ovpn): no WSS bridges, remotes left as in the file.
+    void connectLocalOvpn(const QString& ovpnText, const QString& displayName, const QString& openVpnExecutable,
+        const QString& localProfileId = QString());
+
+    /// Last server/profile name after a successful connect start (for UI labels).
     QString activeServerName() const { return m_server.name; }
+    QString activeLocalProfileId() const { return m_localProfileId; }
     /// reason is logged (e.g. why OpenVPN received SIGTERM). Pass nullptr for default.
     void disconnectVpn(const char* reason = nullptr);
 
+    /// Future Access/cloud Xray uses XrayClientLinksApi + XraySession (not VpnSession).
 signals:
     void statusMessage(const QString& text);
     void errorMessage(const QString& text);
@@ -51,7 +57,12 @@ private:
     void stepTryDownload(bool afterCreate);
     void stepCreateOnServer();
     void stepStartBridgeAndOpenVpn(const QString& configText);
+    /// useWssBridge: patch remote to localhost + start bridges. Direct: keep remotes, no bridges.
+    void startOpenVpnEngine(const QString& configText, bool useWssBridge);
     void stopBridges();
+
+    bool isOpenVpnEngineBusy() const;
+    bool beginConnectAttempt(const QString& openVpnExecutable);
 
     void onOpenVpnFinished(int exitCode, QProcess::ExitStatus st);
     void onOpenVpnError(QProcess::ProcessError e);
@@ -60,7 +71,7 @@ private:
     void abortPendingReplies();
 
 #if defined(DATAGATE_EMBEDDED_OPENVPN3)
-    void startEmbeddedOpenVpn3(const QString& patchedConfigUtf8, bool useUdp, quint16 bridgePort);
+    void startEmbeddedOpenVpn3(const QString& patchedConfigUtf8, bool useUdp, quint16 bridgePort, bool viaWssBridge);
 #if !defined(DATAGATE_EMBEDDED_OPENVPN3_USE_EXTERNAL_HELPER)
     void onOvpn3ThreadFinished(const QString& errorMessage);
 #else
@@ -96,6 +107,7 @@ private:
     int m_manualServerId = 0;
     BestServer m_server;
     QString m_commonName;
+    QString m_localProfileId;
 
     bool m_connecting = false;
     bool m_disconnecting = false;

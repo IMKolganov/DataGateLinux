@@ -141,6 +141,14 @@ LoginDialog::LoginDialog(AuthSession* session, QNetworkAccessManager* nam, QWidg
     });
 
     connect(m_cancel, &QPushButton::clicked, this, [this]() {
+        if (m_oauthInProgress) {
+            m_google->cancelOAuth();
+            m_oauthInProgress = false;
+            m_signIn->setEnabled(true);
+            m_cancel->setText(Datagate::tr("Quit"));
+            m_status->setText(Datagate::tr("Sign-in cancelled. Click “Sign in with Google” to try again."));
+            return;
+        }
         m_google->cancelOAuth();
         reject();
     });
@@ -154,16 +162,22 @@ LoginDialog::LoginDialog(AuthSession* session, QNetworkAccessManager* nam, QWidg
                 Datagate::tr("Configure Api:BaseUrl and GoogleAuth:ClientId in appsettings.json."));
             return;
         }
+        m_oauthInProgress = true;
         m_signIn->setEnabled(false);
+        m_cancel->setText(Datagate::tr("Cancel sign-in"));
         m_status->setText(Datagate::tr("Waiting for browser sign-in…"));
         m_google->signInWithGoogle(cid, AppConfig::googleRedirectPort(), api);
     });
     connect(m_google, &GoogleAuthHelper::finishedSuccess, this, [this](const QJsonObject& data) {
+        m_oauthInProgress = false;
         m_signIn->setEnabled(true);
+        m_cancel->setText(Datagate::tr("Quit"));
         handleLoginData(data);
     });
     connect(m_google, &GoogleAuthHelper::finishedError, this, [this](const QString& err) {
+        m_oauthInProgress = false;
         m_signIn->setEnabled(true);
+        m_cancel->setText(Datagate::tr("Quit"));
         showSignInPage();
         const QString silent = QStringLiteral("[silent]");
         if (err.startsWith(silent)) {
@@ -281,7 +295,7 @@ void LoginDialog::retranslateUi()
         m_langLabel->setText(Datagate::tr("Language"));
     }
     if (m_cancel) {
-        m_cancel->setText(Datagate::tr("Cancel"));
+        m_cancel->setText(m_oauthInProgress ? Datagate::tr("Cancel sign-in") : Datagate::tr("Quit"));
     }
     if (m_signIn) {
         m_signIn->setText(Datagate::tr("Sign in with Google"));

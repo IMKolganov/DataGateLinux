@@ -203,3 +203,96 @@
 {"en": "Used %1 / %2 (%3%)", "ru": "Использовано %1 из %2 (%3%)", "fr": "Utilisé %1 / %2 (%3%)", "el": "Χρησιμοποιήθηκαν %1 / %2 (%3%)"}
 {"en": "Over by %1", "ru": "Превышение на %1", "fr": "Dépassement de %1", "el": "Υπέρβαση κατά %1"}
 {"en": "Remaining %1", "ru": "Осталось %1", "fr": "Restant %1", "el": "Απομένουν %1"}
+{"en": "Profiles", "ru": "Профили", "fr": "Profils", "el": "Προφίλ"}
+{"en": "Local profile…", "ru": "Локальный профиль…", "fr": "Profil local…", "el": "Τοπικό προφίλ…"}
+{"en": "Profile:", "ru": "Профиль:", "fr": "Profil :", "el": "Προφίλ:"}
+{"en": "Import your own .ovpn files and connect directly (without the DataGate WSS bridge).", "ru": "Импортируйте свои .ovpn и подключайтесь напрямую (без WSS-моста DataGate).", "fr": "Importez vos fichiers .ovpn et connectez-vous directement (sans le pont WSS DataGate).", "el": "Εισαγάγετε τα δικά σας .ovpn και συνδεθείτε απευθείας (χωρίς τη γέφυρα WSS του DataGate)."}
+{"en": "Import .ovpn…", "ru": "Импорт .ovpn…", "fr": "Importer .ovpn…", "el": "Εισαγωγή .ovpn…"}
+{"en": "Rename", "ru": "Переименовать", "fr": "Renommer", "el": "Μετονομασία"}
+{"en": "Delete", "ru": "Удалить", "fr": "Supprimer", "el": "Διαγραφή"}
+{"en": "Xray profiles: Coming soon.", "ru": "Профили Xray: скоро.", "fr": "Profils Xray : bientôt disponible.", "el": "Προφίλ Xray: Σύντομα."}
+{"en": "Choose a local profile or import an .ovpn file.", "ru": "Выберите локальный профиль или импортируйте .ovpn.", "fr": "Choisissez un profil local ou importez un fichier .ovpn.", "el": "Επιλέξτε τοπικό προφίλ ή εισαγάγετε αρχείο .ovpn."}
+{"en": "Local profile", "ru": "Локальный профиль", "fr": "Profil local", "el": "Τοπικό προφίλ"}
+{"en": "OpenVPN profile is empty.", "ru": "Профиль OpenVPN пуст.", "fr": "Le profil OpenVPN est vide.", "el": "Το προφίλ OpenVPN είναι κενό."}
+{"en": "No valid remote line found in the .ovpn file.", "ru": "В .ovpn не найдена корректная строка remote.", "fr": "Aucune ligne remote valide trouvée dans le fichier .ovpn.", "el": "Δεν βρέθηκε έγκυρη γραμμή remote στο αρχείο .ovpn."}
+{"en": "Connecting to local profile: %1", "ru": "Подключение к локальному профилю: %1", "fr": "Connexion au profil local : %1", "el": "Σύνδεση στο τοπικό προφίλ: %1"}
+{"en": "Direct OpenVPN (no WSS bridge)…", "ru": "Прямой OpenVPN (без WSS)…", "fr": "OpenVPN direct (sans pont WSS)…", "el": "Άμεσο OpenVPN (χωρίς γέφυρα WSS)…"}
+{"en": "Import OpenVPN profile", "ru": "Импорт профиля OpenVPN", "fr": "Importer un profil OpenVPN", "el": "Εισαγωγή προφίλ OpenVPN"}
+{"en": "OpenVPN configs (*.ovpn *.conf);;All files (*)", "ru": "Конфиги OpenVPN (*.ovpn *.conf);;Все файлы (*)", "fr": "Configs OpenVPN (*.ovpn *.conf);;Tous les fichiers (*)", "el": "Ρυθμίσεις OpenVPN (*.ovpn *.conf);;Όλα τα αρχεία (*)"}
+{"en": "Profile name", "ru": "Имя профиля", "fr": "Nom du profil", "el": "Όνομα προφίλ"}
+{"en": "Display name:", "ru": "Отображаемое имя:", "fr": "Nom affiché :", "el": "Εμφανιζόμενο όνομα:"}
+{"en": "Imported local profile: %1", "ru": "Импортирован локальный профиль: %1", "fr": "Profil local importé : %1", "el": "Εισήχθη τοπικό προφίλ: %1"}
+{"en": "Select a profile first.", "ru": "Сначала выберите профиль.", "fr": "Sélectionnez d’abord un profil.", "el": "Επιλέξτε πρώτα ένα προφίλ."}
+{"en": "Rename profile", "ru": "Переименовать профиль", "fr": "Renommer le profil", "el": "Μετονομασία προφίλ"}
+{"en": "Disconnect from this profile before deleting it.", "ru": "Отключитесь от этого профиля перед удалением.", "fr": "Déconnectez-vous de ce profil avant de le supprimer.", "el": "Αποσυνδεθείτε από αυτό το προφίλ πριν το διαγράψετε."}
+{"en": "Delete profile \"%1\"?", "ru": "Удалить профиль «%1»?", "fr": "Supprimer le profil « %1 » ?", "el": "Διαγραφή προφίλ «%1»;"}
+{"en": "Deleted local profile: %1", "ru": "Удалён локальный профиль: %1", "fr": "Profil local supprimé : %1", "el": "Διαγράφηκε τοπικό προφίλ: %1"}
+{"en": "App local data path is unavailable.", "ru": "Путь к локальным данным приложения недоступен.", "fr": "Chemin des données locales de l’application indisponible.", "el": "Η διαδρομή τοπικών δεδομένων της εφαρμογής δεν είναι διαθέσιμη."}
+{"en": "Could not create profiles directory.", "ru": "Не удалось создать каталог профилей.", "fr": "Impossible de créer le dossier des profils.", "el": "Δεν ήταν δυνατή η δημιουργία φακέλου προφίλ."}
+{"en": "Could not write profiles index.", "ru": "Не удалось записать индекс профилей.", "fr": "Impossible d’écrire l’index des profils.", "el": "Δεν ήταν δυνατή η εγγραφή ευρετηρίου προφίλ."}
+{"en": "Could not create profile folder.", "ru": "Не удалось создать папку профиля.", "fr": "Impossible de créer le dossier du profil.", "el": "Δεν ήταν δυνατή η δημιουργία φακέλου προφίλ."}
+{"en": "Could not write profile.json.", "ru": "Не удалось записать profile.json.", "fr": "Impossible d’écrire profile.json.", "el": "Δεν ήταν δυνατή η εγγραφή του profile.json."}
+{"en": "Could not read the selected file.", "ru": "Не удалось прочитать выбранный файл.", "fr": "Impossible de lire le fichier sélectionné.", "el": "Δεν ήταν δυνατή η ανάγνωση του επιλεγμένου αρχείου."}
+{"en": "The OpenVPN file is empty.", "ru": "Файл OpenVPN пуст.", "fr": "Le fichier OpenVPN est vide.", "el": "Το αρχείο OpenVPN είναι κενό."}
+{"en": "OpenVPN profile", "ru": "Профиль OpenVPN", "fr": "Profil OpenVPN", "el": "Προφίλ OpenVPN"}
+{"en": "Could not write config.ovpn.", "ru": "Не удалось записать config.ovpn.", "fr": "Impossible d’écrire config.ovpn.", "el": "Δεν ήταν δυνατή η εγγραφή του config.ovpn."}
+{"en": "Invalid profile name.", "ru": "Некорректное имя профиля.", "fr": "Nom de profil invalide.", "el": "Μη έγκυρο όνομα προφίλ."}
+{"en": "Profile not found.", "ru": "Профиль не найден.", "fr": "Profil introuvable.", "el": "Το προφίλ δεν βρέθηκε."}
+{"en": "Invalid profile id.", "ru": "Некорректный id профиля.", "fr": "Identifiant de profil invalide.", "el": "Μη έγκυρο αναγνωριστικό προφίλ."}
+{"en": "Profile is not an OpenVPN config.", "ru": "Профиль не является конфигом OpenVPN.", "fr": "Le profil n’est pas une config OpenVPN.", "el": "Το προφίλ δεν είναι ρύθμιση OpenVPN."}
+{"en": "Could not read config.ovpn.", "ru": "Не удалось прочитать config.ovpn.", "fr": "Impossible de lire config.ovpn.", "el": "Δεν ήταν δυνατή η ανάγνωση του config.ovpn."}
+{"en": "Import VLESS / JSON…", "ru": "Импорт VLESS / JSON…", "fr": "Importer VLESS / JSON…", "el": "Εισαγωγή VLESS / JSON…"}
+{"en": "Import OpenVPN (.ovpn) or Xray (vless:// / JSON) profiles and connect without the DataGate WSS bridge.", "ru": "Импортируйте OpenVPN (.ovpn) или Xray (vless:// / JSON) и подключайтесь без WSS-моста DataGate.", "fr": "Importez OpenVPN (.ovpn) ou Xray (vless:// / JSON) et connectez-vous sans le pont WSS DataGate.", "el": "Εισαγάγετε OpenVPN (.ovpn) ή Xray (vless:// / JSON) και συνδεθείτε χωρίς τη γέφυρα WSS του DataGate."}
+{"en": "Connect VLESS (Xray)…", "ru": "Подключить VLESS (Xray)…", "fr": "Connecter VLESS (Xray)…", "el": "Σύνδεση VLESS (Xray)…"}
+{"en": " (Xray)", "ru": " (Xray)", "fr": " (Xray)", "el": " (Xray)"}
+{"en": " (OpenVPN)", "ru": " (OpenVPN)", "fr": " (OpenVPN)", "el": " (OpenVPN)"}
+{"en": "Import Xray", "ru": "Импорт Xray", "fr": "Importer Xray", "el": "Εισαγωγή Xray"}
+{"en": "Import a vless:// link or an Xray JSON config file.", "ru": "Импортируйте ссылку vless:// или JSON-конфиг Xray.", "fr": "Importez un lien vless:// ou un fichier JSON Xray.", "el": "Εισαγάγετε σύνδεσμο vless:// ή αρχείο JSON Xray."}
+{"en": "Paste vless://…", "ru": "Вставить vless://…", "fr": "Coller vless://…", "el": "Επικόλληση vless://…"}
+{"en": "Choose JSON file…", "ru": "Выбрать JSON…", "fr": "Choisir un fichier JSON…", "el": "Επιλογή αρχείου JSON…"}
+{"en": "Import VLESS", "ru": "Импорт VLESS", "fr": "Importer VLESS", "el": "Εισαγωγή VLESS"}
+{"en": "vless:// link:", "ru": "Ссылка vless://:", "fr": "Lien vless:// :", "el": "Σύνδεσμος vless://:"}
+{"en": "Imported Xray profile: %1", "ru": "Импортирован профиль Xray: %1", "fr": "Profil Xray importé : %1", "el": "Εισήχθη προφίλ Xray: %1"}
+{"en": "Import Xray JSON", "ru": "Импорт JSON Xray", "fr": "Importer JSON Xray", "el": "Εισαγωγή JSON Xray"}
+{"en": "JSON configs (*.json);;All files (*)", "ru": "JSON-конфиги (*.json);;Все файлы (*)", "fr": "Configs JSON (*.json);;Tous les fichiers (*)", "el": "Ρυθμίσεις JSON (*.json);;Όλα τα αρχεία (*)"}
+{"en": "Select a server row first.", "ru": "Сначала выберите строку сервера.", "fr": "Sélectionnez d’abord une ligne serveur.", "el": "Επιλέξτε πρώτα μια γραμμή διακομιστή."}
+{"en": "Invalid server id.", "ru": "Некорректный id сервера.", "fr": "Identifiant serveur invalide.", "el": "Μη έγκυρο αναγνωριστικό διακομιστή."}
+{"en": "Requesting Xray VLESS link for %1…", "ru": "Запрос VLESS-ссылки Xray для %1…", "fr": "Demande du lien VLESS Xray pour %1…", "el": "Αίτημα συνδέσμου VLESS Xray για %1…"}
+{"en": "Expected a vless:// link.", "ru": "Ожидалась ссылка vless://.", "fr": "Lien vless:// attendu.", "el": "Αναμενόταν σύνδεσμος vless://."}
+{"en": "Invalid vless:// URI (need uuid@host:port).", "ru": "Некорректный vless:// URI (нужен uuid@host:port).", "fr": "URI vless:// invalide (uuid@hôte:port requis).", "el": "Μη έγκυρο URI vless:// (απαιτείται uuid@host:port)."}
+{"en": "Invalid Xray JSON: %1", "ru": "Некорректный JSON Xray: %1", "fr": "JSON Xray invalide : %1", "el": "Μη έγκυρο JSON Xray: %1"}
+{"en": "JSON must be a full Xray config or a VLESS outbound object.", "ru": "JSON должен быть полным конфигом Xray или outbound VLESS.", "fr": "Le JSON doit être une config Xray complète ou un outbound VLESS.", "el": "Το JSON πρέπει να είναι πλήρες config Xray ή outbound VLESS."}
+{"en": "Xray profile", "ru": "Профиль Xray", "fr": "Profil Xray", "el": "Προφίλ Xray"}
+{"en": "Could not write config.json.", "ru": "Не удалось записать config.json.", "fr": "Impossible d’écrire config.json.", "el": "Δεν ήταν δυνατή η εγγραφή του config.json."}
+{"en": "Profile is not an Xray config.", "ru": "Профиль не является конфигом Xray.", "fr": "Le profil n’est pas une config Xray.", "el": "Το προφίλ δεν είναι ρύθμιση Xray."}
+{"en": "Could not read config.json.", "ru": "Не удалось прочитать config.json.", "fr": "Impossible de lire config.json.", "el": "Δεν ήταν δυνατή η ανάγνωση του config.json."}
+{"en": "Disconnect the current Xray session first.", "ru": "Сначала отключите текущую сессию Xray.", "fr": "Déconnectez d’abord la session Xray en cours.", "el": "Αποσυνδεθείτε πρώτα από την τρέχουσα συνεδρία Xray."}
+{"en": "Xray config is empty.", "ru": "Конфиг Xray пуст.", "fr": "La config Xray est vide.", "el": "Το config Xray είναι κενό."}
+{"en": "Could not create temporary Xray config file.", "ru": "Не удалось создать временный конфиг Xray.", "fr": "Impossible de créer le fichier de config Xray temporaire.", "el": "Δεν ήταν δυνατή η δημιουργία προσωρινού αρχείου config Xray."}
+{"en": "Xray config file not found.", "ru": "Файл конфига Xray не найден.", "fr": "Fichier de config Xray introuvable.", "el": "Το αρχείο config Xray δεν βρέθηκε."}
+{"en": "DataGateXray was not found next to this program (and no xray on PATH). Build with Go + third_party/xray-core, or install Xray-core.", "ru": "DataGateXray не найден рядом с программой (и нет xray в PATH). Соберите с Go + third_party/xray-core или установите Xray-core.", "fr": "DataGateXray introuvable à côté du programme (et pas de xray dans le PATH). Compilez avec Go + third_party/xray-core, ou installez Xray-core.", "el": "Το DataGateXray δεν βρέθηκε δίπλα στο πρόγραμμα (ούτε xray στο PATH). Δημιουργήστε build με Go + third_party/xray-core ή εγκαταστήστε Xray-core."}
+{"en": "Starting Xray: %1", "ru": "Запуск Xray: %1", "fr": "Démarrage de Xray : %1", "el": "Εκκίνηση Xray: %1"}
+{"en": "Xray did not start within 8s (%1).", "ru": "Xray не запустился за 8 с (%1).", "fr": "Xray n’a pas démarré en 8 s (%1).", "el": "Το Xray δεν ξεκίνησε εντός 8 δ ( %1)."}
+{"en": "Xray started (local SOCKS proxy).", "ru": "Xray запущен (локальный SOCKS-прокси).", "fr": "Xray démarré (proxy SOCKS local).", "el": "Το Xray ξεκίνησε (τοπικό SOCKS proxy)."}
+{"en": "Xray exited (code %1).", "ru": "Xray завершился (код %1).", "fr": "Xray s’est arrêté (code %1).", "el": "Το Xray τερματίστηκε (κωδικός %1)."}
+{"en": "Xray failed (exit %1).", "ru": "Ошибка Xray (код %1).", "fr": "Échec Xray (exit %1).", "el": "Αποτυχία Xray (έξοδος %1)."}
+{"en": "Xray failed (exit %1):\n%2", "ru": "Ошибка Xray (код %1):\n%2", "fr": "Échec Xray (exit %1) :\n%2", "el": "Αποτυχία Xray (έξοδος %1):\n%2"}
+{"en": "Xray process error: %1", "ru": "Ошибка процесса Xray: %1", "fr": "Erreur processus Xray : %1", "el": "Σφάλμα διεργασίας Xray: %1"}
+{"en": "Invalid JSON while loading Xray link.", "ru": "Некорректный JSON при загрузке Xray-ссылки.", "fr": "JSON invalide lors du chargement du lien Xray.", "el": "Μη έγκυρο JSON κατά τη φόρτωση συνδέσμου Xray."}
+{"en": "Xray link response has no content (base64).", "ru": "В ответе Xray-ссылки нет content (base64).", "fr": "La réponse du lien Xray n’a pas de content (base64).", "el": "Η απάντηση συνδέσμου Xray δεν έχει content (base64)."}
+{"en": "Not signed in or missing server id.", "ru": "Нет входа или не указан id сервера.", "fr": "Non connecté ou id serveur manquant.", "el": "Δεν υπάρχει σύνδεση ή λείπει το id διακομιστή."}
+{"en": "Create Xray link failed (HTTP %1).", "ru": "Не удалось создать Xray-ссылку (HTTP %1).", "fr": "Échec de création du lien Xray (HTTP %1).", "el": "Αποτυχία δημιουργίας συνδέσμου Xray (HTTP %1)."}
+{"en": "Xray link download failed (HTTP %1).", "ru": "Не удалось скачать Xray-ссылку (HTTP %1).", "fr": "Échec du téléchargement du lien Xray (HTTP %1).", "el": "Αποτυχία λήψης συνδέσμου Xray (HTTP %1)."}
+{"en": "Xray TUN requires CAP_NET_ADMIN on DataGateXray. Use Settings → Grant TUN capability (also applies to DataGateXray), then fully restart DataGate.", "ru": "TUN в Xray требует CAP_NET_ADMIN на DataGateXray. Settings → Grant TUN (также для DataGateXray), затем полностью перезапустите DataGate.", "fr": "Le TUN Xray nécessite CAP_NET_ADMIN sur DataGateXray. Paramètres → Accorder TUN (aussi DataGateXray), puis redémarrez DataGate.", "el": "Το TUN του Xray χρειάζεται CAP_NET_ADMIN στο DataGateXray. Ρυθμίσεις → Grant TUN, έπειτα επανεκκινήστε το DataGate."}
+{"en": "Xray started (TUN + SOCKS :%1). Grant TUN on DataGateXray if the tunnel fails.", "ru": "Xray запущен (TUN + SOCKS :%1). Выдайте Grant TUN на DataGateXray, если туннель не поднимается.", "fr": "Xray démarré (TUN + SOCKS :%1). Accordez TUN à DataGateXray si le tunnel échoue.", "el": "Το Xray ξεκίνησε (TUN + SOCKS :%1). Δώστε Grant TUN στο DataGateXray αν αποτύχει το τούνελ."}
+{"en": "Xray started (local SOCKS :%1).", "ru": "Xray запущен (локальный SOCKS :%1).", "fr": "Xray démarré (SOCKS local :%1).", "el": "Το Xray ξεκίνησε (τοπικό SOCKS :%1)."}
+{"en": "Could not find a vless:// link or a valid Xray JSON config in the response.", "ru": "В ответе нет ссылки vless:// и нет корректного JSON-конфига Xray.", "fr": "Aucun lien vless:// ni JSON Xray valide dans la réponse.", "el": "Δεν βρέθηκε σύνδεσμος vless:// ούτε έγκυρο JSON Xray στην απάντηση."}
+{"en": "Import OpenVPN (.ovpn) or Xray (vless:// / JSON). Xray uses TUN (+ local SOCKS). Grant TUN capability on DataGateXray after each rebuild.", "ru": "Импортируйте OpenVPN (.ovpn) или Xray (vless:// / JSON). Xray использует TUN (+ локальный SOCKS). После каждой пересборки выдайте Grant TUN на DataGateXray.", "fr": "Importez OpenVPN (.ovpn) ou Xray (vless:// / JSON). Xray utilise TUN (+ SOCKS local). Après chaque rebuild, accordez TUN à DataGateXray.", "el": "Εισαγάγετε OpenVPN (.ovpn) ή Xray (vless:// / JSON). Το Xray χρησιμοποιεί TUN (+ τοπικό SOCKS). Μετά από κάθε rebuild, δώστε Grant TUN στο DataGateXray."}
+{"en": "setcap finished for OpenVPN/helper and DataGateXray (when present).%1\n\nYou must quit DataGate completely and start it again — only a new process picks up file capabilities.\n\nAfter each CMake rebuild, run Grant again.", "ru": "setcap выполнен для OpenVPN/helper и DataGateXray (если есть).%1\n\nПолностью закройте DataGate и запустите снова — capability подхватывает только новый процесс.\n\nПосле каждой пересборки CMake снова нажмите Grant.", "fr": "setcap terminé pour OpenVPN/helper et DataGateXray (si présent).%1\n\nQuittez complètement DataGate puis relancez — seules les nouvelles capacités sont prises en compte.\n\nAprès chaque rebuild CMake, relancez Grant.", "el": "Το setcap ολοκληρώθηκε για OpenVPN/helper και DataGateXray (αν υπάρχει).%1\n\nΚλείστε πλήρως το DataGate και ανοίξτε ξανά.\n\nΜετά από κάθε CMake rebuild, ξανατρέξτε Grant."}
+{"en": "Some setcap calls failed.%1\n\nManual example:\nsudo setcap cap_net_admin+ep %2", "ru": "Часть вызовов setcap не удалась.%1\n\nВручную:\nsudo setcap cap_net_admin+ep %2", "fr": "Certains setcap ont échoué.%1\n\nExemple manuel :\nsudo setcap cap_net_admin+ep %2", "el": "Ορισμένα setcap απέτυχαν.%1\n\nΧειροκίνητα:\nsudo setcap cap_net_admin+ep %2"}
+{"en": "\n— %1 —\n", "ru": "\n— %1 —\n", "fr": "\n— %1 —\n", "el": "\n— %1 —\n"}
+{"en": "setcap OK.\ngetcap: %1\n", "ru": "setcap OK.\ngetcap: %1\n", "fr": "setcap OK.\ngetcap : %1\n", "el": "setcap OK.\ngetcap: %1\n"}
+{"en": "pkexec/setcap failed (exit %1).\n%2\n", "ru": "pkexec/setcap не удался (код %1).\n%2\n", "fr": "Échec pkexec/setcap (exit %1).\n%2\n", "el": "Αποτυχία pkexec/setcap (έξοδος %1).\n%2\n"}
+{"en": " (TUN + SOCKS :%1)", "ru": " (TUN + SOCKS :%1)", "fr": " (TUN + SOCKS :%1)", "el": " (TUN + SOCKS :%1)"}
+{"en": " (SOCKS :%1)", "ru": " (SOCKS :%1)", "fr": " (SOCKS :%1)", "el": " (SOCKS :%1)"}
+{"en": "(empty)", "ru": "(пусто)", "fr": "(vide)", "el": "(κενό)"}

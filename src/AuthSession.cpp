@@ -14,6 +14,7 @@
 
 #include "AppConfig.h"
 #include "AppLogging.h"
+#include "DatagateTr.h"
 
 namespace {
 
@@ -282,6 +283,8 @@ bool AuthSession::refreshTokenSync()
         QMutexLocker lock(&m_mutex);
         if (m_tokens.refreshToken.isEmpty()) {
             qCWarning(lcAuth, "refreshTokenSync: no refresh token");
+            m_lastEnsureFailure = Datagate::tr(
+                "No refresh token on disk (not signed in, or the session was cleared). Sign in again.");
             return false;
         }
         // If refreshExpiration is known and already past, do not call the API (Windows parity).
@@ -289,6 +292,8 @@ bool AuthSession::refreshTokenSync()
         if (m_tokens.refreshExpiration.isValid()
             && m_tokens.refreshExpiration.toUTC() <= QDateTime::currentDateTimeUtc().addSecs(5)) {
             qCWarning(lcAuth, "refreshTokenSync: refresh token expired");
+            m_lastEnsureFailure = Datagate::tr(
+                "Refresh token expired. Sign out (Settings) and sign in again.");
             return false;
         }
         refreshTok = m_tokens.refreshToken;
@@ -297,6 +302,8 @@ bool AuthSession::refreshTokenSync()
     const QString base = normBase(AppConfig::apiBaseUrl());
     if (base.isEmpty() || !m_nam) {
         qCWarning(lcAuth, "refreshTokenSync: no API base or QNetworkAccessManager");
+        m_lastEnsureFailure = Datagate::tr(
+            "Api:BaseUrl is missing in appsettings.json, or the network stack is not ready.");
         return false;
     }
 
@@ -324,10 +331,14 @@ bool AuthSession::refreshTokenSync()
         qCWarning(lcAuth, "refreshTokenSync: HTTP %d — clearing session", code);
         QMutexLocker lock(&m_mutex);
         clearFile();
+        m_lastEnsureFailure = Datagate::tr(
+            "Server rejected the refresh token (HTTP %1). Sign in again.").arg(code);
         return false;
     }
     if (nerr != QNetworkReply::NoError) {
         qCWarning(lcAuth, "refreshTokenSync: network error code %d", int(nerr));
+        m_lastEnsureFailure = Datagate::tr(
+            "Cannot reach the API to refresh the session (network error %1). Try again later.").arg(int(nerr));
         return false;
     }
 
@@ -335,16 +346,19 @@ bool AuthSession::refreshTokenSync()
     const QJsonDocument doc = QJsonDocument::fromJson(raw, &pe);
     if (pe.error != QJsonParseError::NoError || !doc.isObject()) {
         qCWarning(lcAuth, "refreshTokenSync: bad JSON %s", qPrintable(pe.errorString()));
+        m_lastEnsureFailure = Datagate::tr("Auth refresh returned invalid JSON.");
         return false;
     }
     const QJsonObject root = doc.object();
     if (!root.value(QStringLiteral("success")).toBool(false)) {
         qCWarning(lcAuth, "refreshTokenSync: success=false");
+        m_lastEnsureFailure = Datagate::tr("Auth refresh failed (success=false). Sign in again.");
         return false;
     }
     const QJsonObject data = root.value(QStringLiteral("data")).toObject();
     if (data.isEmpty()) {
         qCWarning(lcAuth, "refreshTokenSync: empty data");
+        m_lastEnsureFailure = Datagate::tr("Auth refresh returned an empty payload.");
         return false;
     }
 
@@ -352,27 +366,48 @@ bool AuthSession::refreshTokenSync()
     applyJsonObject(data);
     const bool saved = saveToFile();
     qCInfo(lcAuth, "refreshTokenSync: saved=%s", saved ? "yes" : "no");
-    return saved;
+    if (!saved) {
+        m_lastEnsureFailure = Datagate::tr("Could not write auth.json (check disk space / permissions).");
+        return false;
+    }
+    return true;
+}
+
+QString AuthSession::lastEnsureFailure() const
+{
+    QMutexLocker lock(&m_mutex);
+    return m_lastEnsureFailure;
 }
 
 bool AuthSession::ensureValidAccessToken()
 {
     {
         QMutexLocker lock(&m_mutex);
-        if (m_tokens.token.isEmpty()) {
+        m_lastEnsureFailure.clear();
+        const bool haveAccess = !m_tokens.token.isEmpty();
+        const bool haveRefresh = !m_tokens.refreshToken.isEmpty();
+        if (!haveAccess && !haveRefresh) {
             qCWarning(lcAuth, "ensureValidAccessToken: no access token");
+            m_lastEnsureFailure = Datagate::tr(
+                "Not signed in (no auth.json / tokens). Complete Google sign-in.");
             return false;
         }
-        if (isAccessValid()) {
+        if (haveAccess && isAccessValid()) {
             qCDebug(lcAuth, "ensureValidAccessToken: access still valid");
             return true;
         }
-        qCInfo(lcAuth, "ensureValidAccessToken: access expired or invalid — refreshing");
+        if (!haveRefresh) {
+            qCWarning(lcAuth, "ensureValidAccessToken: access invalid and no refresh token");
+            m_lastEnsureFailure = Datagate::tr(
+                "Access token expired and there is no refresh token. Sign in again.");
+            return false;
+        }
+        qCInfo(lcAuth, "ensureValidAccessToken: access expired or missing — refreshing");
     }
     QMutexLocker refreshLock(&m_refreshMutex);
     {
         QMutexLocker lock(&m_mutex);
-        if (isAccessValid()) {
+        if (!m_tokens.token.isEmpty() && isAccessValid()) {
             qCDebug(lcAuth, "ensureValidAccessToken: access valid after waiting for refresh");
             return true;
         }
@@ -384,17 +419,21 @@ bool AuthSession::ensureValidAccessToken()
     QMutexLocker lock(&m_mutex);
     if (isAccessValid()) {
         qCInfo(lcAuth, "ensureValidAccessToken: ok after refresh");
+        m_lastEnsureFailure.clear();
         return true;
     }
     bumpAccessExpirationIfInvalid();
     const bool saved = saveToFile();
     if (isAccessValid()) {
         qCInfo(lcAuth, "ensureValidAccessToken: ok after normalizing expiration (saved=%s)", saved ? "yes" : "no");
+        m_lastEnsureFailure.clear();
         return true;
     }
     qCWarning(lcAuth,
         "ensureValidAccessToken: refresh succeeded but access still invalid (check JWT exp vs API expiration; saved=%s)",
         saved ? "yes" : "no");
+    m_lastEnsureFailure = Datagate::tr(
+        "Refresh succeeded but the access token is still invalid. Sign in again.");
     return false;
 }
 

@@ -117,6 +117,7 @@ VpnSession::VpnSession(QObject* parent)
             const bool stoppedByUser = m_userStopVpn;
             m_userStopVpn = false;
             if (!stoppedByUser) {
+                m_localProfileId.clear();
                 emit vpnDown();
             }
         });
@@ -165,38 +166,51 @@ void VpnSession::abortPendingReplies()
     }
 }
 
-void VpnSession::connectVpn(const QString& backendBaseUrl, const QString& bearerAccessToken,
-    const QString& openVpnExecutable, bool autoPickServer, int manualServerId)
+bool VpnSession::isOpenVpnEngineBusy() const
 {
 #if defined(DATAGATE_EMBEDDED_OPENVPN3)
 #if defined(DATAGATE_EMBEDDED_OPENVPN3_USE_EXTERNAL_HELPER)
     if (m_ovpn3Helper && m_ovpn3Helper->state() != QProcess::NotRunning) {
-        emit errorMessage(Datagate::tr("Disconnect the current OpenVPN session first."));
-        return;
+        return true;
     }
 #else
     if (m_ovpn3Thread && m_ovpn3Thread->joinable()) {
-        emit errorMessage(Datagate::tr("Disconnect the current OpenVPN session first."));
-        return;
+        return true;
     }
 #endif
 #endif
-    if (m_ovpn->state() != QProcess::NotRunning) {
+    return m_ovpn && m_ovpn->state() != QProcess::NotRunning;
+}
+
+bool VpnSession::beginConnectAttempt(const QString& openVpnExecutable)
+{
+    if (isOpenVpnEngineBusy()) {
         emit errorMessage(Datagate::tr("Disconnect the current OpenVPN session first."));
-        return;
+        return false;
     }
     if (m_connecting) {
         emit errorMessage(Datagate::tr("Connection already in progress."));
-        return;
+        return false;
     }
     abortPendingReplies();
     m_connecting = true;
     m_userStopVpn = false;
+    m_localProfileId.clear();
+    m_openVpnExe = DatagateUtils::resolvedOpenVpnExecutable(openVpnExecutable);
+    return true;
+}
+
+void VpnSession::connectVpn(const QString& backendBaseUrl, const QString& bearerAccessToken,
+    const QString& openVpnExecutable, bool autoPickServer, int manualServerId)
+{
+    if (!beginConnectAttempt(openVpnExecutable)) {
+        return;
+    }
     m_autoPickServer = autoPickServer;
     m_manualServerId = manualServerId;
     m_baseUrl = backendBaseUrl.trimmed();
     m_token = bearerAccessToken.trimmed();
-    m_openVpnExe = DatagateUtils::resolvedOpenVpnExecutable(openVpnExecutable);
+    m_server = BestServer{};
 
     DatagateUtils::ensureInstallationId();
     const QString ext = DatagateUtils::externalIdFromJwt(m_token);
@@ -208,6 +222,36 @@ void VpnSession::connectVpn(const QString& backendBaseUrl, const QString& bearer
 
     emit statusMessage(Datagate::tr("Requesting server list…"));
     stepFetchServers();
+}
+
+void VpnSession::connectLocalOvpn(const QString& ovpnText, const QString& displayName,
+    const QString& openVpnExecutable, const QString& localProfileId)
+{
+    if (!beginConnectAttempt(openVpnExecutable)) {
+        return;
+    }
+    m_baseUrl.clear();
+    m_token.clear();
+    m_commonName.clear();
+    m_localProfileId = localProfileId.trimmed();
+    m_server = BestServer{};
+    m_server.name = displayName.trimmed().isEmpty() ? Datagate::tr("Local profile") : displayName.trimmed();
+
+    const QString text = ovpnText;
+    if (text.trimmed().isEmpty()) {
+        m_connecting = false;
+        emit errorMessage(Datagate::tr("OpenVPN profile is empty."));
+        return;
+    }
+    const ParsedRemote remote = DatagateUtils::parseFirstRemoteFromOvpn(text);
+    if (remote.host.isEmpty()) {
+        m_connecting = false;
+        emit errorMessage(Datagate::tr("No valid remote line found in the .ovpn file."));
+        return;
+    }
+
+    emit statusMessage(Datagate::tr("Connecting to local profile: %1").arg(m_server.name));
+    startOpenVpnEngine(text, /*useWssBridge=*/false);
 }
 
 void VpnSession::stepFetchServers()
@@ -248,8 +292,14 @@ void VpnSession::stepFetchServers()
             if (!best.has_value()) {
                 m_connecting = false;
                 emit errorMessage(
-                    Datagate::tr("Server id %1 not found or is not WSS-enabled (refresh the list on Access).")
+                    Datagate::tr("Server id %1 not found or is not connectable (refresh the list on Access).")
                         .arg(m_manualServerId));
+                return;
+            }
+            if (best->isXray()) {
+                m_connecting = false;
+                emit errorMessage(Datagate::tr(
+                    "This is an Xray (VLESS) server. Use Home → Choose server (Xray) or Access → Connect VLESS."));
                 return;
             }
             if (!best->isAccessibleForUserQuotaPlan) {
@@ -400,36 +450,14 @@ void VpnSession::stopBridges()
 
 void VpnSession::stepStartBridgeAndOpenVpn(const QString& configText)
 {
+    startOpenVpnEngine(configText, /*useWssBridge=*/true);
+}
+
+void VpnSession::startOpenVpnEngine(const QString& configText, bool useWssBridge)
+{
     const QString proto = DatagateUtils::tryGetProtoFromOvpn(configText).toLower();
     const bool useUdp = proto.startsWith(QStringLiteral("udp"));
     const ParsedRemote pr = DatagateUtils::parseFirstRemoteFromOvpn(configText);
-
-    const QUrl wss = DatagateUtils::wssProxyUrl(m_server.apiUrl, useUdp);
-    if (wss.isEmpty() || !wss.isValid()) {
-        m_connecting = false;
-        emit errorMessage(Datagate::tr("Invalid server apiUrl."));
-        return;
-    }
-
-    DatagateUtils::releaseStaleBridgePort(DatagateUtils::kDefaultBridgePort);
-    stopBridges();
-
-    const quint16 bridgePort = DatagateUtils::kDefaultBridgePort;
-    bool bridgeOk = false;
-    if (useUdp) {
-        bridgeOk = m_udpBridge->start(bridgePort, wss, pr.host, pr.port, AppConfig::udpBridgeFramed());
-    } else {
-        bridgeOk = m_tcpBridge->start(bridgePort, wss);
-    }
-
-    if (!bridgeOk) {
-        m_connecting = false;
-        emit errorMessage(
-            Datagate::tr("Could not bind local port %1 for the WSS bridge. Another process may still hold it "
-               "(e.g. orphan openvpn after killing DataGate). On Linux try: fuser -k %1/udp ; fuser -k %1/tcp")
-                .arg(bridgePort));
-        return;
-    }
 
     const bool ignoreRg = AppConfig::openVpnIgnoreRedirectGateway();
     if (ignoreRg) {
@@ -438,24 +466,65 @@ void VpnSession::stepStartBridgeAndOpenVpn(const QString& configText)
             "(see appsettings OpenVpn.IgnoreRedirectGateway)");
     }
 
-    // redirect-gateway sends all traffic via tun; WSS to the proxy and HTTPS to Api:BaseUrl must stay on LAN.
-    QStringList bypassHosts;
-    bypassHosts << wss.host();
-    const QUrl apiBase(AppConfig::apiBaseUrl().trimmed());
-    if (apiBase.isValid() && !apiBase.host().isEmpty() && apiBase.host() != wss.host()) {
-        bypassHosts << apiBase.host();
-    }
-    const QString routeBypass = DatagateUtils::openVpnRouteBypassNetGatewayLines(bypassHosts);
-    if (!routeBypass.isEmpty()) {
-        qCInfo(lcVpn, "OpenVPN: route bypass for WSS/API (net_gateway):\n%s", qPrintable(routeBypass.trimmed()));
-    }
+    QString engineConfig = configText;
+    quint16 bridgePort = 0;
 
-    const QString patched = DatagateUtils::patchOvpnRemoteToLocal(
-        configText, QStringLiteral("127.0.0.1"), bridgePort, ignoreRg, routeBypass);
+    if (useWssBridge) {
+        const QUrl wss = DatagateUtils::wssProxyUrl(m_server.apiUrl, useUdp);
+        if (wss.isEmpty() || !wss.isValid()) {
+            m_connecting = false;
+            emit errorMessage(Datagate::tr("Invalid server apiUrl."));
+            return;
+        }
+
+        DatagateUtils::releaseStaleBridgePort(DatagateUtils::kDefaultBridgePort);
+        stopBridges();
+
+        bridgePort = DatagateUtils::kDefaultBridgePort;
+        bool bridgeOk = false;
+        if (useUdp) {
+            bridgeOk = m_udpBridge->start(bridgePort, wss, pr.host, pr.port, AppConfig::udpBridgeFramed());
+        } else {
+            bridgeOk = m_tcpBridge->start(bridgePort, wss);
+        }
+
+        if (!bridgeOk) {
+            m_connecting = false;
+            emit errorMessage(
+                Datagate::tr("Could not bind local port %1 for the WSS bridge. Another process may still hold it "
+                   "(e.g. orphan openvpn after killing DataGate). On Linux try: fuser -k %1/udp ; fuser -k %1/tcp")
+                    .arg(bridgePort));
+            return;
+        }
+
+        // redirect-gateway sends all traffic via tun; WSS to the proxy and HTTPS to Api:BaseUrl must stay on LAN.
+        QStringList bypassHosts;
+        bypassHosts << wss.host();
+        const QUrl apiBase(AppConfig::apiBaseUrl().trimmed());
+        if (apiBase.isValid() && !apiBase.host().isEmpty() && apiBase.host() != wss.host()) {
+            bypassHosts << apiBase.host();
+        }
+        const QString routeBypass = DatagateUtils::openVpnRouteBypassNetGatewayLines(bypassHosts);
+        if (!routeBypass.isEmpty()) {
+            qCInfo(lcVpn, "OpenVPN: route bypass for WSS/API (net_gateway):\n%s", qPrintable(routeBypass.trimmed()));
+        }
+
+        engineConfig = DatagateUtils::patchOvpnRemoteToLocal(
+            configText, QStringLiteral("127.0.0.1"), bridgePort, ignoreRg, routeBypass);
+    } else {
+        stopBridges();
+        if (ignoreRg
+            && !engineConfig.contains(QLatin1String("pull-filter ignore \"redirect-gateway\""),
+                Qt::CaseInsensitive)) {
+            engineConfig += QStringLiteral("\npull-filter ignore \"redirect-gateway\"\n");
+        }
+        qCInfo(lcVpn, "OpenVPN: direct connect (no WSS) remote=%s port=%u", qPrintable(pr.host),
+            static_cast<unsigned>(pr.port));
+    }
 
 #if defined(DATAGATE_EMBEDDED_OPENVPN3)
     if (!AppConfig::openVpnUseSystemBinary()) {
-        QString embeddedBody = patched;
+        QString embeddedBody = engineConfig;
         {
 #if defined(OPENVPN_VERSION)
             const QString peerLabel = QStringLiteral(OPENVPN_VERSION);
@@ -473,12 +542,12 @@ void VpnSession::stepStartBridgeAndOpenVpn(const QString& configText)
             embeddedBody += QLatin1Char('\n');
             qCInfo(lcVpn, "OpenVPN 3 embedded: UV_DATAGATE_APP=%s", qPrintable(peerLabel));
         }
-        startEmbeddedOpenVpn3(embeddedBody, useUdp, bridgePort);
+        startEmbeddedOpenVpn3(embeddedBody, useUdp, bridgePort, useWssBridge);
         return;
     }
 #endif
 
-    QString ovpnFileBody = patched;
+    QString ovpnFileBody = engineConfig;
     {
         const QString peerLabel = DatagateUtils::datagateLinuxPeerVersionLabel(m_openVpnExe);
         if (!ovpnFileBody.contains(QLatin1String("push-peer-info"), Qt::CaseInsensitive)) {
@@ -503,8 +572,12 @@ void VpnSession::stepStartBridgeAndOpenVpn(const QString& configText)
     m_configFile->write(ovpnFileBody.toUtf8());
     m_configFile->flush();
 
-    emit statusMessage(useUdp ? Datagate::tr("UDP↔WSS bridge on port %1…").arg(bridgePort)
-                              : Datagate::tr("TCP↔WSS bridge on port %1…").arg(bridgePort));
+    if (useWssBridge) {
+        emit statusMessage(useUdp ? Datagate::tr("UDP↔WSS bridge on port %1…").arg(bridgePort)
+                                  : Datagate::tr("TCP↔WSS bridge on port %1…").arg(bridgePort));
+    } else {
+        emit statusMessage(Datagate::tr("Direct OpenVPN (no WSS bridge)…"));
+    }
     emit statusMessage(Datagate::tr("Starting OpenVPN…"));
 
     QStringList args;
@@ -609,6 +682,7 @@ void VpnSession::disconnectVpnInternal(bool force, const char* reason)
     }
 
     m_disconnecting = false;
+    m_localProfileId.clear();
     emit vpnDown();
 }
 
@@ -660,6 +734,7 @@ void VpnSession::onOpenVpnFinished(int exitCode, QProcess::ExitStatus st)
 
     // User-initiated disconnect already emitted vpnDown from disconnectVpnInternal.
     if (!stoppedByUser) {
+        m_localProfileId.clear();
         emit vpnDown();
     }
 }
@@ -711,11 +786,17 @@ void VpnSession::ovpn3HelperFlushProtocolLines()
 
 #endif // DATAGATE_EMBEDDED_OPENVPN3_USE_EXTERNAL_HELPER (flush)
 
-void VpnSession::startEmbeddedOpenVpn3(const QString& patched, bool useUdp, quint16 bridgePort)
+void VpnSession::startEmbeddedOpenVpn3(const QString& patched, bool useUdp, quint16 bridgePort, bool viaWssBridge)
 {
     m_ovpn3TunCapHintEmitted = false;
-    emit statusMessage(useUdp ? Datagate::tr("UDP↔WSS bridge on port %1…").arg(bridgePort)
-                              : Datagate::tr("TCP↔WSS bridge on port %1…").arg(bridgePort));
+    if (viaWssBridge) {
+        emit statusMessage(useUdp ? Datagate::tr("UDP↔WSS bridge on port %1…").arg(bridgePort)
+                                  : Datagate::tr("TCP↔WSS bridge on port %1…").arg(bridgePort));
+    } else {
+        emit statusMessage(Datagate::tr("Direct OpenVPN (no WSS bridge)…"));
+        Q_UNUSED(useUdp);
+        Q_UNUSED(bridgePort);
+    }
     emit statusMessage(Datagate::tr("Starting OpenVPN 3…"));
 
 #if defined(DATAGATE_EMBEDDED_OPENVPN3_USE_EXTERNAL_HELPER)
@@ -855,6 +936,7 @@ void VpnSession::onOvpn3ThreadFinished(const QString& errText)
     m_userStopVpn = false;
 
     if (!stoppedByUser) {
+        m_localProfileId.clear();
         emit vpnDown();
     }
 }

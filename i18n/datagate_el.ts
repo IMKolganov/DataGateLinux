@@ -852,5 +852,405 @@ See stderr log line "AppConfig: loaded …" when DATAGATE_LOG=1 or Debug build.<
       <source>Remaining %1</source>
       <translation>Απομένουν %1</translation>
     </message>
+    <message>
+      <source>Profiles</source>
+      <translation>Προφίλ</translation>
+    </message>
+    <message>
+      <source>Local profile…</source>
+      <translation>Τοπικό προφίλ…</translation>
+    </message>
+    <message>
+      <source>Profile:</source>
+      <translation>Προφίλ:</translation>
+    </message>
+    <message>
+      <source>Import your own .ovpn files and connect directly (without the DataGate WSS bridge).</source>
+      <translation>Εισαγάγετε τα δικά σας .ovpn και συνδεθείτε απευθείας (χωρίς τη γέφυρα WSS του DataGate).</translation>
+    </message>
+    <message>
+      <source>Import .ovpn…</source>
+      <translation>Εισαγωγή .ovpn…</translation>
+    </message>
+    <message>
+      <source>Rename</source>
+      <translation>Μετονομασία</translation>
+    </message>
+    <message>
+      <source>Delete</source>
+      <translation>Διαγραφή</translation>
+    </message>
+    <message>
+      <source>Xray profiles: Coming soon.</source>
+      <translation>Προφίλ Xray: Σύντομα.</translation>
+    </message>
+    <message>
+      <source>Choose a local profile or import an .ovpn file.</source>
+      <translation>Επιλέξτε τοπικό προφίλ ή εισαγάγετε αρχείο .ovpn.</translation>
+    </message>
+    <message>
+      <source>Local profile</source>
+      <translation>Τοπικό προφίλ</translation>
+    </message>
+    <message>
+      <source>OpenVPN profile is empty.</source>
+      <translation>Το προφίλ OpenVPN είναι κενό.</translation>
+    </message>
+    <message>
+      <source>No valid remote line found in the .ovpn file.</source>
+      <translation>Δεν βρέθηκε έγκυρη γραμμή remote στο αρχείο .ovpn.</translation>
+    </message>
+    <message>
+      <source>Connecting to local profile: %1</source>
+      <translation>Σύνδεση στο τοπικό προφίλ: %1</translation>
+    </message>
+    <message>
+      <source>Direct OpenVPN (no WSS bridge)…</source>
+      <translation>Άμεσο OpenVPN (χωρίς γέφυρα WSS)…</translation>
+    </message>
+    <message>
+      <source>Import OpenVPN profile</source>
+      <translation>Εισαγωγή προφίλ OpenVPN</translation>
+    </message>
+    <message>
+      <source>OpenVPN configs (*.ovpn *.conf);;All files (*)</source>
+      <translation>Ρυθμίσεις OpenVPN (*.ovpn *.conf);;Όλα τα αρχεία (*)</translation>
+    </message>
+    <message>
+      <source>Profile name</source>
+      <translation>Όνομα προφίλ</translation>
+    </message>
+    <message>
+      <source>Display name:</source>
+      <translation>Εμφανιζόμενο όνομα:</translation>
+    </message>
+    <message>
+      <source>Imported local profile: %1</source>
+      <translation>Εισήχθη τοπικό προφίλ: %1</translation>
+    </message>
+    <message>
+      <source>Select a profile first.</source>
+      <translation>Επιλέξτε πρώτα ένα προφίλ.</translation>
+    </message>
+    <message>
+      <source>Rename profile</source>
+      <translation>Μετονομασία προφίλ</translation>
+    </message>
+    <message>
+      <source>Disconnect from this profile before deleting it.</source>
+      <translation>Αποσυνδεθείτε από αυτό το προφίλ πριν το διαγράψετε.</translation>
+    </message>
+    <message>
+      <source>Delete profile "%1"?</source>
+      <translation>Διαγραφή προφίλ «%1»;</translation>
+    </message>
+    <message>
+      <source>Deleted local profile: %1</source>
+      <translation>Διαγράφηκε τοπικό προφίλ: %1</translation>
+    </message>
+    <message>
+      <source>App local data path is unavailable.</source>
+      <translation>Η διαδρομή τοπικών δεδομένων της εφαρμογής δεν είναι διαθέσιμη.</translation>
+    </message>
+    <message>
+      <source>Could not create profiles directory.</source>
+      <translation>Δεν ήταν δυνατή η δημιουργία φακέλου προφίλ.</translation>
+    </message>
+    <message>
+      <source>Could not write profiles index.</source>
+      <translation>Δεν ήταν δυνατή η εγγραφή ευρετηρίου προφίλ.</translation>
+    </message>
+    <message>
+      <source>Could not create profile folder.</source>
+      <translation>Δεν ήταν δυνατή η δημιουργία φακέλου προφίλ.</translation>
+    </message>
+    <message>
+      <source>Could not write profile.json.</source>
+      <translation>Δεν ήταν δυνατή η εγγραφή του profile.json.</translation>
+    </message>
+    <message>
+      <source>Could not read the selected file.</source>
+      <translation>Δεν ήταν δυνατή η ανάγνωση του επιλεγμένου αρχείου.</translation>
+    </message>
+    <message>
+      <source>The OpenVPN file is empty.</source>
+      <translation>Το αρχείο OpenVPN είναι κενό.</translation>
+    </message>
+    <message>
+      <source>OpenVPN profile</source>
+      <translation>Προφίλ OpenVPN</translation>
+    </message>
+    <message>
+      <source>Could not write config.ovpn.</source>
+      <translation>Δεν ήταν δυνατή η εγγραφή του config.ovpn.</translation>
+    </message>
+    <message>
+      <source>Invalid profile name.</source>
+      <translation>Μη έγκυρο όνομα προφίλ.</translation>
+    </message>
+    <message>
+      <source>Profile not found.</source>
+      <translation>Το προφίλ δεν βρέθηκε.</translation>
+    </message>
+    <message>
+      <source>Invalid profile id.</source>
+      <translation>Μη έγκυρο αναγνωριστικό προφίλ.</translation>
+    </message>
+    <message>
+      <source>Profile is not an OpenVPN config.</source>
+      <translation>Το προφίλ δεν είναι ρύθμιση OpenVPN.</translation>
+    </message>
+    <message>
+      <source>Could not read config.ovpn.</source>
+      <translation>Δεν ήταν δυνατή η ανάγνωση του config.ovpn.</translation>
+    </message>
+    <message>
+      <source>Import VLESS / JSON…</source>
+      <translation>Εισαγωγή VLESS / JSON…</translation>
+    </message>
+    <message>
+      <source>Import OpenVPN (.ovpn) or Xray (vless:// / JSON) profiles and connect without the DataGate WSS bridge.</source>
+      <translation>Εισαγάγετε OpenVPN (.ovpn) ή Xray (vless:// / JSON) και συνδεθείτε χωρίς τη γέφυρα WSS του DataGate.</translation>
+    </message>
+    <message>
+      <source>Connect VLESS (Xray)…</source>
+      <translation>Σύνδεση VLESS (Xray)…</translation>
+    </message>
+    <message>
+      <source> (Xray)</source>
+      <translation> (Xray)</translation>
+    </message>
+    <message>
+      <source> (OpenVPN)</source>
+      <translation> (OpenVPN)</translation>
+    </message>
+    <message>
+      <source>Import Xray</source>
+      <translation>Εισαγωγή Xray</translation>
+    </message>
+    <message>
+      <source>Import a vless:// link or an Xray JSON config file.</source>
+      <translation>Εισαγάγετε σύνδεσμο vless:// ή αρχείο JSON Xray.</translation>
+    </message>
+    <message>
+      <source>Paste vless://…</source>
+      <translation>Επικόλληση vless://…</translation>
+    </message>
+    <message>
+      <source>Choose JSON file…</source>
+      <translation>Επιλογή αρχείου JSON…</translation>
+    </message>
+    <message>
+      <source>Import VLESS</source>
+      <translation>Εισαγωγή VLESS</translation>
+    </message>
+    <message>
+      <source>vless:// link:</source>
+      <translation>Σύνδεσμος vless://:</translation>
+    </message>
+    <message>
+      <source>Imported Xray profile: %1</source>
+      <translation>Εισήχθη προφίλ Xray: %1</translation>
+    </message>
+    <message>
+      <source>Import Xray JSON</source>
+      <translation>Εισαγωγή JSON Xray</translation>
+    </message>
+    <message>
+      <source>JSON configs (*.json);;All files (*)</source>
+      <translation>Ρυθμίσεις JSON (*.json);;Όλα τα αρχεία (*)</translation>
+    </message>
+    <message>
+      <source>Select a server row first.</source>
+      <translation>Επιλέξτε πρώτα μια γραμμή διακομιστή.</translation>
+    </message>
+    <message>
+      <source>Invalid server id.</source>
+      <translation>Μη έγκυρο αναγνωριστικό διακομιστή.</translation>
+    </message>
+    <message>
+      <source>Requesting Xray VLESS link for %1…</source>
+      <translation>Αίτημα συνδέσμου VLESS Xray για %1…</translation>
+    </message>
+    <message>
+      <source>Expected a vless:// link.</source>
+      <translation>Αναμενόταν σύνδεσμος vless://.</translation>
+    </message>
+    <message>
+      <source>Invalid vless:// URI (need uuid@host:port).</source>
+      <translation>Μη έγκυρο URI vless:// (απαιτείται uuid@host:port).</translation>
+    </message>
+    <message>
+      <source>Invalid Xray JSON: %1</source>
+      <translation>Μη έγκυρο JSON Xray: %1</translation>
+    </message>
+    <message>
+      <source>JSON must be a full Xray config or a VLESS outbound object.</source>
+      <translation>Το JSON πρέπει να είναι πλήρες config Xray ή outbound VLESS.</translation>
+    </message>
+    <message>
+      <source>Xray profile</source>
+      <translation>Προφίλ Xray</translation>
+    </message>
+    <message>
+      <source>Could not write config.json.</source>
+      <translation>Δεν ήταν δυνατή η εγγραφή του config.json.</translation>
+    </message>
+    <message>
+      <source>Profile is not an Xray config.</source>
+      <translation>Το προφίλ δεν είναι ρύθμιση Xray.</translation>
+    </message>
+    <message>
+      <source>Could not read config.json.</source>
+      <translation>Δεν ήταν δυνατή η ανάγνωση του config.json.</translation>
+    </message>
+    <message>
+      <source>Disconnect the current Xray session first.</source>
+      <translation>Αποσυνδεθείτε πρώτα από την τρέχουσα συνεδρία Xray.</translation>
+    </message>
+    <message>
+      <source>Xray config is empty.</source>
+      <translation>Το config Xray είναι κενό.</translation>
+    </message>
+    <message>
+      <source>Could not create temporary Xray config file.</source>
+      <translation>Δεν ήταν δυνατή η δημιουργία προσωρινού αρχείου config Xray.</translation>
+    </message>
+    <message>
+      <source>Xray config file not found.</source>
+      <translation>Το αρχείο config Xray δεν βρέθηκε.</translation>
+    </message>
+    <message>
+      <source>DataGateXray was not found next to this program (and no xray on PATH). Build with Go + third_party/xray-core, or install Xray-core.</source>
+      <translation>Το DataGateXray δεν βρέθηκε δίπλα στο πρόγραμμα (ούτε xray στο PATH). Δημιουργήστε build με Go + third_party/xray-core ή εγκαταστήστε Xray-core.</translation>
+    </message>
+    <message>
+      <source>Starting Xray: %1</source>
+      <translation>Εκκίνηση Xray: %1</translation>
+    </message>
+    <message>
+      <source>Xray did not start within 8s (%1).</source>
+      <translation>Το Xray δεν ξεκίνησε εντός 8 δ ( %1).</translation>
+    </message>
+    <message>
+      <source>Xray started (local SOCKS proxy).</source>
+      <translation>Το Xray ξεκίνησε (τοπικό SOCKS proxy).</translation>
+    </message>
+    <message>
+      <source>Xray exited (code %1).</source>
+      <translation>Το Xray τερματίστηκε (κωδικός %1).</translation>
+    </message>
+    <message>
+      <source>Xray failed (exit %1).</source>
+      <translation>Αποτυχία Xray (έξοδος %1).</translation>
+    </message>
+    <message>
+      <source>Xray failed (exit %1):
+%2</source>
+      <translation>Αποτυχία Xray (έξοδος %1):
+%2</translation>
+    </message>
+    <message>
+      <source>Xray process error: %1</source>
+      <translation>Σφάλμα διεργασίας Xray: %1</translation>
+    </message>
+    <message>
+      <source>Invalid JSON while loading Xray link.</source>
+      <translation>Μη έγκυρο JSON κατά τη φόρτωση συνδέσμου Xray.</translation>
+    </message>
+    <message>
+      <source>Xray link response has no content (base64).</source>
+      <translation>Η απάντηση συνδέσμου Xray δεν έχει content (base64).</translation>
+    </message>
+    <message>
+      <source>Not signed in or missing server id.</source>
+      <translation>Δεν υπάρχει σύνδεση ή λείπει το id διακομιστή.</translation>
+    </message>
+    <message>
+      <source>Create Xray link failed (HTTP %1).</source>
+      <translation>Αποτυχία δημιουργίας συνδέσμου Xray (HTTP %1).</translation>
+    </message>
+    <message>
+      <source>Xray link download failed (HTTP %1).</source>
+      <translation>Αποτυχία λήψης συνδέσμου Xray (HTTP %1).</translation>
+    </message>
+    <message>
+      <source>Xray TUN requires CAP_NET_ADMIN on DataGateXray. Use Settings → Grant TUN capability (also applies to DataGateXray), then fully restart DataGate.</source>
+      <translation>Το TUN του Xray χρειάζεται CAP_NET_ADMIN στο DataGateXray. Ρυθμίσεις → Grant TUN, έπειτα επανεκκινήστε το DataGate.</translation>
+    </message>
+    <message>
+      <source>Xray started (TUN + SOCKS :%1). Grant TUN on DataGateXray if the tunnel fails.</source>
+      <translation>Το Xray ξεκίνησε (TUN + SOCKS :%1). Δώστε Grant TUN στο DataGateXray αν αποτύχει το τούνελ.</translation>
+    </message>
+    <message>
+      <source>Xray started (local SOCKS :%1).</source>
+      <translation>Το Xray ξεκίνησε (τοπικό SOCKS :%1).</translation>
+    </message>
+    <message>
+      <source>Could not find a vless:// link or a valid Xray JSON config in the response.</source>
+      <translation>Δεν βρέθηκε σύνδεσμος vless:// ούτε έγκυρο JSON Xray στην απάντηση.</translation>
+    </message>
+    <message>
+      <source>Import OpenVPN (.ovpn) or Xray (vless:// / JSON). Xray uses TUN (+ local SOCKS). Grant TUN capability on DataGateXray after each rebuild.</source>
+      <translation>Εισαγάγετε OpenVPN (.ovpn) ή Xray (vless:// / JSON). Το Xray χρησιμοποιεί TUN (+ τοπικό SOCKS). Μετά από κάθε rebuild, δώστε Grant TUN στο DataGateXray.</translation>
+    </message>
+    <message>
+      <source>setcap finished for OpenVPN/helper and DataGateXray (when present).%1
+
+You must quit DataGate completely and start it again — only a new process picks up file capabilities.
+
+After each CMake rebuild, run Grant again.</source>
+      <translation>Το setcap ολοκληρώθηκε για OpenVPN/helper και DataGateXray (αν υπάρχει).%1
+
+Κλείστε πλήρως το DataGate και ανοίξτε ξανά.
+
+Μετά από κάθε CMake rebuild, ξανατρέξτε Grant.</translation>
+    </message>
+    <message>
+      <source>Some setcap calls failed.%1
+
+Manual example:
+sudo setcap cap_net_admin+ep %2</source>
+      <translation>Ορισμένα setcap απέτυχαν.%1
+
+Χειροκίνητα:
+sudo setcap cap_net_admin+ep %2</translation>
+    </message>
+    <message>
+      <source>
+— %1 —
+</source>
+      <translation>
+— %1 —
+</translation>
+    </message>
+    <message>
+      <source>setcap OK.
+getcap: %1
+</source>
+      <translation>setcap OK.
+getcap: %1
+</translation>
+    </message>
+    <message>
+      <source>pkexec/setcap failed (exit %1).
+%2
+</source>
+      <translation>Αποτυχία pkexec/setcap (έξοδος %1).
+%2
+</translation>
+    </message>
+    <message>
+      <source> (TUN + SOCKS :%1)</source>
+      <translation> (TUN + SOCKS :%1)</translation>
+    </message>
+    <message>
+      <source> (SOCKS :%1)</source>
+      <translation> (SOCKS :%1)</translation>
+    </message>
+    <message>
+      <source>(empty)</source>
+      <translation>(κενό)</translation>
+    </message>
   </context>
 </TS>

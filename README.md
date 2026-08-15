@@ -1,6 +1,6 @@
 # DataGateLinux
 
-Desktop client for **DataGate** on Linux: Google sign-in, dashboard API, and OpenVPN (embedded OpenVPN 3 core or system `openvpn`, depending on build). Companion to [DataGateWin](https://github.com/IMKolganov/DataGateWin) / mobile apps where applicable.
+Desktop client for **DataGate** on Linux: Google sign-in, dashboard API, OpenVPN (embedded OpenVPN 3 core or system `openvpn`), and optional **Xray** (VLESS profiles via [XTLS/Xray-core](https://github.com/XTLS/Xray-core) submodule). Companion to [DataGateWin](https://github.com/IMKolganov/DataGateWin) / mobile apps where applicable.
 
 **License:** [Mozilla Public License 2.0](LICENSE) (MPL-2.0).
 
@@ -11,6 +11,7 @@ Desktop client for **DataGate** on Linux: Google sign-in, dashboard API, and Ope
 - **Qt 6** (`Core`, `Gui`, `Widgets`, `Network`, `WebSockets`)
 - Optional: **qt6-l10n-tools** (`lrelease`) if you regenerate `.qm` from `.ts`
 - Embedded OpenVPN 3 build: **git submodules** (see below) plus usual build deps (e.g. OpenSSL, LZ4 — resolved by CMake on typical distros)
+- Embedded Xray (`DataGateXray`): submodule `third_party/xray-core` + **Go** toolchain on PATH
 
 ## Clone
 
@@ -38,8 +39,11 @@ Artifacts (default paths):
 
 - `build/DataGateLinux` — main UI
 - `build/DataGateOvpn3Helper` — helper process when embedded OpenVPN 3 uses the external-helper model on Linux
+- `build/DataGateXray` — Xray-core binary (when Go + `third_party/xray-core` are available)
 
 If `third_party/openvpn3` or `third_party/asio` is missing, CMake turns **off** the embedded OpenVPN 3 option; install submodules or see `third_party/README.md`.
+
+If `third_party/xray-core` or `go` is missing, CMake skips building `DataGateXray`; local Xray profiles need that binary (or a compatible `xray` on PATH).
 
 ## Configuration (`appsettings.json`)
 

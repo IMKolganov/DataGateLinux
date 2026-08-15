@@ -21,6 +21,9 @@ public:
     /// Load from disk and refresh synchronously when needed.
     bool ensureValidAccessToken();
 
+    /// User-facing reason after a failed ensureValidAccessToken() (empty if last ensure succeeded).
+    QString lastEnsureFailure() const;
+
     QString accessToken() const;
 
     void setFromLoginJson(const QJsonObject& data);
@@ -54,4 +57,5 @@ private:
     mutable QMutex m_mutex;
     /// Serializes refresh so concurrent ensureValidAccessToken calls do not POST in parallel (401 / invalidation).
     QMutex m_refreshMutex;
+    QString m_lastEnsureFailure;
 };

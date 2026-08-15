@@ -102,6 +102,7 @@ std::optional<TelegramAccountLinkCode> postRequestTelegramAccountLinkCodeSync(QN
     QString* errorOut);
 
 /// Shows onboarding when GET free-tier-access/status reports non-compliance on Free/Default plans.
+/// Skipped for Admin JWT (Telegram bot compliance does not apply).
 void showFreeTierOnboardingIfRequired(QNetworkAccessManager* nam,
     const QString& apiBaseUrl,
     AuthSession* session,

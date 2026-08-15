@@ -1,6 +1,7 @@
 #pragma once
 
 #include <QString>
+#include <QtGlobal>
 
 /// Load appsettings.json next to the binary (same idea as DataGateWin).
 struct AppConfig {
@@ -25,6 +26,12 @@ struct AppConfig {
     /// When false, skip startup release check even if owner/repo are set.
     static bool updateCheckOnStartup();
 
+    /// Empty → DataGateXray beside the app / PATH (see XraySession::resolveXrayExecutable).
+    static QString xrayExecutablePath();
+    static quint16 xraySocksPort();
+    /// When true (default), generated Xray client JSON includes a TUN inbound (+ SOCKS).
+    static bool xrayUseTun();
+
 private:
     static QString s_apiBaseUrl;
     static QString s_googleClientId;
@@ -35,4 +42,7 @@ private:
     static QString s_updateGithubOwner;
     static QString s_updateGithubRepo;
     static bool s_updateCheckOnStartup;
+    static QString s_xrayExecutablePath;
+    static quint16 s_xraySocksPort;
+    static bool s_xrayUseTun;
 };

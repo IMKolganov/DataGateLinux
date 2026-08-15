@@ -6,6 +6,7 @@ This repo includes **git submodules** (see `.gitmodules` in the repository root)
 |------|----------|
 | `third_party/openvpn3` | [OpenVPN/openvpn3](https://github.com/OpenVPN/openvpn3) — pinned to tag `release/3.11.6` (adjust intentionally when upgrading). |
 | `third_party/asio` | [chriskohlhoff/asio](https://github.com/chriskohlhoff/asio) — pinned to tag `asio-1-38-0`. |
+| `third_party/xray-core` | [XTLS/Xray-core](https://github.com/XTLS/Xray-core) — official Xray (not v2fly/v2ray-core); pinned to tag `v26.3.27`. |
 
 After clone:
 
@@ -57,10 +58,17 @@ Without a pin, `master` can break your build or change wire behaviour.
 
 Optional: document the pinned revision in the main README or `CHANGELOG` when you bump it.
 
+## Xray-core (VLESS / Xray profiles)
+
+CMake builds the **`DataGateXray`** binary from `third_party/xray-core` when **Go** is on `PATH` (`go build -o DataGateXray -trimpath ./main`). The Qt app starts it with `DataGateXray run -c <config.json>` (see `XraySession`). Without Go or without the submodule, embedded Xray is skipped; you can still point Settings / `appsettings` at a system `xray` if present.
+
+Pin upgrades the same way as OpenVPN 3: checkout a release tag inside the submodule, commit the pointer, rebuild.
+
 ## Layout
 
 - **`openvpn3/`** — OpenVPN 3 core tree (`client/`, `openvpn/`, …).
 - **`asio/asio/include`** — standalone Asio so `#include <asio.hpp>` works (same layout as DataGateAndroid `native-openvpn3/third_party/asio`).
+- **`xray-core/`** — [XTLS/Xray-core](https://github.com/XTLS/Xray-core) sources for `DataGateXray`.
 
 Quick local setup (no submodule):
 

@@ -23,6 +23,7 @@ class QTableWidget;
 class QWidget;
 class QNetworkAccessManager;
 class VpnSession;
+class XraySession;
 class StatisticsPanel;
 
 class MainWindow final : public QMainWindow {
@@ -55,6 +56,20 @@ private:
     void updateServerModeUi();
     void applyVpnAccessInfoToAccessPage();
     void checkFreeTierOnboarding();
+    void refreshLocalProfilesUi();
+    void updateLocalProfileActionsEnabled();
+    void selectLocalProfileInUi(const QString& profileId);
+    void importLocalOvpnProfile();
+    void importLocalXrayProfile();
+    void renameSelectedLocalProfile();
+    void deleteSelectedLocalProfile();
+    void connectSelectedLocalProfile();
+    void connectAccessXrayVless();
+    void connectXrayForServer(int serverId, const QString& serverName);
+    void wireSessionSignals();
+    bool anyTunnelUp() const;
+    void disconnectAllTunnels(const char* reason);
+    QString selectedLocalProfileId() const;
 
     AuthSession* m_session = nullptr;
 
@@ -65,6 +80,18 @@ private:
     QComboBox* m_serverModeCombo = nullptr;
     QComboBox* m_manualServerCombo = nullptr;
     QWidget* m_manualServerWrap = nullptr;
+    QComboBox* m_localProfileCombo = nullptr;
+    QWidget* m_localProfileWrap = nullptr;
+    QLabel* m_localProfileLabel = nullptr;
+    QListWidget* m_profilesList = nullptr;
+    QPushButton* m_importOvpnBtn = nullptr;
+    QPushButton* m_importXrayBtn = nullptr;
+    QPushButton* m_renameProfileBtn = nullptr;
+    QPushButton* m_deleteProfileBtn = nullptr;
+    QPushButton* m_connectProfileBtn = nullptr;
+    QLabel* m_profilesPageTitle = nullptr;
+    QLabel* m_profilesHint = nullptr;
+    QPushButton* m_connectAccessXrayBtn = nullptr;
     QPushButton* m_connectBtn = nullptr;
     QPushButton* m_saveSettingsBtn = nullptr;
     QPushButton* m_grantTunCapBtn = nullptr;
@@ -92,8 +119,9 @@ private:
     /// Skip free-tier check on initial m_nav->setCurrentRow(0) (main.cpp shows onboarding after show).
     bool m_freeTierNavChecksEnabled = false;
 
-    VpnSession* m_vpn = nullptr;
     QNetworkAccessManager* m_nam = nullptr;
+    VpnSession* m_vpn = nullptr;
+    XraySession* m_xray = nullptr;
 
     QFormLayout* m_settingsVpnForm = nullptr;
     QLabel* m_appTitleLabel = nullptr;

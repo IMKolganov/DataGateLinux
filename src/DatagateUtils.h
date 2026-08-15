@@ -21,6 +21,9 @@ struct BestServer {
     bool isOnline = false;
     /// From v2 API; true if missing (v1-compatible).
     bool isAccessibleForUserQuotaPlan = true;
+    /// API VpnServerType: 0 = OpenVpn, 1 = Xray.
+    int serverType = 0;
+    bool isXray() const { return serverType == 1; }
 };
 
 struct ParsedRemote {
@@ -69,10 +72,13 @@ QUrl wssProxyUrl(const QString& baseApiUrl, bool udpMode);
 
 std::optional<BestServer> pickBestServerWinStyle(const QByteArray& jsonBody);
 
-/// WSS-enabled servers only: id and display name (for manual server combo / Statistics).
+/// WSS OpenVPN servers only: id and display name (Statistics / legacy).
 QVector<QPair<int, QString>> listWssServersFromStatusJson(const QByteArray& jsonBody);
 
-/// Pick one server by id from get-all-with-status JSON; requires isEnableWss and valid apiUrl.
+/// Home “Choose server”: WSS OpenVPN + Xray. Labels include engine suffix.
+QVector<BestServer> listManualConnectServersFromStatusJson(const QByteArray& jsonBody);
+
+/// Pick one server by id from get-all-with-status (WSS OpenVPN or Xray).
 std::optional<BestServer> pickServerByIdFromStatusJson(const QByteArray& jsonBody, int serverId);
 
 void saveLastSelectedServerId(int id);

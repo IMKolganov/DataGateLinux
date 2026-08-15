@@ -18,6 +18,8 @@ if(DATAGATE_USE_EMBEDDED_OPENVPN3)
     include("${CMAKE_SOURCE_DIR}/cmake/DatagateOpenVpn3.cmake")
 endif()
 
+include("${CMAKE_SOURCE_DIR}/cmake/DatagateXray.cmake")
+
 find_package(Qt6 REQUIRED COMPONENTS Core Gui Widgets Network WebSockets)
 
 set(DATAGATE_OVPN3_EMBED_LINUX_HELPER FALSE)
@@ -66,6 +68,16 @@ qt_add_executable(DataGateLinux
     src/StatisticsPanel.h
     src/VpnSession.cpp
     src/VpnSession.h
+    src/LocalProfileStore.cpp
+    src/LocalProfileStore.h
+    src/XraySession.cpp
+    src/XraySession.h
+    src/XrayTunLinux.cpp
+    src/XrayTunLinux.h
+    src/XrayConfigBuilder.cpp
+    src/XrayConfigBuilder.h
+    src/XrayClientLinksApi.cpp
+    src/XrayClientLinksApi.h
     ${DATAGATE_OVPN3_SOURCES}
     src/WssTcpBridge.cpp
     src/WssTcpBridge.h
@@ -75,6 +87,7 @@ qt_add_executable(DataGateLinux
     src/GoogleAuthHelper.h
     src/DatagateUtils.cpp
     src/DatagateUtils.h
+    src/VpnServerStatusJson.cpp
     src/DatagateTr.h
     src/DatagateTr.cpp
     src/DatagateTranslator.cpp
@@ -108,6 +121,17 @@ if(DATAGATE_USE_EMBEDDED_OPENVPN3)
     else()
         target_link_libraries(DataGateLinux PRIVATE datagate_ovpn3_core)
     endif()
+endif()
+
+if(DATAGATE_EMBEDDED_XRAY)
+    target_compile_definitions(DataGateLinux PRIVATE DATAGATE_EMBEDDED_XRAY=1)
+    add_dependencies(DataGateLinux datagate_xray_bin)
+    add_custom_command(TARGET DataGateLinux POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "${DATAGATE_XRAY_BIN}"
+            $<TARGET_FILE_DIR:DataGateLinux>/DataGateXray
+        COMMENT "Copy DataGateXray next to DataGateLinux"
+    )
 endif()
 
 # libcap: raise permitted→effective CAP_NET_ADMIN in-process (non-Linux helper embedded path only).
@@ -227,4 +251,7 @@ add_custom_command(TARGET DataGateLinux POST_BUILD
 install(TARGETS DataGateLinux RUNTIME DESTINATION bin)
 if(TARGET DataGateOvpn3Helper)
     install(TARGETS DataGateOvpn3Helper RUNTIME DESTINATION bin)
+endif()
+if(DATAGATE_EMBEDDED_XRAY AND EXISTS "${DATAGATE_XRAY_BIN}")
+    install(PROGRAMS "${DATAGATE_XRAY_BIN}" DESTINATION bin RENAME DataGateXray)
 endif()

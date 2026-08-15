@@ -288,7 +288,11 @@ StatisticsPanel::StatisticsPanel(QWidget* parent)
 
     m_refreshBtn = new QPushButton(Datagate::tr("Refresh"), this);
     m_refreshBtn->setProperty("primary", true);
-    root->addWidget(m_refreshBtn);
+    m_refreshBtn->setSizePolicy(QSizePolicy::Maximum, QSizePolicy::Fixed);
+    auto* refreshRow = new QHBoxLayout();
+    refreshRow->addWidget(m_refreshBtn);
+    refreshRow->addStretch();
+    root->addLayout(refreshRow);
 
     m_status = new QLabel(QString(), this);
     m_status->setObjectName(QStringLiteral("muted"));

@@ -106,8 +106,7 @@ QPushButton[primary="true"] {
   color: %10;
   border: none;
   border-radius: 6px;
-  padding: 8px 20px;
-  min-width: 140px;
+  padding: 8px 14px;
   font-weight: 600;
 }
 QPushButton[primary="true"]:hover { background-color: %11; }
@@ -117,8 +116,7 @@ QPushButton[secondary="true"] {
   color: %4;
   border: 1px solid %3;
   border-radius: 6px;
-  padding: 8px 20px;
-  min-width: 140px;
+  padding: 8px 14px;
 }
 QPushButton[secondary="true"]:hover { background-color: %7; }
 QLineEdit, QPlainTextEdit, QSpinBox {
@@ -218,8 +216,7 @@ QPushButton[primary="true"] {
   color: %10;
   border: none;
   border-radius: 6px;
-  padding: 8px 20px;
-  min-width: 140px;
+  padding: 8px 14px;
   font-weight: 600;
 }
 QPushButton[primary="true"]:hover { background-color: %11; }
@@ -229,8 +226,7 @@ QPushButton[secondary="true"] {
   color: %4;
   border: 1px solid %3;
   border-radius: 6px;
-  padding: 8px 20px;
-  min-width: 140px;
+  padding: 8px 14px;
 }
 QPushButton[secondary="true"]:hover { background-color: %7; }
 QLineEdit, QPlainTextEdit, QSpinBox {

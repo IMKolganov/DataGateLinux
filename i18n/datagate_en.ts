@@ -852,5 +852,405 @@ See stderr log line "AppConfig: loaded …" when DATAGATE_LOG=1 or Debug build.<
       <source>Remaining %1</source>
       <translation>Remaining %1</translation>
     </message>
+    <message>
+      <source>Profiles</source>
+      <translation>Profiles</translation>
+    </message>
+    <message>
+      <source>Local profile…</source>
+      <translation>Local profile…</translation>
+    </message>
+    <message>
+      <source>Profile:</source>
+      <translation>Profile:</translation>
+    </message>
+    <message>
+      <source>Import your own .ovpn files and connect directly (without the DataGate WSS bridge).</source>
+      <translation>Import your own .ovpn files and connect directly (without the DataGate WSS bridge).</translation>
+    </message>
+    <message>
+      <source>Import .ovpn…</source>
+      <translation>Import .ovpn…</translation>
+    </message>
+    <message>
+      <source>Rename</source>
+      <translation>Rename</translation>
+    </message>
+    <message>
+      <source>Delete</source>
+      <translation>Delete</translation>
+    </message>
+    <message>
+      <source>Xray profiles: Coming soon.</source>
+      <translation>Xray profiles: Coming soon.</translation>
+    </message>
+    <message>
+      <source>Choose a local profile or import an .ovpn file.</source>
+      <translation>Choose a local profile or import an .ovpn file.</translation>
+    </message>
+    <message>
+      <source>Local profile</source>
+      <translation>Local profile</translation>
+    </message>
+    <message>
+      <source>OpenVPN profile is empty.</source>
+      <translation>OpenVPN profile is empty.</translation>
+    </message>
+    <message>
+      <source>No valid remote line found in the .ovpn file.</source>
+      <translation>No valid remote line found in the .ovpn file.</translation>
+    </message>
+    <message>
+      <source>Connecting to local profile: %1</source>
+      <translation>Connecting to local profile: %1</translation>
+    </message>
+    <message>
+      <source>Direct OpenVPN (no WSS bridge)…</source>
+      <translation>Direct OpenVPN (no WSS bridge)…</translation>
+    </message>
+    <message>
+      <source>Import OpenVPN profile</source>
+      <translation>Import OpenVPN profile</translation>
+    </message>
+    <message>
+      <source>OpenVPN configs (*.ovpn *.conf);;All files (*)</source>
+      <translation>OpenVPN configs (*.ovpn *.conf);;All files (*)</translation>
+    </message>
+    <message>
+      <source>Profile name</source>
+      <translation>Profile name</translation>
+    </message>
+    <message>
+      <source>Display name:</source>
+      <translation>Display name:</translation>
+    </message>
+    <message>
+      <source>Imported local profile: %1</source>
+      <translation>Imported local profile: %1</translation>
+    </message>
+    <message>
+      <source>Select a profile first.</source>
+      <translation>Select a profile first.</translation>
+    </message>
+    <message>
+      <source>Rename profile</source>
+      <translation>Rename profile</translation>
+    </message>
+    <message>
+      <source>Disconnect from this profile before deleting it.</source>
+      <translation>Disconnect from this profile before deleting it.</translation>
+    </message>
+    <message>
+      <source>Delete profile "%1"?</source>
+      <translation>Delete profile "%1"?</translation>
+    </message>
+    <message>
+      <source>Deleted local profile: %1</source>
+      <translation>Deleted local profile: %1</translation>
+    </message>
+    <message>
+      <source>App local data path is unavailable.</source>
+      <translation>App local data path is unavailable.</translation>
+    </message>
+    <message>
+      <source>Could not create profiles directory.</source>
+      <translation>Could not create profiles directory.</translation>
+    </message>
+    <message>
+      <source>Could not write profiles index.</source>
+      <translation>Could not write profiles index.</translation>
+    </message>
+    <message>
+      <source>Could not create profile folder.</source>
+      <translation>Could not create profile folder.</translation>
+    </message>
+    <message>
+      <source>Could not write profile.json.</source>
+      <translation>Could not write profile.json.</translation>
+    </message>
+    <message>
+      <source>Could not read the selected file.</source>
+      <translation>Could not read the selected file.</translation>
+    </message>
+    <message>
+      <source>The OpenVPN file is empty.</source>
+      <translation>The OpenVPN file is empty.</translation>
+    </message>
+    <message>
+      <source>OpenVPN profile</source>
+      <translation>OpenVPN profile</translation>
+    </message>
+    <message>
+      <source>Could not write config.ovpn.</source>
+      <translation>Could not write config.ovpn.</translation>
+    </message>
+    <message>
+      <source>Invalid profile name.</source>
+      <translation>Invalid profile name.</translation>
+    </message>
+    <message>
+      <source>Profile not found.</source>
+      <translation>Profile not found.</translation>
+    </message>
+    <message>
+      <source>Invalid profile id.</source>
+      <translation>Invalid profile id.</translation>
+    </message>
+    <message>
+      <source>Profile is not an OpenVPN config.</source>
+      <translation>Profile is not an OpenVPN config.</translation>
+    </message>
+    <message>
+      <source>Could not read config.ovpn.</source>
+      <translation>Could not read config.ovpn.</translation>
+    </message>
+    <message>
+      <source>Import VLESS / JSON…</source>
+      <translation>Import VLESS / JSON…</translation>
+    </message>
+    <message>
+      <source>Import OpenVPN (.ovpn) or Xray (vless:// / JSON) profiles and connect without the DataGate WSS bridge.</source>
+      <translation>Import OpenVPN (.ovpn) or Xray (vless:// / JSON) profiles and connect without the DataGate WSS bridge.</translation>
+    </message>
+    <message>
+      <source>Connect VLESS (Xray)…</source>
+      <translation>Connect VLESS (Xray)…</translation>
+    </message>
+    <message>
+      <source> (Xray)</source>
+      <translation> (Xray)</translation>
+    </message>
+    <message>
+      <source> (OpenVPN)</source>
+      <translation> (OpenVPN)</translation>
+    </message>
+    <message>
+      <source>Import Xray</source>
+      <translation>Import Xray</translation>
+    </message>
+    <message>
+      <source>Import a vless:// link or an Xray JSON config file.</source>
+      <translation>Import a vless:// link or an Xray JSON config file.</translation>
+    </message>
+    <message>
+      <source>Paste vless://…</source>
+      <translation>Paste vless://…</translation>
+    </message>
+    <message>
+      <source>Choose JSON file…</source>
+      <translation>Choose JSON file…</translation>
+    </message>
+    <message>
+      <source>Import VLESS</source>
+      <translation>Import VLESS</translation>
+    </message>
+    <message>
+      <source>vless:// link:</source>
+      <translation>vless:// link:</translation>
+    </message>
+    <message>
+      <source>Imported Xray profile: %1</source>
+      <translation>Imported Xray profile: %1</translation>
+    </message>
+    <message>
+      <source>Import Xray JSON</source>
+      <translation>Import Xray JSON</translation>
+    </message>
+    <message>
+      <source>JSON configs (*.json);;All files (*)</source>
+      <translation>JSON configs (*.json);;All files (*)</translation>
+    </message>
+    <message>
+      <source>Select a server row first.</source>
+      <translation>Select a server row first.</translation>
+    </message>
+    <message>
+      <source>Invalid server id.</source>
+      <translation>Invalid server id.</translation>
+    </message>
+    <message>
+      <source>Requesting Xray VLESS link for %1…</source>
+      <translation>Requesting Xray VLESS link for %1…</translation>
+    </message>
+    <message>
+      <source>Expected a vless:// link.</source>
+      <translation>Expected a vless:// link.</translation>
+    </message>
+    <message>
+      <source>Invalid vless:// URI (need uuid@host:port).</source>
+      <translation>Invalid vless:// URI (need uuid@host:port).</translation>
+    </message>
+    <message>
+      <source>Invalid Xray JSON: %1</source>
+      <translation>Invalid Xray JSON: %1</translation>
+    </message>
+    <message>
+      <source>JSON must be a full Xray config or a VLESS outbound object.</source>
+      <translation>JSON must be a full Xray config or a VLESS outbound object.</translation>
+    </message>
+    <message>
+      <source>Xray profile</source>
+      <translation>Xray profile</translation>
+    </message>
+    <message>
+      <source>Could not write config.json.</source>
+      <translation>Could not write config.json.</translation>
+    </message>
+    <message>
+      <source>Profile is not an Xray config.</source>
+      <translation>Profile is not an Xray config.</translation>
+    </message>
+    <message>
+      <source>Could not read config.json.</source>
+      <translation>Could not read config.json.</translation>
+    </message>
+    <message>
+      <source>Disconnect the current Xray session first.</source>
+      <translation>Disconnect the current Xray session first.</translation>
+    </message>
+    <message>
+      <source>Xray config is empty.</source>
+      <translation>Xray config is empty.</translation>
+    </message>
+    <message>
+      <source>Could not create temporary Xray config file.</source>
+      <translation>Could not create temporary Xray config file.</translation>
+    </message>
+    <message>
+      <source>Xray config file not found.</source>
+      <translation>Xray config file not found.</translation>
+    </message>
+    <message>
+      <source>DataGateXray was not found next to this program (and no xray on PATH). Build with Go + third_party/xray-core, or install Xray-core.</source>
+      <translation>DataGateXray was not found next to this program (and no xray on PATH). Build with Go + third_party/xray-core, or install Xray-core.</translation>
+    </message>
+    <message>
+      <source>Starting Xray: %1</source>
+      <translation>Starting Xray: %1</translation>
+    </message>
+    <message>
+      <source>Xray did not start within 8s (%1).</source>
+      <translation>Xray did not start within 8s (%1).</translation>
+    </message>
+    <message>
+      <source>Xray started (local SOCKS proxy).</source>
+      <translation>Xray started (local SOCKS proxy).</translation>
+    </message>
+    <message>
+      <source>Xray exited (code %1).</source>
+      <translation>Xray exited (code %1).</translation>
+    </message>
+    <message>
+      <source>Xray failed (exit %1).</source>
+      <translation>Xray failed (exit %1).</translation>
+    </message>
+    <message>
+      <source>Xray failed (exit %1):
+%2</source>
+      <translation>Xray failed (exit %1):
+%2</translation>
+    </message>
+    <message>
+      <source>Xray process error: %1</source>
+      <translation>Xray process error: %1</translation>
+    </message>
+    <message>
+      <source>Invalid JSON while loading Xray link.</source>
+      <translation>Invalid JSON while loading Xray link.</translation>
+    </message>
+    <message>
+      <source>Xray link response has no content (base64).</source>
+      <translation>Xray link response has no content (base64).</translation>
+    </message>
+    <message>
+      <source>Not signed in or missing server id.</source>
+      <translation>Not signed in or missing server id.</translation>
+    </message>
+    <message>
+      <source>Create Xray link failed (HTTP %1).</source>
+      <translation>Create Xray link failed (HTTP %1).</translation>
+    </message>
+    <message>
+      <source>Xray link download failed (HTTP %1).</source>
+      <translation>Xray link download failed (HTTP %1).</translation>
+    </message>
+    <message>
+      <source>Xray TUN requires CAP_NET_ADMIN on DataGateXray. Use Settings → Grant TUN capability (also applies to DataGateXray), then fully restart DataGate.</source>
+      <translation>Xray TUN requires CAP_NET_ADMIN on DataGateXray. Use Settings → Grant TUN capability (also applies to DataGateXray), then fully restart DataGate.</translation>
+    </message>
+    <message>
+      <source>Xray started (TUN + SOCKS :%1). Grant TUN on DataGateXray if the tunnel fails.</source>
+      <translation>Xray started (TUN + SOCKS :%1). Grant TUN on DataGateXray if the tunnel fails.</translation>
+    </message>
+    <message>
+      <source>Xray started (local SOCKS :%1).</source>
+      <translation>Xray started (local SOCKS :%1).</translation>
+    </message>
+    <message>
+      <source>Could not find a vless:// link or a valid Xray JSON config in the response.</source>
+      <translation>Could not find a vless:// link or a valid Xray JSON config in the response.</translation>
+    </message>
+    <message>
+      <source>Import OpenVPN (.ovpn) or Xray (vless:// / JSON). Xray uses TUN (+ local SOCKS). Grant TUN capability on DataGateXray after each rebuild.</source>
+      <translation>Import OpenVPN (.ovpn) or Xray (vless:// / JSON). Xray uses TUN (+ local SOCKS). Grant TUN capability on DataGateXray after each rebuild.</translation>
+    </message>
+    <message>
+      <source>setcap finished for OpenVPN/helper and DataGateXray (when present).%1
+
+You must quit DataGate completely and start it again — only a new process picks up file capabilities.
+
+After each CMake rebuild, run Grant again.</source>
+      <translation>setcap finished for OpenVPN/helper and DataGateXray (when present).%1
+
+You must quit DataGate completely and start it again — only a new process picks up file capabilities.
+
+After each CMake rebuild, run Grant again.</translation>
+    </message>
+    <message>
+      <source>Some setcap calls failed.%1
+
+Manual example:
+sudo setcap cap_net_admin+ep %2</source>
+      <translation>Some setcap calls failed.%1
+
+Manual example:
+sudo setcap cap_net_admin+ep %2</translation>
+    </message>
+    <message>
+      <source>
+— %1 —
+</source>
+      <translation>
+— %1 —
+</translation>
+    </message>
+    <message>
+      <source>setcap OK.
+getcap: %1
+</source>
+      <translation>setcap OK.
+getcap: %1
+</translation>
+    </message>
+    <message>
+      <source>pkexec/setcap failed (exit %1).
+%2
+</source>
+      <translation>pkexec/setcap failed (exit %1).
+%2
+</translation>
+    </message>
+    <message>
+      <source> (TUN + SOCKS :%1)</source>
+      <translation> (TUN + SOCKS :%1)</translation>
+    </message>
+    <message>
+      <source> (SOCKS :%1)</source>
+      <translation> (SOCKS :%1)</translation>
+    </message>
+    <message>
+      <source>(empty)</source>
+      <translation>(empty)</translation>
+    </message>
   </context>
 </TS>
