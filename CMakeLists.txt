@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
-project(DataGateLinux VERSION 1.0.0 LANGUAGES CXX)
+project(DataGateLinux VERSION 1.1.0 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -52,6 +52,8 @@ qt_add_executable(DataGateLinux
     src/GitHubReleaseChecker.h
     src/AuthSession.cpp
     src/AuthSession.h
+    src/ClientIdentity.cpp
+    src/ClientIdentity.h
     src/DatagateAuthLogin.cpp
     src/DatagateAuthLogin.h
     src/AdminTotpSetupDialog.cpp

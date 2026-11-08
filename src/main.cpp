@@ -1,4 +1,5 @@
 #include "AppConfig.h"
+#include "ClientIdentity.h"
 #include "AppLogging.h"
 #include "GitHubReleaseChecker.h"
 #include "DatagateAuthLogin.h"
@@ -69,7 +70,15 @@ int main(int argc, char* argv[])
         return 1;
     }
 
-    QNetworkAccessManager nam;
+    ClientIdentity::setBackendBaseUrl(QUrl(AppConfig::apiBaseUrl().trimmed()));
+    QObject::connect(ClientIdentity::Events::instance(), &ClientIdentity::Events::rejected, [](const QString&) {
+        QMessageBox::warning(
+            QApplication::activeWindow(),
+            Datagate::tr("Update required"),
+            Datagate::tr("This version of DataGate is no longer supported by the server. Please update the app."));
+    });
+
+    DatagateNetworkAccessManager nam;
     AuthSession session(&nam);
     session.initialize();
 

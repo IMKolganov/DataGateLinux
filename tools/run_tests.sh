@@ -227,7 +227,118 @@ g++ "${CXXFLAGS[@]}" "$PROFILE_SRC" \
   -o "$WORKDIR/test_profiles" "${LIBS[@]}"
 assert_ok "local_profile_store" env XDG_DATA_HOME="$XDG_DATA_HOME" "$WORKDIR/test_profiles"
 
-# ----- 4) DataGateXray -test (optional) -----
+# ----- 4) ClientIdentity: headers only for the backend host, rejection detection -----
+CI_SRC="$WORKDIR/test_client_identity.cpp"
+cat >"$CI_SRC" <<'EOF'
+#include "ClientIdentity.h"
+#include <QCoreApplication>
+#include <QEventLoop>
+#include <QNetworkReply>
+#include <QNetworkRequest>
+#include <QTcpServer>
+#include <QTcpSocket>
+#include <QTimer>
+#include <QUrlQuery>
+#include <cstdio>
+
+// One-shot HTTP server: records the request head, answers with a fixed status/body.
+struct FakeHttp {
+    QTcpServer server;
+    QByteArray lastHead;
+    int status = 200;
+    QByteArray body = "{}";
+    FakeHttp() {
+        server.listen(QHostAddress::LocalHost, 0);
+        QObject::connect(&server, &QTcpServer::newConnection, [this]() {
+            QTcpSocket* s = server.nextPendingConnection();
+            QObject::connect(s, &QTcpSocket::readyRead, [this, s]() {
+                lastHead += s->readAll();
+                if (!lastHead.contains("\r\n\r\n")) return;
+                const QByteArray reason = status == 200 ? "OK" : "Bad Request";
+                s->write("HTTP/1.1 " + QByteArray::number(status) + " " + reason + "\r\nContent-Type: application/json\r\n"
+                         "Connection: close\r\nContent-Length: " + QByteArray::number(body.size()) + "\r\n\r\n" + body);
+                s->disconnectFromHost();
+            });
+        });
+    }
+    QUrl url(const QString& path) const {
+        return QUrl(QStringLiteral("http://127.0.0.1:%1%2").arg(server.serverPort()).arg(path));
+    }
+};
+
+static QByteArray get(QNetworkAccessManager& nam, const QUrl& url) {
+    QNetworkReply* r = nam.get(QNetworkRequest(url));
+    QEventLoop loop;
+    QObject::connect(r, &QNetworkReply::finished, &loop, &QEventLoop::quit);
+    QTimer::singleShot(5000, &loop, &QEventLoop::quit);
+    loop.exec();
+    const QByteArray b = r->readAll();
+    r->deleteLater();
+    return b;
+}
+
+static int fails = 0;
+#define CHECK(c) do { if (!(c)) { std::fprintf(stderr, "check failed: %s (line %d)\n", #c, __LINE__); ++fails; } } while (0)
+
+int main(int argc, char** argv) {
+    QCoreApplication app(argc, argv);
+    QCoreApplication::setApplicationVersion(QStringLiteral("1.1.0"));
+    FakeHttp backend, other;
+    ClientIdentity::setBackendBaseUrl(backend.url(QStringLiteral("/")));
+    DatagateNetworkAccessManager nam;
+
+    get(nam, backend.url(QStringLiteral("/api/v3/open-vpn-servers/get-all-with-status")));
+    CHECK(backend.lastHead.contains("X-Client-Name: linux\r\n"));
+    CHECK(backend.lastHead.contains("X-Client-Version: 1.1.0\r\n"));
+
+    get(nam, other.url(QStringLiteral("/repos/x/y/releases/latest")));
+    CHECK(!other.lastHead.isEmpty());
+    CHECK(!other.lastHead.contains("X-Client-Name"));
+    CHECK(!other.lastHead.contains("X-Client-Version"));
+
+    QStringList rejected;
+    QObject::connect(ClientIdentity::Events::instance(), &ClientIdentity::Events::rejected,
+        [&](const QString& code) { rejected << code; });
+    backend.lastHead.clear();
+    backend.status = 400;
+    backend.body = R"({"success":false,"data":{"code":"client_version_invalid","nameHeader":"X-Client-Name"}})";
+    const QByteArray seen = get(nam, backend.url(QStringLiteral("/api/auth/refresh")));
+    CHECK(seen.contains("client_version_invalid")); // caller still reads the body
+    CHECK(rejected == QStringList{QStringLiteral("client_version_invalid")});
+
+    CHECK(ClientIdentity::rejectionCode(R"({"data":{"code":"invalid_token"}})").isEmpty());
+    CHECK(ClientIdentity::rejectionCode("not json").isEmpty());
+    CHECK(ClientIdentity::rejectionCode(R"({"Data":{"Code":"client_name_unknown"}})") == QStringLiteral("client_name_unknown"));
+
+    const QUrl hub = ClientIdentity::appendToHubUrl(QUrl(QStringLiteral("https://api.example.test/api/hubs/frontend?access_token=x")), QStringLiteral("1.1.0 (7)"));
+    const QUrlQuery hq(hub);
+    CHECK(hub.toString(QUrl::FullyEncoded).startsWith(QStringLiteral("https://api.example.test/api/hubs/frontend?access_token=x&clientName=linux&clientVersion=")));
+    CHECK(hq.queryItemValue(QStringLiteral("clientVersion"), QUrl::FullyDecoded) == QStringLiteral("1.1.0 (7)"));
+
+    CHECK(ClientIdentity::sanitizeVersion(QStringLiteral(" 1.1.0\n")) == QStringLiteral("1.1.0"));
+    CHECK(ClientIdentity::sanitizeVersion(QStringLiteral("1.0-é")) == QStringLiteral("1.0-"));
+    CHECK(ClientIdentity::sanitizeVersion(QString(100, QLatin1Char('9'))).size() == ClientIdentity::kMaxVersionLength);
+    CHECK(ClientIdentity::sanitizeVersion(QString()) == QStringLiteral("0"));
+    CHECK(!ClientIdentity::isBackendUrl(QUrl(QStringLiteral("https://node.example.test/api/proxy")), QUrl(QStringLiteral("https://api.example.test"))));
+    CHECK(ClientIdentity::isBackendUrl(QUrl(QStringLiteral("https://API.example.test:443/api/x")), QUrl(QStringLiteral("https://api.example.test/"))));
+    return fails == 0 ? 0 : 1;
+}
+EOF
+MOC=""
+for c in /usr/lib/qt6/libexec/moc /usr/lib/x86_64-linux-gnu/qt6/libexec/moc "$(command -v moc-qt6 || true)"; do
+  if [[ -n "$c" && -x "$c" ]]; then MOC="$c"; break; fi
+done
+if [[ -n "$MOC" ]]; then
+  "$MOC" "$ROOT/src/ClientIdentity.h" -o "$WORKDIR/moc_ClientIdentity.cpp"
+  g++ -std=c++20 -fPIC $(pkg-config --cflags Qt6Core Qt6Network) -I"$ROOT/src" \
+    "$CI_SRC" "$ROOT/src/ClientIdentity.cpp" "$ROOT/src/AppLogging.cpp" "$WORKDIR/moc_ClientIdentity.cpp" \
+    -o "$WORKDIR/test_client_identity" $(pkg-config --libs Qt6Core Qt6Network)
+  assert_ok "client_identity" "$WORKDIR/test_client_identity"
+else
+  echo "SKIP  client_identity (moc not found)"
+fi
+
+# ----- 5) DataGateXray -test (optional) -----
 XRAY="$ROOT/cmake-build-debug/DataGateXray"
 if [[ -x "$XRAY" ]]; then
   CFG="$WORKDIR/xray-test.json"

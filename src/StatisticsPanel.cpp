@@ -1,4 +1,5 @@
 #include "StatisticsPanel.h"
+#include "ClientIdentity.h"
 
 #include "DatagateTr.h"
 #include "DatagateUtils.h"
@@ -259,7 +260,7 @@ QString shortLabelForTs(const QString& ts)
 
 StatisticsPanel::StatisticsPanel(QWidget* parent)
     : QWidget(parent)
-    , m_nam(new QNetworkAccessManager(this))
+    , m_nam(new DatagateNetworkAccessManager(this))
 {
     auto* root = new QVBoxLayout(this);
     root->setContentsMargins(0, 0, 0, 0);

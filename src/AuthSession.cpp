@@ -1,5 +1,7 @@
 #include "AuthSession.h"
 
+#include "ClientIdentity.h"
+
 #include <QDir>
 #include <QEventLoop>
 #include <QFile>
@@ -333,6 +335,12 @@ bool AuthSession::refreshTokenSync()
         clearFile();
         m_lastEnsureFailure = Datagate::tr(
             "Server rejected the refresh token (HTTP %1). Sign in again.").arg(code);
+        return false;
+    }
+    if (code == 400 && !ClientIdentity::rejectionCode(raw).isEmpty()) {
+        // Says nothing about the refresh token: keep the session, the app needs an update.
+        m_lastEnsureFailure = Datagate::tr(
+            "This version of DataGate is no longer supported by the server. Please update the app.");
         return false;
     }
     if (nerr != QNetworkReply::NoError) {

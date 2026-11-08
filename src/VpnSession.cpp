@@ -1,4 +1,5 @@
 #include "VpnSession.h"
+#include "ClientIdentity.h"
 
 #include "AppConfig.h"
 #include "DatagateTr.h"
@@ -56,7 +57,7 @@ bool logLooksLikeTunPermissionDenied(const QString& log)
 
 VpnSession::VpnSession(QObject* parent)
     : QObject(parent)
-    , m_nam(new QNetworkAccessManager(this))
+    , m_nam(new DatagateNetworkAccessManager(this))
     , m_tcpBridge(new WssTcpBridge(this))
     , m_udpBridge(new UdpWssBridge(this))
     , m_ovpn(new QProcess(this))
@@ -256,7 +257,7 @@ void VpnSession::connectLocalOvpn(const QString& ovpnText, const QString& displa
 
 void VpnSession::stepFetchServers()
 {
-    QUrl url(joinUrl(m_baseUrl, QStringLiteral("api/v2/open-vpn-servers/get-all-with-status")));
+    QUrl url(joinUrl(m_baseUrl, QStringLiteral("api/v3/open-vpn-servers/get-all-with-status")));
     QNetworkRequest req(url);
     req.setHeader(QNetworkRequest::ContentTypeHeader, QStringLiteral("application/json"));
     req.setRawHeader("Accept", "application/json");

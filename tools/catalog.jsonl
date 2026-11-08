@@ -296,3 +296,5 @@
 {"en": " (TUN + SOCKS :%1)", "ru": " (TUN + SOCKS :%1)", "fr": " (TUN + SOCKS :%1)", "el": " (TUN + SOCKS :%1)"}
 {"en": " (SOCKS :%1)", "ru": " (SOCKS :%1)", "fr": " (SOCKS :%1)", "el": " (SOCKS :%1)"}
 {"en": "(empty)", "ru": "(пусто)", "fr": "(vide)", "el": "(κενό)"}
+{"en": "Update required", "ru": "Требуется обновление", "fr": "Mise à jour requise", "el": "Απαιτείται ενημέρωση"}
+{"en": "This version of DataGate is no longer supported by the server. Please update the app.", "ru": "Эта версия DataGate больше не поддерживается сервером. Обновите приложение.", "fr": "Cette version de DataGate n’est plus prise en charge par le serveur. Veuillez mettre à jour l’application.", "el": "Αυτή η έκδοση του DataGate δεν υποστηρίζεται πλέον από τον διακομιστή. Ενημερώστε την εφαρμογή."}

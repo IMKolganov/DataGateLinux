@@ -1252,5 +1252,13 @@ getcap: %1
       <source>(empty)</source>
       <translation>(κενό)</translation>
     </message>
+    <message>
+      <source>Update required</source>
+      <translation>Απαιτείται ενημέρωση</translation>
+    </message>
+    <message>
+      <source>This version of DataGate is no longer supported by the server. Please update the app.</source>
+      <translation>Αυτή η έκδοση του DataGate δεν υποστηρίζεται πλέον από τον διακομιστή. Ενημερώστε την εφαρμογή.</translation>
+    </message>
   </context>
 </TS>

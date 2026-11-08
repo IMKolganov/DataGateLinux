@@ -1,4 +1,5 @@
 #include "MainWindow.h"
+#include "ClientIdentity.h"
 
 #include "AppConfig.h"
 #include "AppLogging.h"
@@ -102,7 +103,7 @@ PlatformCol makePlatformColumn(QWidget* parent, QStyle* style, const QStringList
 MainWindow::MainWindow(AuthSession* session, QWidget* parent)
     : QMainWindow(parent)
     , m_session(session)
-    , m_nam(new QNetworkAccessManager(this))
+    , m_nam(new DatagateNetworkAccessManager(this))
     , m_vpn(new VpnSession(this))
     , m_xray(new XraySession(this))
 {
@@ -1185,7 +1186,7 @@ void MainWindow::refreshServers(bool showErrorDialogs)
     while (base.endsWith(QLatin1Char('/'))) {
         base.chop(1);
     }
-    const QUrl url(base + QStringLiteral("/api/v2/open-vpn-servers/get-all-with-status"));
+    const QUrl url(base + QStringLiteral("/api/v3/open-vpn-servers/get-all-with-status"));
     QNetworkRequest req(url);
     req.setRawHeader("Accept", "application/json");
     req.setRawHeader("Authorization", (QStringLiteral("Bearer ") + tok).toUtf8());

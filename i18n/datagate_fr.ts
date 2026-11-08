@@ -1252,5 +1252,13 @@ getcap : %1
       <source>(empty)</source>
       <translation>(vide)</translation>
     </message>
+    <message>
+      <source>Update required</source>
+      <translation>Mise à jour requise</translation>
+    </message>
+    <message>
+      <source>This version of DataGate is no longer supported by the server. Please update the app.</source>
+      <translation>Cette version de DataGate n’est plus prise en charge par le serveur. Veuillez mettre à jour l’application.</translation>
+    </message>
   </context>
 </TS>
