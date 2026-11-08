@@ -46,9 +46,17 @@ bool runIpScript(const QString& scriptBody, QString* errOut = nullptr, QString* 
 {
     QProcess p;
     p.start(QStringLiteral("bash"), {QStringLiteral("-c"), scriptBody});
-    waitProcessKeepUiAlive(p, 15000);
+    waitProcessKeepUiAlive(p, 45000);
+    if (p.state() != QProcess::NotRunning) {
+        p.kill();
+        p.waitForFinished(2000);
+        if (errOut) {
+            *errOut = QStringLiteral("Route setup timed out.");
+        }
+        return false;
+    }
     QString out = QString::fromUtf8(p.readAllStandardOutput() + p.readAllStandardError()).trimmed();
-    if (p.exitCode() == 0) {
+    if (p.exitStatus() == QProcess::NormalExit && p.exitCode() == 0) {
         if (stdoutOut) {
             *stdoutOut = out;
         }
@@ -57,13 +65,13 @@ bool runIpScript(const QString& scriptBody, QString* errOut = nullptr, QString* 
     QProcess pk;
     pk.start(QStringLiteral("pkexec"), {QStringLiteral("bash"), QStringLiteral("-c"), scriptBody});
     // Cap wait — hanging polkit used to freeze Disconnect for minutes.
-    waitProcessKeepUiAlive(pk, 45000);
+    const bool finished = waitProcessKeepUiAlive(pk, 45000);
     out = QString::fromUtf8(pk.readAllStandardOutput() + pk.readAllStandardError()).trimmed();
     if (pk.state() != QProcess::NotRunning) {
         pk.kill();
         pk.waitForFinished(2000);
     }
-    if (pk.exitCode() == 0) {
+    if (finished && pk.exitStatus() == QProcess::NormalExit && pk.exitCode() == 0) {
         if (stdoutOut) {
             *stdoutOut = out;
         }
@@ -420,13 +428,30 @@ ApplyResult applyRoutes(const QString& uplinkHost, const QStringList& dnsServers
     // Single privilege prompt: routes + optional DNS + in-script DNS probe/revert.
     QString script = QStringLiteral(
         "set -e\n"
+        "added_low=0\n"
+        "added_high=0\n"
+        "rollback() {\n"
+        "  status=$?\n"
+        "  if [ \"$status\" != 0 ]; then\n"
+        "    [ \"$added_low\" != 1 ] || ip -4 route del 0.0.0.0/1 via 10.255.254.1 dev \"%1\" metric 0 || true\n"
+        "    [ \"$added_high\" != 1 ] || ip -4 route del 128.0.0.0/1 via 10.255.254.1 dev \"%1\" metric 0 || true\n"
+        "  fi\n"
+        "  exit \"$status\"\n"
+        "}\n"
+        "trap rollback EXIT\n"
         "ip link set \"%1\" up\n"
         "ip addr flush dev \"%1\" || true\n"
         "ip addr add 10.255.254.2/30 peer 10.255.254.1 dev \"%1\"\n"
         "ip route replace \"%2\"/32 via \"%3\" dev \"%4\"\n"
-        "ip route replace default via 10.255.254.1 dev \"%1\" metric 50\n")
+        // More-specific /1 routes take precedence even when the LAN default has metric 0.
+        // Use add: a conflicting VPN route must fail without overwriting another VPN's route.
+        "ip -4 route add 0.0.0.0/1 via 10.255.254.1 dev \"%1\" metric 0\n"
+        "added_low=1\n"
+        "ip -4 route add 128.0.0.0/1 via 10.255.254.1 dev \"%1\" metric 0\n"
+        "added_high=1\n")
                          .arg(iface, uplinkIp, def.gateway, def.device);
     script += dnsSetupSnippet(dnsServers, disableDnsOverTls);
+    script += QStringLiteral("trap - EXIT\n");
 
     QString err;
     QString out;
@@ -466,9 +491,8 @@ void tearDownRoutes(const QString& uplinkHost)
     QString script = QStringLiteral("set +e\n");
     script += dnsTeardownSnippet();
     script += QStringLiteral(
-        "ip route del 0.0.0.0/1 2>/dev/null || true\n"
-        "ip route del 128.0.0.0/1 2>/dev/null || true\n"
-        "ip route del default via 10.255.254.1 2>/dev/null || true\n"
+        "ip -4 route del 0.0.0.0/1 via 10.255.254.1 dev \"%1\" metric 0 2>/dev/null || true\n"
+        "ip -4 route del 128.0.0.0/1 via 10.255.254.1 dev \"%1\" metric 0 2>/dev/null || true\n"
         "ip route del default via 10.255.254.1 dev \"%1\" 2>/dev/null || true\n"
         "ip addr flush dev \"%1\" 2>/dev/null || true\n"
         "ip link set \"%1\" down 2>/dev/null || true\n")
@@ -480,7 +504,7 @@ void tearDownRoutes(const QString& uplinkHost)
     script += QStringLiteral(
         "ip -4 route show | grep -E 'via 10\\.255\\.254\\.1|[[:space:]]dev %1([[:space:]]|$)' "
         ">/dev/null && exit 2\n"
-        "ip link show dev %1 >/dev/null 2>&1 && exit 3\n")
+        "ip -o link show dev %1 2>/dev/null | grep -qE '<([^>]*,)?UP(,|>)' && exit 3\n")
                   .arg(iface);
     if (!uplinkIp.isEmpty()) {
         script += QStringLiteral(

@@ -376,7 +376,10 @@ else
   echo "SKIP  client_identity (moc not found)"
 fi
 
-# ----- 5) DataGateXray -test (optional) -----
+# ----- 5) Real IPv4 routing in a private network namespace -----
+assert_ok "xray_routes" bash "$ROOT/tools/test_xray_routes.sh"
+
+# ----- 6) DataGateXray -test (optional) -----
 XRAY="$ROOT/cmake-build-debug/DataGateXray"
 if [[ -x "$XRAY" ]]; then
   CFG="$WORKDIR/xray-test.json"

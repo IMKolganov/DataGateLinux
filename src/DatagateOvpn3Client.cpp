@@ -109,8 +109,6 @@ public:
         if (!m_remoteIp.empty() && !m_physGw.empty() && !m_physDev.empty()) {
             runIp({"route", "del", m_remoteIp + "/32", "via", m_physGw, "dev", m_physDev});
         }
-        runIp({"rule", "del", "not", "fwmark", "51820", "lookup", "51820"});
-        runIp({"route", "flush", "table", "51820"});
         if (m_hostRouteOn && onLog) {
             onLog("host-route: cleared");
         }

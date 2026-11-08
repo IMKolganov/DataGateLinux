@@ -248,6 +248,9 @@ void XraySession::startProcess(const QString& configPath)
             m_tunUplinkHost = uplink;
         } else {
             emit engineLog(QStringLiteral("TUN pre-route failed: %1").arg(bypass.message));
+            m_connecting = false;
+            emit errorMessage(bypass.message);
+            return;
         }
     }
 #endif
@@ -259,6 +262,8 @@ void XraySession::startProcess(const QString& configPath)
     m_proc->start();
     if (!m_proc->waitForStarted(8000)) {
         m_connecting = false;
+        clearTunRoutes();
+        m_tunUplinkHost.clear();
         emit errorMessage(Datagate::tr("Xray did not start within 8s (%1).").arg(m_proc->errorString()));
         return;
     }
@@ -271,10 +276,9 @@ void XraySession::startProcess(const QString& configPath)
                                    .arg(QString::fromUtf8(XrayTunLinux::kIfaceName))
                                    .arg(AppConfig::xraySocksPort()));
         } else {
-            emit statusMessage(Datagate::tr(
-                "Xray started (SOCKS :%1). TUN interface is up but system routes were not applied — "
-                "approve pkexec if prompted, or use SOCKS. Grant TUN capability if needed.")
-                                   .arg(AppConfig::xraySocksPort()));
+            disconnectInternal(false, "TUN route setup failed");
+            emit errorMessage(Datagate::tr("Could not apply Xray TUN routes. The tunnel was stopped."));
+            return;
         }
     } else {
         emit statusMessage(Datagate::tr("Xray started (local SOCKS :%1).").arg(AppConfig::xraySocksPort()));
@@ -284,7 +288,6 @@ void XraySession::startProcess(const QString& configPath)
 
 void XraySession::applyTunRoutesIfNeeded(const QString& configJson)
 {
-    clearTunRoutes();
     if (!AppConfig::xrayUseTun()) {
         return;
     }
