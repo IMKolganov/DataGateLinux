@@ -40,6 +40,8 @@ public:
     /// Last server/profile name after a successful connect start (for UI labels).
     QString activeServerName() const { return m_server.name; }
     QString activeLocalProfileId() const { return m_localProfileId; }
+    /// True while OpenVPN (system binary or embedded helper) process/thread is still running.
+    bool isRunning() const { return isOpenVpnEngineBusy(); }
     /// reason is logged (e.g. why OpenVPN received SIGTERM). Pass nullptr for default.
     void disconnectVpn(const char* reason = nullptr);
 
@@ -47,6 +49,8 @@ public:
 signals:
     void statusMessage(const QString& text);
     void errorMessage(const QString& text);
+    /// Live OpenVPN / helper stdout lines for the UI journal (not the short status label).
+    void engineLog(const QString& text);
     /// TUN/CAP_NET_ADMIN setup likely needed (empty OpenVPN log, failed start, or TUNSETIFF denied).
     void openVpnCapabilitySetupRecommended(const QString& detail);
     void vpnUp();
@@ -115,6 +119,8 @@ private:
 
     QPointer<QNetworkReply> m_activeReply;
 
-    /// Accumulated OpenVPN stdout/stderr (MergedChannels); also streamed live via qCDebug(lcVpn).
+    /// Accumulated OpenVPN stdout/stderr (MergedChannels); also streamed live to the UI journal.
     QByteArray m_ovpnLogBuffer;
+    /// Incomplete last line while streaming OpenVPN output into statusMessage.
+    QByteArray m_ovpnUiLineBuf;
 };

@@ -3,8 +3,10 @@
 #include "LinuxCapNetAdmin.h"
 
 #include <QCoreApplication>
+#include <QDir>
 #include <QFile>
 #include <QFileInfo>
+#include <QElapsedTimer>
 #include <QHash>
 #include <QIODevice>
 #include <QAbstractSocket>
@@ -29,9 +31,10 @@
 #include <QSettings>
 #include <QStandardPaths>
 #include <QTimeZone>
+#include <csignal>
+#include <unistd.h>
 #include <QUrlQuery>
 #include <QVector>
-#include <QDir>
 
 #include <climits>
 
@@ -171,6 +174,100 @@ void releaseStaleBridgePort(quint16 port)
 #endif
 }
 
+void releaseStaleDatagateVpnClients()
+{
+#if defined(__linux__)
+    // Orphans appear when the GUI is kill -9'd while openvpn/helper keep running under init.
+    // Multiple clients to the same server → Connection reset loops.
+    // Match by argv0 (real binary), never by shell command lines that merely mention these strings.
+    QDir proc(QStringLiteral("/proc"));
+    const QFileInfoList entries = proc.entryInfoList(QDir::Dirs | QDir::NoDotAndDotDot);
+    for (const QFileInfo& fi : entries) {
+        bool ok = false;
+        const qint64 pid = fi.fileName().toLongLong(&ok);
+        if (!ok || pid <= 1) {
+            continue;
+        }
+        QFile cmdline(fi.absoluteFilePath() + QStringLiteral("/cmdline"));
+        if (!cmdline.open(QIODevice::ReadOnly)) {
+            continue;
+        }
+        const QByteArray raw = cmdline.readAll();
+        if (raw.isEmpty()) {
+            continue;
+        }
+        const QList<QByteArray> args = raw.split('\0');
+        if (args.isEmpty() || args.first().isEmpty()) {
+            continue;
+        }
+        const QString exe = QString::fromUtf8(args.first());
+        QString joined;
+        for (const QByteArray& a : args) {
+            if (a.isEmpty()) {
+                continue;
+            }
+            if (!joined.isEmpty()) {
+                joined += QLatin1Char(' ');
+            }
+            joined += QString::fromUtf8(a);
+        }
+        const bool isOvpn = exe.endsWith(QLatin1String("/openvpn")) || exe == QLatin1String("openvpn");
+        const bool isHelper = exe.endsWith(QLatin1String("DataGateOvpn3Helper"));
+        const bool datagateCfg = joined.contains(QLatin1String("datagate-")) && joined.contains(QLatin1String(".ovpn"));
+        if ((isOvpn && datagateCfg) || (isHelper && joined.contains(QLatin1String("datagate-embed-")))) {
+            qCInfo(lcUtils) << "releaseStaleDatagateVpnClients: SIGKILL pid" << pid << exe;
+            kill(static_cast<pid_t>(pid), SIGKILL);
+        }
+    }
+#endif
+}
+
+void scrubStaleLinuxVpnRoutes()
+{
+#if defined(__linux__)
+    // Disconnect / profile switch: never block on pkexec (UI freeze). Best-effort + detached elevate.
+    const QString script = QStringLiteral(
+        "set +e\n"
+        "ip route del 0.0.0.0/1 2>/dev/null || true\n"
+        "ip route del 128.0.0.0/1 2>/dev/null || true\n"
+        "ip route del default via 10.255.254.1 2>/dev/null || true\n"
+        "ip route del default via 10.255.254.1 dev datagatex0 2>/dev/null || true\n"
+        "ip link set datagatex0 down 2>/dev/null || true\n"
+        "ip addr flush dev datagatex0 2>/dev/null || true\n"
+        "ip link del datagatex0 2>/dev/null || true\n"
+        "ip link del tun0 2>/dev/null || true\n"
+        "if command -v resolvectl >/dev/null 2>&1; then\n"
+        "  resolvectl revert datagatex0 2>/dev/null || true\n"
+        "  resolvectl flush-caches 2>/dev/null || true\n"
+        "  resolvectl reset-server-features 2>/dev/null || true\n"
+        "fi\n"
+        "if [ -f /etc/resolv.conf.datagate.bak ]; then\n"
+        "  cp -a /etc/resolv.conf.datagate.bak /etc/resolv.conf 2>/dev/null || true\n"
+        "  rm -f /etc/resolv.conf.datagate.bak\n"
+        "fi\n"
+        "ip -4 route show | grep -E '0\\.0\\.0\\.0/1|128\\.0\\.0\\.0/1|via 10\\.255\\.254\\.1' "
+        ">/dev/null && exit 2\n"
+        "ip link show datagatex0 >/dev/null 2>&1 && exit 3\n"
+        "ip link show tun0 >/dev/null 2>&1 && exit 4\n"
+        "exit 0\n");
+    QProcess p;
+    p.start(QStringLiteral("bash"), {QStringLiteral("-c"), script});
+    if (!p.waitForFinished(2500)) {
+        p.kill();
+        p.waitForFinished(500);
+    }
+    if (p.exitCode() == 0) {
+        qCInfo(lcUtils) << "scrubStaleLinuxVpnRoutes: cleaned (user caps)";
+        return;
+    }
+    qCInfo(lcUtils) << "scrubStaleLinuxVpnRoutes: leftovers remain — detached pkexec (non-blocking)";
+    QProcess::startDetached(QStringLiteral("pkexec"),
+        {QStringLiteral("bash"), QStringLiteral("-c"), script});
+#else
+    // no-op
+#endif
+}
+
 QString getOrCreateInstallationId()
 {
     QSettings s;
@@ -307,6 +404,18 @@ QString openVpnRouteBypassNetGatewayLines(const QStringList& hostnames)
         if (h.isEmpty()) {
             continue;
         }
+        // Literal IPv4: no DNS (direct .ovpn remotes are usually bare IPs).
+        {
+            const QHostAddress literal(h);
+            if (literal.protocol() == QAbstractSocket::IPv4Protocol) {
+                const QString ip = literal.toString();
+                if (!seenIps.contains(ip)) {
+                    seenIps.insert(ip);
+                    out += QStringLiteral("route %1 255.255.255.255 net_gateway\n").arg(ip);
+                }
+                continue;
+            }
+        }
         const QHostInfo hi = QHostInfo::fromName(h);
         if (hi.error() != QHostInfo::NoError) {
             qCWarning(lcUtils) << "openVpnRouteBypass: DNS failed for" << h << hi.errorString();
@@ -328,6 +437,35 @@ QString openVpnRouteBypassNetGatewayLines(const QStringList& hostnames)
         qCWarning(lcUtils) << "openVpnRouteBypass: no IPv4 routes generated for hosts" << hostnames;
     }
     return out;
+}
+
+QString ipv4SourceAddressForDestination(const QString& hostOrIp)
+{
+    const QString host = hostOrIp.trimmed();
+    if (host.isEmpty()) {
+        return {};
+    }
+#if defined(__linux__)
+    QProcess p;
+    p.start(QStringLiteral("ip"), QStringList{QStringLiteral("-4"), QStringLiteral("route"), QStringLiteral("get"), host});
+    if (!p.waitForFinished(3000) || p.exitCode() != 0) {
+        return {};
+    }
+    const QString line = QString::fromUtf8(p.readAllStandardOutput()).trimmed();
+    // e.g. "212.147.232.154 via 192.168.0.1 dev enp5s0 src 192.168.0.9 uid 1000"
+    const QRegularExpression re(QStringLiteral("\\bsrc\\s+([0-9.]+)\\b"));
+    const QRegularExpressionMatch m = re.match(line);
+    if (!m.hasMatch()) {
+        return {};
+    }
+    const QHostAddress addr(m.captured(1));
+    if (addr.protocol() != QAbstractSocket::IPv4Protocol) {
+        return {};
+    }
+    return addr.toString();
+#else
+    return {};
+#endif
 }
 
 QString patchOvpnRemoteToLocal(const QString& ovpnUtf8, const QString& localHost, quint16 localPort,
@@ -879,6 +1017,12 @@ QString linuxFileGetcapLine(const QString& canonicalExecutablePath)
         return Datagate::tr("(no file capabilities — run Grant or sudo setcap)");
     }
     return out.isEmpty() ? err : out;
+}
+
+bool linuxExecutableHasCapNetAdmin(const QString& canonicalExecutablePath)
+{
+    const QString line = linuxFileGetcapLine(canonicalExecutablePath);
+    return line.contains(QLatin1String("cap_net_admin"), Qt::CaseInsensitive);
 }
 
 int linuxProcSelfTracerPid()

@@ -24,6 +24,7 @@
 #include <QNetworkReply>
 #include <QNetworkRequest>
 #include <QProcess>
+#include <QRegularExpression>
 #include <QStringList>
 #include <QTemporaryFile>
 #include <QUrl>
@@ -78,7 +79,24 @@ VpnSession::VpnSession(QObject* parent)
             return;
         }
         m_ovpnLogBuffer.append(chunk);
-        qCDebug(lcVpn).nospace() << "openvpn: " << chunk;
+        // Stream complete lines into the UI journal (MergedChannels = stdout+stderr).
+        while (true) {
+            const int nl = m_ovpnLogBuffer.indexOf('\n');
+            if (nl < 0) {
+                break;
+            }
+            QByteArray raw = m_ovpnLogBuffer.left(nl);
+            m_ovpnLogBuffer.remove(0, nl + 1);
+            if (!raw.isEmpty() && raw.endsWith('\r')) {
+                raw.chop(1);
+            }
+            const QString line = QString::fromUtf8(raw).trimmed();
+            if (line.isEmpty()) {
+                continue;
+            }
+            qCDebug(lcVpn).nospace() << "openvpn: " << line;
+            emit engineLog(line);
+        }
     });
 
 #if defined(DATAGATE_EMBEDDED_OPENVPN3_USE_EXTERNAL_HELPER)
@@ -193,6 +211,8 @@ bool VpnSession::beginConnectAttempt(const QString& openVpnExecutable)
         emit errorMessage(Datagate::tr("Connection already in progress."));
         return false;
     }
+    // Drop orphans from previous GUI kill -9 / crashed sessions before starting a new client.
+    DatagateUtils::releaseStaleDatagateVpnClients();
     abortPendingReplies();
     m_connecting = true;
     m_userStopVpn = false;
@@ -514,13 +534,47 @@ void VpnSession::startOpenVpnEngine(const QString& configText, bool useWssBridge
             configText, QStringLiteral("127.0.0.1"), bridgePort, ignoreRg, routeBypass);
     } else {
         stopBridges();
-        if (ignoreRg
-            && !engineConfig.contains(QLatin1String("pull-filter ignore \"redirect-gateway\""),
-                Qt::CaseInsensitive)) {
-            engineConfig += QStringLiteral("\npull-filter ignore \"redirect-gateway\"\n");
+        // Direct TCP to the public OpenVPN port (unlike WSS→127.0.0.1). Keep full-tunnel push,
+        // but bind the transport to the LAN source IP and clamp MSS so redirect-gateway does not
+        // tear down the TCP session (WSS never hits this because remote is loopback).
+        if (!engineConfig.contains(QLatin1String("pull-filter ignore \"block-outside-dns\""), Qt::CaseInsensitive)) {
+            engineConfig += QStringLiteral("\npull-filter ignore \"block-outside-dns\"\n");
         }
-        qCInfo(lcVpn, "OpenVPN: direct connect (no WSS) remote=%s port=%u", qPrintable(pr.host),
-            static_cast<unsigned>(pr.port));
+        // OpenVPN itself adds remote/32 for redirect-gateway — only bypass dashboard/API here
+        // (avoids duplicate route EEXIST noise for the VPN endpoint).
+        QStringList bypassHosts;
+        const QUrl apiBase(AppConfig::apiBaseUrl().trimmed());
+        if (apiBase.isValid() && !apiBase.host().isEmpty() && apiBase.host() != pr.host) {
+            bypassHosts << apiBase.host();
+        }
+        const QString routeBypass = DatagateUtils::openVpnRouteBypassNetGatewayLines(bypassHosts);
+        if (!routeBypass.isEmpty()) {
+            engineConfig += QLatin1Char('\n');
+            engineConfig += routeBypass;
+            qCInfo(lcVpn, "OpenVPN: direct API bypass (net_gateway):\n%s", qPrintable(routeBypass.trimmed()));
+        }
+        if (!useUdp) {
+            // Profiles often ship `nobind`; that prevents `--local` and leaves the TCP socket
+            // unbound so redirect-gateway can blackhole it after CONNECTED.
+            engineConfig.replace(QRegularExpression(QStringLiteral("^\\s*nobind\\s*$\\n?"),
+                                       QRegularExpression::MultilineOption),
+                QString());
+            const QString lanSrc = DatagateUtils::ipv4SourceAddressForDestination(pr.host);
+            if (!lanSrc.isEmpty()
+                && !engineConfig.contains(QRegularExpression(QStringLiteral("^\\s*local\\s+"),
+                       QRegularExpression::MultilineOption))) {
+                // lport 0 = ephemeral local TCP port (default 1194 can clash / confuse after RST).
+                engineConfig += QStringLiteral("\nlocal %1\nlport 0\n").arg(lanSrc);
+                qCInfo(lcVpn, "OpenVPN: direct TCP bind local=%s lport=0 (LAN src toward %s; nobind cleared)",
+                    qPrintable(lanSrc), qPrintable(pr.host));
+            }
+            if (!engineConfig.contains(QRegularExpression(QStringLiteral("^\\s*mssfix\\s+"),
+                    QRegularExpression::MultilineOption))) {
+                engineConfig += QStringLiteral("\nmssfix 1300\n");
+            }
+        }
+        qCInfo(lcVpn, "OpenVPN: direct connect (no WSS) remote=%s port=%u (full-tunnel + local bind)",
+            qPrintable(pr.host), static_cast<unsigned>(pr.port));
     }
 
 #if defined(DATAGATE_EMBEDDED_OPENVPN3)
@@ -604,7 +658,8 @@ void VpnSession::startOpenVpnEngine(const QString& configText, bool useWssBridge
     m_connecting = false;
     qCInfo(lcVpn, "OpenVPN: process started, pid=%lld", static_cast<long long>(m_ovpn->processId()));
     emit statusMessage(Datagate::tr("OpenVPN started."));
-    if (ignoreRg) {
+    // Only when AppConfig explicitly opts into split-tunnel (must NOT fire for normal WSS full-tunnel).
+    if (ignoreRg && useWssBridge) {
         emit statusMessage(
             Datagate::tr("IgnoreRedirectGateway is on: the server default-route push is ignored, so your public IP "
                "usually stays the same and only VPN-specific routes use the tunnel. Set "
@@ -682,8 +737,9 @@ void VpnSession::disconnectVpnInternal(bool force, const char* reason)
         m_configFile = nullptr;
     }
 
-    m_disconnecting = false;
+    m_server = BestServer{};
     m_localProfileId.clear();
+    m_disconnecting = false;
     emit vpnDown();
 }
 
@@ -772,8 +828,11 @@ void VpnSession::ovpn3HelperFlushProtocolLines()
             }
             deliverOvpn3Event(decodeHex(rest.left(sp)), decodeHex(rest.mid(sp + 1)));
         } else if (line.startsWith("DG3L ")) {
-            const QString qline = decodeHex(line.mid(5));
-            qCInfo(lcVpn).nospace() << "ovpn3: " << qline;
+            const QString qline = decodeHex(line.mid(5)).trimmed();
+            if (!qline.isEmpty()) {
+                qCInfo(lcVpn).nospace() << "ovpn3: " << qline;
+                emit statusMessage(qline);
+            }
 #if defined(__linux__)
             if (qline.contains(QLatin1String("tun_ioctl"), Qt::CaseInsensitive)
                 || (qline.contains(QLatin1String("TUN Error"), Qt::CaseInsensitive)
@@ -812,6 +871,24 @@ void VpnSession::startEmbeddedOpenVpn3(const QString& patched, bool useUdp, quin
             "folder as DataGateLinux."));
         return;
     }
+
+#if defined(__linux__)
+    // Preflight: without CAP_NET_ADMIN, TUN + socket_protect fail and the session flaps.
+    // Offer Grant immediately instead of connecting into a NETWORK_EOF loop.
+    if (!DatagateUtils::linuxExecutableHasCapNetAdmin(helperExe)) {
+        stopBridges();
+        m_connecting = false;
+        emit openVpnCapabilitySetupRecommended(Datagate::tr(
+            "DataGateOvpn3Helper has no CAP_NET_ADMIN (common after rebuild/copy).\n\n"
+            "Linux needs this to create TUN and to keep the VPN TCP socket off the tunnel "
+            "(socket_protect / host-route).\n\n"
+            "Click «Grant TUN capability…», approve the one system prompt, then Connect again "
+            "(no full app restart needed for the helper).\n\n"
+            "getcap:\n%1")
+                                                   .arg(DatagateUtils::linuxFileGetcapLine(helperExe)));
+        return;
+    }
+#endif
 
     delete m_ovpn3HelperProfile;
     m_ovpn3HelperProfile = new QTemporaryFile(this);

@@ -790,6 +790,9 @@ void MainWindow::disconnectAllTunnels(const char* reason)
     if (m_xray) {
         m_xray->disconnectXray(reason);
     }
+    // OpenVPN→Xray switch leaves host/def1 routes if openvpn exited uncleanly; scrub so Xray
+    // does not inherit a blackhole and the UI does not look "dead" after Disconnect.
+    DatagateUtils::scrubStaleLinuxVpnRoutes();
 }
 
 void MainWindow::wireSessionSignals()
@@ -810,7 +813,9 @@ void MainWindow::wireSessionSignals()
             }
             return;
         }
-        if (m_vpn && !m_vpn->activeServerName().isEmpty()) {
+        // Do not use activeServerName(): it used to linger after disconnect and flip the button
+        // back to «Disconnect», which caused an «Отключение…» spam loop on every click.
+        if (m_vpn && m_vpn->isRunning()) {
             updateConnectButtonUi(true);
             if (m_connectedToLabel) {
                 m_connectedToLabel->setText(
@@ -828,6 +833,9 @@ void MainWindow::wireSessionSignals()
         m_status->setText(t);
         appendLog(t);
     });
+    connect(m_vpn, &VpnSession::engineLog, this, [this](const QString& t) {
+        appendLog(t);
+    });
     connect(m_vpn, &VpnSession::errorMessage, this, [this](const QString& t) {
         m_status->setText(t);
         appendLog(Datagate::tr("Error: ") + t);
@@ -841,6 +849,9 @@ void MainWindow::wireSessionSignals()
 
     connect(m_xray, &XraySession::statusMessage, this, [this](const QString& t) {
         m_status->setText(t);
+        appendLog(t);
+    });
+    connect(m_xray, &XraySession::engineLog, this, [this](const QString& t) {
         appendLog(t);
     });
     connect(m_xray, &XraySession::errorMessage, this, [this](const QString& t) {
@@ -1034,7 +1045,7 @@ void MainWindow::grantOpenVpnCapNetAdmin()
     const auto runSetcap = [this](const QString& path) -> QPair<int, QString> {
         QProcess p;
         p.start(QStringLiteral("pkexec"),
-            QStringList{QStringLiteral("setcap"), QStringLiteral("cap_net_admin+ep"), path});
+            QStringList{QStringLiteral("setcap"), QStringLiteral("cap_net_admin+eip"), path});
         p.waitForFinished(-1);
         const QString errOut = QString::fromUtf8(p.readAllStandardError()).trimmed();
         const QString stdOut = QString::fromUtf8(p.readAllStandardOutput()).trimmed();
@@ -1061,7 +1072,7 @@ void MainWindow::grantOpenVpnCapNetAdmin()
         const QString capVerify = DatagateUtils::linuxFileGetcapLine(target);
         report += Datagate::tr("\n— %1 —\n").arg(target);
         if (code == 0) {
-            appendLog(Datagate::tr("setcap cap_net_admin+ep on ") + target);
+            appendLog(Datagate::tr("setcap cap_net_admin+eip on ") + target);
             report += Datagate::tr("setcap OK.\ngetcap: %1\n")
                           .arg(capVerify.isEmpty() ? Datagate::tr("(empty)") : capVerify);
         } else {
@@ -1073,14 +1084,30 @@ void MainWindow::grantOpenVpnCapNetAdmin()
     }
 
     if (failCount == 0) {
-        QMessageBox::information(this, Datagate::tr("DataGate"),
-            Datagate::tr(
-                "setcap finished for OpenVPN/helper and DataGateXray (when present).%1\n\n"
-                "You must quit DataGate completely and start it again — only a new process picks up file "
-                "capabilities.\n\n"
-                "After each CMake rebuild, run Grant again.")
-                .arg(report));
-        appendLog(Datagate::tr("Restart DataGate (exit app, then launch again) for TUN to work."));
+#if defined(DATAGATE_EMBEDDED_OPENVPN3) && defined(DATAGATE_EMBEDDED_OPENVPN3_USE_EXTERNAL_HELPER)
+        const bool helperOnly = !AppConfig::openVpnUseSystemBinary();
+#else
+        const bool helperOnly = false;
+#endif
+        if (helperOnly) {
+            QMessageBox::information(this, Datagate::tr("DataGate"),
+                Datagate::tr(
+                    "TUN capability granted.%1\n\n"
+                    "Press Connect again — DataGateOvpn3Helper is a separate process and picks up "
+                    "capabilities on the next start (no need to quit the app).\n\n"
+                    "After each rebuild/copy of the helper, run Grant once more.")
+                    .arg(report));
+            appendLog(Datagate::tr("Grant TUN OK — connect again."));
+        } else {
+            QMessageBox::information(this, Datagate::tr("DataGate"),
+                Datagate::tr(
+                    "setcap finished for OpenVPN/helper and DataGateXray (when present).%1\n\n"
+                    "You must quit DataGate completely and start it again — only a new process picks up file "
+                    "capabilities.\n\n"
+                    "After each CMake rebuild, run Grant again.")
+                    .arg(report));
+            appendLog(Datagate::tr("Restart DataGate (exit app, then launch again) for TUN to work."));
+        }
     } else {
         QMessageBox::warning(this, Datagate::tr("DataGate"),
             Datagate::tr("Some setcap calls failed.%1\n\nManual example:\nsudo setcap cap_net_admin+ep %2")
@@ -1115,7 +1142,8 @@ void MainWindow::onOpenVpnCapabilityRecommended(const QString& detail)
     box.setInformativeText(detail);
     auto* grantBtn = box.addButton(Datagate::tr("Grant TUN capability…"), QMessageBox::AcceptRole);
     auto* settingsBtn = box.addButton(Datagate::tr("Open Settings"), QMessageBox::ActionRole);
-    box.addButton(QMessageBox::Close);
+    box.addButton(QMessageBox::Cancel);
+    box.setDefaultButton(grantBtn);
     box.exec();
     if (box.clickedButton() == grantBtn) {
         grantOpenVpnCapNetAdmin();

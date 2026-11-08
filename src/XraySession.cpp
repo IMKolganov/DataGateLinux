@@ -2,6 +2,8 @@
 #include "AppConfig.h"
 #include "AppLogging.h"
 #include "DatagateTr.h"
+#include "DatagateUtils.h"
+#include "XrayConfigBuilder.h"
 #include "XrayTunLinux.h"
 
 #include <QCoreApplication>
@@ -28,6 +30,24 @@ bool logLooksLikeTunDenied(const QString& log)
             && log.contains(QLatin1String("failed"), Qt::CaseInsensitive));
 }
 
+/// Keep the in-app journal readable: lifecycle / errors only (full stream stays in /tmp log).
+bool xrayLineWorthShowingInUi(const QString& line)
+{
+    const QString t = line.trimmed();
+    if (t.isEmpty()) {
+        return false;
+    }
+    if (t.contains(QLatin1String(" accepted "), Qt::CaseInsensitive)
+        || t.contains(QLatin1String("processing from"), Qt::CaseInsensitive)
+        || t.contains(QLatin1String("taking detour"), Qt::CaseInsensitive)
+        || t.contains(QLatin1String("dialing TCP"), Qt::CaseInsensitive)
+        || t.contains(QLatin1String("sniffed domain"), Qt::CaseInsensitive)
+        || t.contains(QLatin1String("tunneling request"), Qt::CaseInsensitive)) {
+        return false;
+    }
+    return true;
+}
+
 } // namespace
 
 XraySession::XraySession(QObject* parent)
@@ -44,14 +64,25 @@ XraySession::XraySession(QObject* parent)
 #endif
     connect(m_proc, &QProcess::readyReadStandardOutput, this, [this]() {
         const QByteArray chunk = m_proc->readAllStandardOutput();
-        if (!chunk.isEmpty()) {
-            const QString line = QString::fromUtf8(chunk);
-            qCInfo(lcXray).nospace() << "xray: " << line.trimmed();
+        if (chunk.isEmpty()) {
+            return;
+        }
+        const QString text = QString::fromUtf8(chunk);
+        qCInfo(lcXray).nospace() << "xray: " << text.trimmed();
+        for (const QString& rawLine : text.split(QLatin1Char('\n'), Qt::SkipEmptyParts)) {
+            const QString line = rawLine.trimmed();
+            if (xrayLineWorthShowingInUi(line)) {
+                emit engineLog(line);
+            }
             if (!m_tunCapHintEmitted && AppConfig::xrayUseTun() && logLooksLikeTunDenied(line)) {
                 m_tunCapHintEmitted = true;
                 emit openVpnCapabilitySetupRecommended(Datagate::tr(
                     "Xray TUN requires CAP_NET_ADMIN on DataGateXray. Use Settings → Grant TUN capability "
                     "(also applies to DataGateXray), then fully restart DataGate."));
+            }
+            if (line.contains(QLatin1String("Failed to start"), Qt::CaseInsensitive)
+                || line.contains(QLatin1String("device or resource busy"), Qt::CaseInsensitive)) {
+                emit errorMessage(line);
             }
         }
     });
@@ -115,12 +146,22 @@ void XraySession::connectFromConfigText(const QString& configJson, const QString
         emit errorMessage(Datagate::tr("Could not create temporary Xray config file."));
         return;
     }
-    m_configFile->write(configJson.toUtf8());
+    QString runtimeJson = configJson;
+    QString pinnedIp;
+#if defined(__linux__)
+    if (AppConfig::xrayUseTun()) {
+        runtimeJson = XrayTunLinux::pinProxyOutboundToIpv4(configJson, &pinnedIp);
+        if (!pinnedIp.isEmpty()) {
+            emit engineLog(Datagate::tr("Xray: pin uplink outbound to %1 (SNI kept)").arg(pinnedIp));
+        }
+    }
+#endif
+    m_configFile->write(runtimeJson.toUtf8());
     m_configFile->flush();
 
     m_displayName = displayName.trimmed().isEmpty() ? Datagate::tr("Xray profile") : displayName.trimmed();
     m_localProfileId = localProfileId.trimmed();
-    m_lastConfigJson = configJson;
+    m_lastConfigJson = runtimeJson;
     startProcess(m_configFile->fileName());
 }
 
@@ -146,6 +187,28 @@ void XraySession::connectFromConfigFile(const QString& configPath, const QString
     if (f.open(QIODevice::ReadOnly)) {
         m_lastConfigJson = QString::fromUtf8(f.readAll());
     }
+#if defined(__linux__)
+    if (AppConfig::xrayUseTun() && !m_lastConfigJson.isEmpty()) {
+        QString pinnedIp;
+        const QString pinned = XrayTunLinux::pinProxyOutboundToIpv4(m_lastConfigJson, &pinnedIp);
+        if (pinned != m_lastConfigJson) {
+            delete m_configFile;
+            m_configFile = new QTemporaryFile(this);
+            const QString tmpDir = QStandardPaths::writableLocation(QStandardPaths::TempLocation);
+            m_configFile->setFileTemplate(tmpDir + QStringLiteral("/datagate-xray-XXXXXX.json"));
+            if (m_configFile->open()) {
+                m_configFile->write(pinned.toUtf8());
+                m_configFile->flush();
+                m_lastConfigJson = pinned;
+                if (!pinnedIp.isEmpty()) {
+                    emit engineLog(Datagate::tr("Xray: pin uplink outbound to %1 (SNI kept)").arg(pinnedIp));
+                }
+                startProcess(m_configFile->fileName());
+                return;
+            }
+        }
+    }
+#endif
     startProcess(configPath);
 }
 
@@ -159,14 +222,40 @@ void XraySession::startProcess(const QString& configPath)
         return;
     }
 
+#if defined(__linux__)
+    if (AppConfig::xrayUseTun() && !DatagateUtils::linuxExecutableHasCapNetAdmin(exe)) {
+        emit openVpnCapabilitySetupRecommended(Datagate::tr(
+            "DataGateXray has no CAP_NET_ADMIN — TUN cannot be created.\n\n"
+            "Click «Grant TUN capability…», approve the prompt, then Connect again.\n\n"
+            "getcap:\n%1")
+                                                   .arg(DatagateUtils::linuxFileGetcapLine(exe)));
+        return;
+    }
+#endif
+
     m_connecting = true;
     m_userStop = false;
     m_tunCapHintEmitted = false;
     emit statusMessage(Datagate::tr("Starting Xray: %1").arg(m_displayName));
 
+#if defined(__linux__)
+    if (AppConfig::xrayUseTun()) {
+        // Host-route BEFORE Xray creates TUN / before default flips — same role as Android protect().
+        const QString uplink = XrayTunLinux::uplinkHostFromClientJson(m_lastConfigJson);
+        const XrayTunLinux::ApplyResult bypass = XrayTunLinux::installUplinkHostRoute(uplink);
+        if (bypass.ok) {
+            emit engineLog(QStringLiteral("TUN pre-route: %1").arg(bypass.message));
+            m_tunUplinkHost = uplink;
+        } else {
+            emit engineLog(QStringLiteral("TUN pre-route failed: %1").arg(bypass.message));
+        }
+    }
+#endif
+
     m_proc->setProgram(exe);
     m_proc->setArguments({QStringLiteral("run"), QStringLiteral("-c"), configPath});
     qCInfo(lcXray, "launching %s run -c %s", qPrintable(exe), qPrintable(configPath));
+    emit engineLog(Datagate::tr("Xray: %1 run -c %2").arg(exe, configPath));
     m_proc->start();
     if (!m_proc->waitForStarted(8000)) {
         m_connecting = false;
@@ -200,15 +289,29 @@ void XraySession::applyTunRoutesIfNeeded(const QString& configJson)
         return;
     }
     m_tunUplinkHost = XrayTunLinux::uplinkHostFromClientJson(configJson);
-    const XrayTunLinux::ApplyResult ar = XrayTunLinux::applyRoutes(m_tunUplinkHost);
+    const QStringList dnsServers = XrayConfigBuilder::dnsServersFromClientJson(configJson);
+    const bool dnsIdentity = XrayConfigBuilder::dnsIdentityEnabledFromClientJson(configJson);
+    const XrayTunLinux::ApplyResult ar
+        = XrayTunLinux::applyRoutes(m_tunUplinkHost, dnsServers, dnsIdentity);
     if (!ar.ok) {
         qCWarning(lcXray, "TUN routes: %s", qPrintable(ar.message));
         emit statusMessage(Datagate::tr("TUN routing: %1").arg(ar.message));
+        emit engineLog(QStringLiteral("TUN: %1").arg(ar.message));
         m_tunRoutesApplied = false;
         return;
     }
     qCInfo(lcXray, "TUN routes: %s", qPrintable(ar.message));
+    emit engineLog(QStringLiteral("TUN: %1").arg(ar.message));
     m_tunRoutesApplied = true;
+    if (!dnsServers.isEmpty()) {
+        emit statusMessage(Datagate::tr("VPN DNS: %1 (classic :53 via tunnel)")
+                               .arg(dnsServers.join(QStringLiteral(", "))));
+    }
+    if (dnsIdentity) {
+        emit statusMessage(Datagate::tr(
+            "DNS identity: disable Private DNS / DoH in the OS and browsers "
+            "(systemd-resolved: DNSOverTLS=no on this connection)."));
+    }
 }
 
 void XraySession::clearTunRoutes()
@@ -244,17 +347,18 @@ void XraySession::disconnectInternal(bool force, const char* reason)
     m_userStop = true;
     qCInfo(lcXray, "disconnectXray: %s", reason ? reason : "unspecified");
 
+    // Stop Xray before route teardown so datagatex0 can be released; teardown never waits on pkexec.
+    if (m_proc && m_proc->state() != QProcess::NotRunning) {
+        m_proc->terminate();
+        if (!m_proc->waitForFinished(3000)) {
+            m_proc->kill();
+            m_proc->waitForFinished(1500);
+        }
+    }
+
     clearTunRoutes();
     m_tunUplinkHost.clear();
     m_lastConfigJson.clear();
-
-    if (m_proc && m_proc->state() != QProcess::NotRunning) {
-        m_proc->terminate();
-        if (!m_proc->waitForFinished(4000)) {
-            m_proc->kill();
-            m_proc->waitForFinished(2000);
-        }
-    }
 
     if (m_configFile) {
         m_configFile->close();

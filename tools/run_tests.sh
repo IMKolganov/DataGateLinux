@@ -96,6 +96,44 @@ int main(int argc,char**argv){
   CHECK(uri.startsWith("vless://"));
   auto empty=XrayConfigBuilder::clientConfigFromOpaqueText("not a config", 1, false, &err);
   CHECK(empty.isEmpty() && !err.isEmpty());
+
+  // Dashboard profile JSON: vless + dnsServers must survive; DNS /32 before private→direct.
+  const QString profile = QStringLiteral(
+    R"({"vless":"vless://11111111-1111-1111-1111-111111111111@h.example:443?encryption=none",)"
+    R"("dnsServers":["172.20.0.1"],"dnsIdentityEnabled":true,"friendlyName":"n"})");
+  CHECK(XrayConfigBuilder::extractDnsServersFromProfileText(profile) == QStringList{QStringLiteral("172.20.0.1")});
+  CHECK(XrayConfigBuilder::extractDnsIdentityEnabled(profile));
+  auto built = XrayConfigBuilder::buildClientConfigFromOpaqueText(profile, 10808, true, &err);
+  CHECK(!built.json.isEmpty());
+  CHECK(built.dnsServers == QStringList{QStringLiteral("172.20.0.1")});
+  CHECK(built.dnsIdentityEnabled);
+  CHECK(XrayConfigBuilder::dnsServersFromClientJson(built.json) == QStringList{QStringLiteral("172.20.0.1")});
+  {
+    const auto root = QJsonDocument::fromJson(built.json.toUtf8()).object();
+    CHECK(!root.contains(QStringLiteral("dns"))); // no DoH/FakeDNS block
+    CHECK(!root.contains(QStringLiteral("fakeDns")));
+    bool sawDirect=false;
+    for (const auto& v : root.value(QStringLiteral("outbounds")).toArray()) {
+      if (v.toObject().value(QStringLiteral("tag")).toString() == QLatin1String("direct")) sawDirect=true;
+    }
+    CHECK(sawDirect);
+    const auto rules = root.value(QStringLiteral("routing")).toObject().value(QStringLiteral("rules")).toArray();
+    CHECK(rules.size() >= 3);
+    const auto r0 = rules.at(0).toObject();
+    CHECK(r0.value(QStringLiteral("outboundTag")).toString() == QLatin1String("proxy"));
+    const auto ips0 = r0.value(QStringLiteral("ip")).toArray();
+    CHECK(ips0.size()==1 && ips0.at(0).toString().startsWith(QStringLiteral("172.20.0.1")));
+    const auto r1 = rules.at(1).toObject();
+    CHECK(r1.value(QStringLiteral("outboundTag")).toString() == QLatin1String("direct"));
+    CHECK(r1.value(QStringLiteral("ip")).toArray().contains(QStringLiteral("172.16.0.0/12")));
+    const auto rLast = rules.at(rules.size()-1).toObject();
+    CHECK(rLast.value(QStringLiteral("outboundTag")).toString() == QLatin1String("proxy"));
+    CHECK(rLast.value(QStringLiteral("network")).toString().contains(QStringLiteral("udp")));
+  }
+  // Plain vless:// without dnsServers — still parses; no Pi-hole guess.
+  auto plain = XrayConfigBuilder::buildClientConfigFromOpaqueText(
+    "vless://11111111-1111-1111-1111-111111111111@h.example:443?encryption=none", 10808, false, &err);
+  CHECK(!plain.json.isEmpty() && plain.dnsServers.isEmpty() && !plain.dnsIdentityEnabled);
   return 0;
 }
 EOF

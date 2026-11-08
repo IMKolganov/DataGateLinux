@@ -39,6 +39,12 @@ constexpr quint16 kDefaultBridgePort = 18080;
 /// Linux: best-effort kill processes still bound to the local bridge port (orphan openvpn after crash/kill -9).
 void releaseStaleBridgePort(quint16 port);
 
+/// Linux: kill orphan OpenVPN/helper processes left after GUI kill -9 (datagate-*.ovpn / DataGateOvpn3Helper).
+void releaseStaleDatagateVpnClients();
+
+/// Linux: remove leftover OpenVPN def1 / Xray TUN routes after abrupt stop (keeps LAN default intact).
+void scrubStaleLinuxVpnRoutes();
+
 /// 22-char URL-safe token (DataGateWin InstallationIdService).
 QString getOrCreateInstallationId();
 
@@ -62,8 +68,12 @@ ParsedRemote parseFirstRemoteFromOvpn(const QString& ovpnUtf8);
 QString patchOvpnRemoteToLocal(const QString& ovpnUtf8, const QString& localHost, quint16 localPort,
     bool ignoreRedirectGateway = false, const QString& routeBypassLines = QString());
 
-/// Resolve hostnames to IPv4 and build OpenVPN `route … net_gateway` lines (bypass full tunnel for WSS/API peers).
+/// Resolve hostnames to IPv4 and build OpenVPN `route … net_gateway` lines
+/// (WSS/API peers and direct `remote` endpoint — must stay off the tunnel).
 QString openVpnRouteBypassNetGatewayLines(const QStringList& hostnames);
+
+/// Linux: `ip -4 route get <host>` → `src` address used for that destination (for OpenVPN `--local`).
+QString ipv4SourceAddressForDestination(const QString& hostOrIp);
 
 QString httpsToWssProxyBase(const QString& baseApiUrl);
 
@@ -127,6 +137,9 @@ bool fetchUserVpnAccessInfoSync(QNetworkAccessManager* nam, const QString& apiBa
 #if defined(__linux__)
 /// Linux: `getcap` output for this path (best-effort).
 QString linuxFileGetcapLine(const QString& canonicalExecutablePath);
+
+/// True if `getcap` reports cap_net_admin on the file (needed before TUN / socket_protect).
+bool linuxExecutableHasCapNetAdmin(const QString& canonicalExecutablePath);
 
 /// `/proc/self/status` TracerPid, or -1 if unreadable. Non-zero ⇒ ptrace (debugger attached).
 int linuxProcSelfTracerPid();

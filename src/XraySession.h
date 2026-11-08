@@ -31,6 +31,8 @@ public:
 signals:
     void statusMessage(const QString& text);
     void errorMessage(const QString& text);
+    /// Xray process stdout/stderr lines for the in-app journal (filtered).
+    void engineLog(const QString& text);
     void openVpnCapabilitySetupRecommended(const QString& detail);
     void vpnUp();
     void vpnDown();
