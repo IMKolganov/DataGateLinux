@@ -380,7 +380,7 @@ fi
 assert_ok "xray_routes" bash "$ROOT/tools/test_xray_routes.sh"
 
 # ----- 6) DataGateXray -test (optional) -----
-XRAY="$ROOT/cmake-build-debug/DataGateXray"
+XRAY="${DATAGATE_XRAY_BIN:-$ROOT/cmake-build-debug/DataGateXray}"
 if [[ -x "$XRAY" ]]; then
   CFG="$WORKDIR/xray-test.json"
   python3 - <<PY

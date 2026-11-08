@@ -20,6 +20,7 @@ endif()
 
 set(DATAGATE_XRAY_OUT "${CMAKE_BINARY_DIR}/DataGateXray")
 set(DATAGATE_XRAY_STAMP "${CMAKE_BINARY_DIR}/DataGateXray.stamp")
+file(GLOB_RECURSE DATAGATE_XRAY_SOURCES CONFIGURE_DEPENDS "${DATAGATE_XRAY_ROOT}/*.go")
 
 # Build from module root (main package lives under ./main in current Xray-core layout).
 add_custom_command(
@@ -29,6 +30,8 @@ add_custom_command(
         ${DATAGATE_GO_EXECUTABLE} build -trimpath -ldflags=-s -o "${DATAGATE_XRAY_OUT}" ./main
     COMMAND ${CMAKE_COMMAND} -E touch "${DATAGATE_XRAY_STAMP}"
     WORKING_DIRECTORY "${DATAGATE_XRAY_ROOT}"
+    DEPENDS ${DATAGATE_XRAY_SOURCES}
+        "${DATAGATE_XRAY_ROOT}/go.mod" "${DATAGATE_XRAY_ROOT}/go.sum"
     COMMENT "Building DataGateXray from third_party/xray-core"
     VERBATIM
 )
